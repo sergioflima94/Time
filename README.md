@@ -174,3 +174,26 @@ hoje, como tudo é local/mock, isso ainda não existe.
   sorteio.
 - Deep link real pro convite (ex.: `pelada://entrar/CODIGO`) abrir `/entrar-pelada`
   com o código já preenchido, além do fluxo manual atual.
+- MVP da partida (votação pós-jogo), histórico/evolução de nota por jogador, ranking
+  da pelada (artilheiro, mais assíduo), fila de espera com notificação automática de
+  vaga, Pix real com QR Code no rateio, aviso de previsão do tempo, modo temporada.
+
+## Redesign em andamento (Figma) — decisões já tomadas
+
+Retomando em https://www.figma.com/design/gSP52KL2snZVqMqchrKHwF (telas prontas até
+agora: Login, Cadastro, Agenda + componentes base). Direção combinada com o dono do
+produto, a portar para o código assim que o Figma estiver completo:
+
+- **Paleta menos monocromática em verde** — manter a identidade, mas trazer mais
+  variação de cor pelo app (sem exagerar).
+- **Carta do jogador estilo "abertura de pacote" do FIFA** — mostrar atributos
+  (Ataque, Defesa, Velocidade, e possivelmente Físico/Passe) no card, não só a nota
+  geral. Hoje o card só mostra nota + saldo de gols (`src/components/PlayerCard.tsx`).
+- **Cor/moldura da carta pela nota geral** — a faixa bronze/prata/ouro/especial já
+  existe (`src/constants/cardStyles.ts`), mas precisa ficar clara/automática de
+  acordo com a nota real do jogador, não só escolha manual de estilo.
+- **Customização extra de carta no plano Premium** — detalhes a definir depois pelo
+  dono do produto; por ora é só uma pendência marcada, sem escopo fechado.
+- **Rateio da quadra**: confirmado que o comportamento atual (recalcula o valor por
+  pessoa ao vivo conforme gente confirma/desiste, em vez de travar um valor fixo) é
+  o desejado — nenhuma mudança necessária em `PaymentSplitSection`/`getSplitAmount`.
