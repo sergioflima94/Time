@@ -22,6 +22,7 @@ export default function RootLayout() {
           <Stack.Screen name="jogo/[id]" />
           <Stack.Screen name="entrar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="estabelecimento" />
+          <Stack.Screen name="campeonato" />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

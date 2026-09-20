@@ -1,5 +1,10 @@
 import type {
   Attendance,
+  Championship,
+  ChampionshipGoal,
+  ChampionshipMatch,
+  ChampionshipTeam,
+  ChampionshipTeamPlayer,
   Establishment,
   Field,
   Game,
@@ -192,6 +197,63 @@ export const MOCK_TEAMS: Team[] = [];
 export const MOCK_TEAM_PLAYERS: TeamPlayer[] = [];
 export const MOCK_MATCH_TURNS: MatchTurn[] = [];
 export const MOCK_GOALS: Goal[] = [];
+
+// ---------------------------------------------------------------------
+// Campeonato de exemplo, organizado pelo dono do estabelecimento (est1):
+// 4 times (1 vindo da pelada pel1, 3 avulsos), pontos corridos, 1ª rodada
+// já jogada pra mostrar a classificação funcionando.
+// ---------------------------------------------------------------------
+export const MOCK_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 'champ1',
+    establishmentId: 'est1',
+    name: 'Copa Arena Society Central',
+    format: 'round_robin',
+    fieldId: 'f1',
+    maxTeams: 4,
+    entryFee: 50,
+    registrationCode: 'COPA-ARENA',
+    registrationDeadline: null,
+    matchMinutes: 10,
+    status: 'in_progress',
+    createdBy: 'p2',
+    createdAt: iso(now),
+  },
+];
+
+export const MOCK_CHAMPIONSHIP_TEAMS: ChampionshipTeam[] = [
+  { id: 'ct1', championshipId: 'champ1', name: 'Time do João', color: '#22C55E', peladaId: 'pel1', registeredByPlayerId: 'p1', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct2', championshipId: 'champ1', name: 'Galera do Bairro', color: '#3B82F6', peladaId: null, registeredByPlayerId: 'p7', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct3', championshipId: 'champ1', name: 'Amigos da Vila', color: '#D4AF37', peladaId: null, registeredByPlayerId: 'p13', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct4', championshipId: 'champ1', name: 'FC Independente', color: '#7C3AED', peladaId: null, registeredByPlayerId: 'p19', status: 'confirmed', createdAt: iso(now) },
+];
+
+export const MOCK_CHAMPIONSHIP_TEAM_PLAYERS: ChampionshipTeamPlayer[] = [
+  ...['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((playerId) => ({ championshipTeamId: 'ct1', playerId, isGoalkeeper: playerId === 'p3' })),
+  ...['p7', 'p8', 'p9', 'p10', 'p11', 'p12'].map((playerId) => ({ championshipTeamId: 'ct2', playerId, isGoalkeeper: playerId === 'p8' })),
+  ...['p13', 'p14', 'p15', 'p16', 'p17', 'p18'].map((playerId) => ({ championshipTeamId: 'ct3', playerId, isGoalkeeper: playerId === 'p17' })),
+  ...['p19', 'p2', 'p5', 'p9', 'p13'].map((playerId) => ({ championshipTeamId: 'ct4', playerId, isGoalkeeper: false })),
+];
+
+export const MOCK_CHAMPIONSHIP_MATCHES: ChampionshipMatch[] = [
+  { id: 'cm1', championshipId: 'champ1', round: 1, roundLabel: 'Rodada 1', teamAId: 'ct1', teamBId: 'ct2', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: iso(now), startedAt: iso(now), endedAt: iso(now), status: 'finished', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: 'ct1' },
+  { id: 'cm2', championshipId: 'champ1', round: 1, roundLabel: 'Rodada 1', teamAId: 'ct3', teamBId: 'ct4', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: iso(now), startedAt: iso(now), endedAt: iso(now), status: 'finished', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: null },
+  { id: 'cm3', championshipId: 'champ1', round: 2, roundLabel: 'Rodada 2', teamAId: 'ct1', teamBId: 'ct3', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: nextWeekday(4, 20, 0).toISOString(), startedAt: null, endedAt: null, status: 'scheduled', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: null },
+  { id: 'cm4', championshipId: 'champ1', round: 2, roundLabel: 'Rodada 2', teamAId: 'ct2', teamBId: 'ct4', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: nextWeekday(4, 20, 0).toISOString(), startedAt: null, endedAt: null, status: 'scheduled', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: null },
+  { id: 'cm5', championshipId: 'champ1', round: 3, roundLabel: 'Rodada 3', teamAId: 'ct1', teamBId: 'ct4', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: nextWeekday(4, 20, 0).toISOString(), startedAt: null, endedAt: null, status: 'scheduled', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: null },
+  { id: 'cm6', championshipId: 'champ1', round: 3, roundLabel: 'Rodada 3', teamAId: 'ct2', teamBId: 'ct3', feedsFromMatchAId: null, feedsFromMatchBId: null, fieldId: 'f1', scheduledAt: nextWeekday(4, 20, 0).toISOString(), startedAt: null, endedAt: null, status: 'scheduled', penaltyScoreA: null, penaltyScoreB: null, winnerTeamId: null },
+];
+
+export const MOCK_CHAMPIONSHIP_GOALS: ChampionshipGoal[] = [
+  { id: 'cg1', matchId: 'cm1', teamId: 'ct1', scorerPlayerId: 'p1', scoredAt: iso(now) },
+  { id: 'cg2', matchId: 'cm1', teamId: 'ct1', scorerPlayerId: 'p1', scoredAt: iso(now) },
+  { id: 'cg3', matchId: 'cm1', teamId: 'ct1', scorerPlayerId: 'p2', scoredAt: iso(now) },
+  { id: 'cg4', matchId: 'cm1', teamId: 'ct2', scorerPlayerId: 'p7', scoredAt: iso(now) },
+  { id: 'cg5', matchId: 'cm2', teamId: 'ct3', scorerPlayerId: 'p13', scoredAt: iso(now) },
+  { id: 'cg6', matchId: 'cm2', teamId: 'ct3', scorerPlayerId: 'p14', scoredAt: iso(now) },
+  { id: 'cg7', matchId: 'cm2', teamId: 'ct4', scorerPlayerId: 'p19', scoredAt: iso(now) },
+  { id: 'cg8', matchId: 'cm2', teamId: 'ct4', scorerPlayerId: 'p19', scoredAt: iso(now) },
+];
 
 export const MOCK_RATINGS: Rating[] = [
   { id: 'r1', gameId: 'g0', raterPlayerId: 'p2', ratedPlayerId: 'p1', attack: 4, defense: 3, pace: 5, overall: 4, createdAt: iso(now) },

@@ -5,6 +5,11 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   CURRENT_PLAYER_ID,
   MOCK_ATTENDANCES,
+  MOCK_CHAMPIONSHIP_GOALS,
+  MOCK_CHAMPIONSHIP_MATCHES,
+  MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
+  MOCK_CHAMPIONSHIP_TEAMS,
+  MOCK_CHAMPIONSHIPS,
   MOCK_ESTABLISHMENTS,
   MOCK_FIELDS,
   MOCK_GAMES,
@@ -21,12 +26,19 @@ import {
   MOCK_TEAMS,
   MOCK_TEAM_PLAYERS,
 } from '@/lib/mockData';
+import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures } from '@/lib/championship';
 import { addPremiumPeriod } from '@/lib/premium';
 import { buildPunishment } from '@/lib/punishment';
 import type {
   Attendance,
   AttendanceStatus,
   AvailabilitySlot,
+  Championship,
+  ChampionshipFormat,
+  ChampionshipGoal,
+  ChampionshipMatch,
+  ChampionshipTeam,
+  ChampionshipTeamPlayer,
   DrawMethod,
   Establishment,
   EstablishmentPayoutMethod,
@@ -53,6 +65,29 @@ import type {
 } from '@/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+function makeGuestPlayer(name: string): Player {
+  return {
+    id: uid(),
+    authUserId: null,
+    name: name.trim() || 'Convidado',
+    nickname: null,
+    avatarUrl: null,
+    phone: null,
+    preferredPosition: 'line',
+    cardBackgroundUrl: null,
+    premiumSince: null,
+    premiumUntil: null,
+    premiumAutoRenew: false,
+    isGuest: true,
+    freeAgentOptIn: false,
+    freeAgentRadiusKm: null,
+    freeAgentAvailability: [],
+    location: null,
+    locationUpdatedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+}
 const nowIso = () => new Date().toISOString();
 
 interface AppState {
@@ -76,6 +111,11 @@ interface AppState {
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
+  championships: Championship[];
+  championshipTeams: ChampionshipTeam[];
+  championshipTeamPlayers: ChampionshipTeamPlayer[];
+  championshipMatches: ChampionshipMatch[];
+  championshipGoals: ChampionshipGoal[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
@@ -160,6 +200,25 @@ interface AppState {
   // dono de campo/quadra — estabelecimento e conta pra receber o rateio
   createEstablishment: (ownerPlayerId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => Establishment;
   updateEstablishment: (establishmentId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => void;
+
+  // campeonatos — organizados pelo dono do estabelecimento
+  createChampionship: (
+    establishmentId: string,
+    createdBy: string,
+    input: { name: string; format: ChampionshipFormat; fieldId: string | null; maxTeams: number | null; entryFee: number | null; matchMinutes: number },
+  ) => Championship;
+  /** Inscreve um time (de uma pelada existente, ou avulso) via código do campeonato. playerNames = jogadores sem conta (viram convidados). */
+  registerChampionshipTeam: (
+    code: string,
+    input: { name: string; color: string; peladaId: string | null; registeredByPlayerId: string; playerIds: string[]; guestNames: string[] },
+  ) => ChampionshipTeam | null;
+  removeChampionshipTeam: (teamId: string) => void;
+  generateChampionshipFixtures: (championshipId: string) => void;
+  startChampionshipMatch: (matchId: string) => void;
+  registerChampionshipGoal: (matchId: string, teamId: string, scorerPlayerId: string | null) => void;
+  undoLastChampionshipGoal: (matchId: string) => void;
+  /** Encerra a partida. Em mata-mata empatado, penaltyScoreA/B definem o vencedor. */
+  endChampionshipMatch: (matchId: string, penaltyScoreA?: number, penaltyScoreB?: number) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -184,6 +243,11 @@ export const useAppStore = create<AppState>()(
       matchQueue: {},
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
+      championships: MOCK_CHAMPIONSHIPS,
+      championshipTeams: MOCK_CHAMPIONSHIP_TEAMS,
+      championshipTeamPlayers: MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
+      championshipMatches: MOCK_CHAMPIONSHIP_MATCHES,
+      championshipGoals: MOCK_CHAMPIONSHIP_GOALS,
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -232,26 +296,7 @@ export const useAppStore = create<AppState>()(
       },
 
       addGuest: (gameId, name) => {
-        const guest: Player = {
-          id: uid(),
-          authUserId: null,
-          name: name.trim() || 'Convidado',
-          nickname: null,
-          avatarUrl: null,
-          phone: null,
-          preferredPosition: 'line',
-          cardBackgroundUrl: null,
-          premiumSince: null,
-          premiumUntil: null,
-          premiumAutoRenew: false,
-          isGuest: true,
-          freeAgentOptIn: false,
-          freeAgentRadiusKm: null,
-          freeAgentAvailability: [],
-          location: null,
-          locationUpdatedAt: null,
-          createdAt: nowIso(),
-        };
+        const guest = makeGuestPlayer(name);
         set((state) => ({ players: [...state.players, guest] }));
         get().setAttendance(gameId, guest.id, 'confirmed');
         return guest;
@@ -445,6 +490,138 @@ export const useAppStore = create<AppState>()(
               : e,
           ),
         }));
+      },
+
+      createChampionship: (establishmentId, createdBy, input) => {
+        const championship: Championship = {
+          id: uid(),
+          establishmentId,
+          name: input.name,
+          format: input.format,
+          fieldId: input.fieldId,
+          maxTeams: input.maxTeams,
+          entryFee: input.entryFee,
+          registrationCode: uid().toUpperCase(),
+          registrationDeadline: null,
+          matchMinutes: input.matchMinutes,
+          status: 'registration',
+          createdBy,
+          createdAt: nowIso(),
+        };
+        set((state) => ({ championships: [...state.championships, championship] }));
+        return championship;
+      },
+
+      registerChampionshipTeam: (code, input) => {
+        const normalized = code.trim().toUpperCase();
+        const championship = get().championships.find((c) => c.registrationCode.toUpperCase() === normalized);
+        if (!championship) return null;
+
+        const guests = input.guestNames.map((name) => makeGuestPlayer(name));
+        const rosterIds = [...input.playerIds, ...guests.map((g) => g.id)];
+
+        const team: ChampionshipTeam = {
+          id: uid(),
+          championshipId: championship.id,
+          name: input.name,
+          color: input.color,
+          peladaId: input.peladaId,
+          registeredByPlayerId: input.registeredByPlayerId,
+          status: 'confirmed',
+          createdAt: nowIso(),
+        };
+        const rosterRows: ChampionshipTeamPlayer[] = rosterIds.map((playerId) => ({
+          championshipTeamId: team.id,
+          playerId,
+          isGoalkeeper: false,
+        }));
+
+        set((state) => ({
+          players: [...state.players, ...guests],
+          championshipTeams: [...state.championshipTeams, team],
+          championshipTeamPlayers: [...state.championshipTeamPlayers, ...rosterRows],
+        }));
+        return team;
+      },
+
+      removeChampionshipTeam: (teamId) => {
+        set((state) => ({
+          championshipTeams: state.championshipTeams.filter((t) => t.id !== teamId),
+          championshipTeamPlayers: state.championshipTeamPlayers.filter((tp) => tp.championshipTeamId !== teamId),
+        }));
+      },
+
+      generateChampionshipFixtures: (championshipId) => {
+        const championship = get().championships.find((c) => c.id === championshipId);
+        if (!championship) return;
+        const teams = get().championshipTeams.filter((t) => t.championshipId === championshipId && t.status === 'confirmed');
+        if (teams.length < 2) return;
+
+        const generated = championship.format === 'knockout' ? generateKnockoutFixtures(teams) : generateRoundRobinFixtures(teams);
+        const matches: ChampionshipMatch[] = generated.map((m) => ({ ...m, championshipId }));
+
+        set((state) => ({
+          championshipMatches: [...state.championshipMatches, ...matches],
+          championships: state.championships.map((c) => (c.id === championshipId ? { ...c, status: 'in_progress' } : c)),
+        }));
+      },
+
+      startChampionshipMatch: (matchId) => {
+        set((state) => ({
+          championshipMatches: state.championshipMatches.map((m) =>
+            m.id === matchId ? { ...m, startedAt: nowIso(), status: 'in_progress' } : m,
+          ),
+        }));
+      },
+
+      registerChampionshipGoal: (matchId, teamId, scorerPlayerId) => {
+        set((state) => ({
+          championshipGoals: [
+            ...state.championshipGoals,
+            { id: uid(), matchId, teamId, scorerPlayerId, scoredAt: nowIso() } satisfies ChampionshipGoal,
+          ],
+        }));
+      },
+
+      undoLastChampionshipGoal: (matchId) => {
+        set((state) => {
+          const matchGoals = state.championshipGoals.filter((g) => g.matchId === matchId);
+          if (matchGoals.length === 0) return {};
+          const last = matchGoals[matchGoals.length - 1];
+          return { championshipGoals: state.championshipGoals.filter((g) => g.id !== last.id) };
+        });
+      },
+
+      endChampionshipMatch: (matchId, penaltyScoreA, penaltyScoreB) => {
+        const match = get().championshipMatches.find((m) => m.id === matchId);
+        if (!match || !match.teamAId || !match.teamBId) return;
+        const championship = get().championships.find((c) => c.id === match.championshipId);
+        const goals = get().championshipGoals.filter((g) => g.matchId === matchId);
+        const goalsA = goals.filter((g) => g.teamId === match.teamAId).length;
+        const goalsB = goals.filter((g) => g.teamId === match.teamBId).length;
+
+        let winnerTeamId: string | null = null;
+        if (goalsA > goalsB) winnerTeamId = match.teamAId;
+        else if (goalsB > goalsA) winnerTeamId = match.teamBId;
+        else if (championship?.format === 'knockout' && penaltyScoreA !== undefined && penaltyScoreB !== undefined) {
+          winnerTeamId = penaltyScoreA > penaltyScoreB ? match.teamAId : match.teamBId;
+        }
+
+        set((state) => {
+          const updatedMatches = state.championshipMatches.map((m) =>
+            m.id === matchId
+              ? {
+                  ...m,
+                  status: 'finished' as const,
+                  endedAt: nowIso(),
+                  winnerTeamId,
+                  penaltyScoreA: penaltyScoreA ?? null,
+                  penaltyScoreB: penaltyScoreB ?? null,
+                }
+              : m,
+          );
+          return { championshipMatches: winnerTeamId ? advanceWinner(updatedMatches, matchId) : updatedMatches };
+        });
       },
 
       addSchedule: (input) => {
@@ -666,6 +843,11 @@ export const useAppStore = create<AppState>()(
         matchQueue: state.matchQueue,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
+        championships: state.championships,
+        championshipTeams: state.championshipTeams,
+        championshipTeamPlayers: state.championshipTeamPlayers,
+        championshipMatches: state.championshipMatches,
+        championshipGoals: state.championshipGoals,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

@@ -311,3 +311,87 @@ export interface FreeAgentInvite {
   createdAt: string;
   respondedAt: string | null;
 }
+
+// =========================================================================
+// Campeonatos — organizados pelo dono de um estabelecimento, juntando peladas
+// e times avulsos numa competição só. Ver src/lib/championship.ts.
+// =========================================================================
+
+export type ChampionshipFormat = 'round_robin' | 'knockout';
+export type ChampionshipStatus = 'registration' | 'in_progress' | 'finished';
+
+export interface Championship {
+  id: UUID;
+  establishmentId: UUID;
+  name: string;
+  format: ChampionshipFormat;
+  /** Campo do estabelecimento onde as partidas acontecem (opcional — pode definir por partida depois). */
+  fieldId: UUID | null;
+  maxTeams: number | null;
+  /** Taxa de inscrição por time, cobrada pelo estabelecimento. null = grátis. */
+  entryFee: number | null;
+  /** Código curto pra um time (pelada ou avulso) se inscrever. */
+  registrationCode: string;
+  registrationDeadline: string | null;
+  matchMinutes: number;
+  status: ChampionshipStatus;
+  createdBy: UUID;
+  createdAt: string;
+}
+
+export type ChampionshipTeamStatus = 'pending' | 'confirmed';
+
+/** Um time inscrito no campeonato — vindo de uma pelada existente, ou avulso (só pro campeonato). */
+export interface ChampionshipTeam {
+  id: UUID;
+  championshipId: UUID;
+  name: string;
+  color: string;
+  /** null = time avulso, criado só pra esse campeonato. */
+  peladaId: UUID | null;
+  registeredByPlayerId: UUID;
+  status: ChampionshipTeamStatus;
+  createdAt: string;
+}
+
+export interface ChampionshipTeamPlayer {
+  championshipTeamId: UUID;
+  playerId: UUID;
+  isGoalkeeper: boolean;
+}
+
+export type ChampionshipMatchStatus = 'scheduled' | 'in_progress' | 'finished';
+
+/** Uma partida do campeonato — rodada (pontos corridos) ou fase (mata-mata). */
+export interface ChampionshipMatch {
+  id: UUID;
+  championshipId: UUID;
+  round: number;
+  /** Ex.: "Rodada 1", "Quartas de final", "Semifinal", "Final". */
+  roundLabel: string;
+  /** null enquanto aguarda o time avançar (mata-mata: vencedor de outra partida ainda não decidido). */
+  teamAId: UUID | null;
+  teamBId: UUID | null;
+  /** Mata-mata: de qual partida vem o time A / B, pra propagar o vencedor automaticamente. */
+  feedsFromMatchAId: UUID | null;
+  feedsFromMatchBId: UUID | null;
+  fieldId: UUID | null;
+  scheduledAt: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  status: ChampionshipMatchStatus;
+  /** Só preenchido se precisou de pênaltis pra desempatar (mata-mata). */
+  penaltyScoreA: number | null;
+  penaltyScoreB: number | null;
+  /** null = empate (só possível em pontos corridos) ou partida ainda não terminou. */
+  winnerTeamId: UUID | null;
+}
+
+/** Gol marcado numa partida de campeonato — separado de Goal (que é de jogo de pelada). */
+export interface ChampionshipGoal {
+  id: UUID;
+  matchId: UUID;
+  teamId: UUID;
+  scorerPlayerId: UUID | null;
+  scoredAt: string;
+}

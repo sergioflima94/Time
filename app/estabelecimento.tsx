@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -10,8 +11,9 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
+import { formatChampionshipStatus } from '@/lib/championship';
 import { useAppStore } from '@/store/useAppStore';
-import type { EstablishmentPayoutMethod } from '@/types';
+import type { ChampionshipFormat, EstablishmentPayoutMethod } from '@/types';
 
 export default function EstablishmentScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
@@ -101,7 +103,88 @@ export default function EstablishmentScreen() {
           )}
         </Card>
       )}
+
+      {establishment && <ChampionshipsSection establishmentId={establishment.id} />}
     </Screen>
+  );
+}
+
+function ChampionshipsSection({ establishmentId }: { establishmentId: string }) {
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.establishmentId === establishmentId)));
+  const championships = useAppStore(useShallow((s) => s.championships.filter((c) => c.establishmentId === establishmentId)));
+  const createChampionship = useAppStore((s) => s.createChampionship);
+
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [format, setFormat] = useState<ChampionshipFormat>('round_robin');
+  const [maxTeams, setMaxTeams] = useState('8');
+  const [entryFee, setEntryFee] = useState('');
+  const [matchMinutes, setMatchMinutes] = useState('10');
+
+  function handleCreate() {
+    if (!name.trim()) return;
+    const championship = createChampionship(establishmentId, currentPlayerId, {
+      name: name.trim(),
+      format,
+      fieldId: fields[0]?.id ?? null,
+      maxTeams: maxTeams.trim() ? Number(maxTeams) : null,
+      entryFee: entryFee.trim() ? Number(entryFee.replace(',', '.')) : null,
+      matchMinutes: Number(matchMinutes) || 10,
+    });
+    setName('');
+    setEntryFee('');
+    setOpen(false);
+    router.push(`/campeonato/${championship.id}`);
+  }
+
+  return (
+    <Card style={styles.section}>
+      <View style={styles.headerRow2}>
+        <Text style={styles.sectionTitle}>Campeonatos</Text>
+        <Pressable onPress={() => setOpen((v) => !v)}>
+          <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.primary} />
+        </Pressable>
+      </View>
+
+      {championships.map((c) => (
+        <Pressable key={c.id} style={styles.champRow} onPress={() => router.push(`/campeonato/${c.id}`)}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.champName}>{c.name}</Text>
+            <Text style={styles.hint}>{c.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
+          </View>
+          <Badge label={formatChampionshipStatus(c.status)} color={c.status === 'registration' ? colors.secondary : colors.primary} />
+        </Pressable>
+      ))}
+      {championships.length === 0 && !open && <Text style={styles.hint}>Nenhum campeonato criado ainda.</Text>}
+
+      {open && (
+        <View style={styles.form}>
+          <TextField label="Nome do campeonato" value={name} onChangeText={setName} placeholder="Copa Arena Society Central" />
+          <SegmentedControl<ChampionshipFormat>
+            label="Formato"
+            options={[
+              { value: 'round_robin', label: 'Pontos corridos' },
+              { value: 'knockout', label: 'Mata-mata' },
+            ]}
+            value={format}
+            onChange={setFormat}
+          />
+          <View style={styles.row3}>
+            <View style={styles.thirdInput}>
+              <TextField label="Máx. times" value={maxTeams} onChangeText={setMaxTeams} keyboardType="number-pad" />
+            </View>
+            <View style={styles.thirdInput}>
+              <TextField label="Duração (min)" value={matchMinutes} onChangeText={setMatchMinutes} keyboardType="number-pad" />
+            </View>
+            <View style={styles.thirdInput}>
+              <TextField label="Taxa (R$)" value={entryFee} onChangeText={setEntryFee} keyboardType="decimal-pad" />
+            </View>
+          </View>
+          <Button label="Criar campeonato" onPress={handleCreate} disabled={!name.trim()} />
+        </View>
+      )}
+    </Card>
   );
 }
 
@@ -151,5 +234,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 2,
+  },
+  headerRow2: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  champRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+    marginTop: spacing.xs,
+  },
+  champName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  form: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+    gap: spacing.sm,
+  },
+  row3: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  thirdInput: {
+    flex: 1,
   },
 });

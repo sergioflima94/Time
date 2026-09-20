@@ -199,6 +199,12 @@ export default function PerfilScreen() {
         onPress={() => router.push('/estabelecimento')}
         style={{ marginTop: spacing.xl }}
       />
+      <Button
+        label="🏆 Entrar num campeonato"
+        variant="secondary"
+        onPress={() => router.push('/campeonato/entrar')}
+        style={{ marginTop: spacing.sm }}
+      />
       <Button label="Sair" variant="outline" onPress={logout} style={{ marginTop: spacing.sm }} />
     </Screen>
   );
