@@ -40,7 +40,34 @@ export interface Player {
   /** Nem sempre disponível: refletido pelo SDK de compras nativo (RevenueCat/StoreKit), não gerenciado por nós. */
   premiumAutoRenew: boolean;
   isGuest: boolean;
+  /**
+   * Opt-in: aparece na busca de "jogadores livres" pra admins de peladas de que
+   * ele NÃO é membro, quando falta gente pra fechar um jogo perto dele.
+   * Desligado por padrão — o jogador ativa manualmente no Perfil.
+   */
+  freeAgentOptIn: boolean;
+  /** Raio máximo (km) que topa se deslocar quando é convidado como avulso. null = sem opt-in ainda. */
+  freeAgentRadiusKm: number | null;
+  /** Dias/horários em que costuma estar livre pra jogar (usado pra casar com o horário do jogo). */
+  freeAgentAvailability: AvailabilitySlot[];
+  /** Última localização conhecida (aproximada), usada só pra calcular distância — nunca exibida exata pros outros. */
+  location: GeoPoint | null;
+  locationUpdatedAt: string | null;
   createdAt: string;
+}
+
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+/** Uma janela de disponibilidade recorrente pra jogar como avulso. */
+export interface AvailabilitySlot {
+  /** 0 (domingo) a 6 (sábado). */
+  weekday: number;
+  /** Horário no formato HH:mm. */
+  startTime: string;
+  endTime: string;
 }
 
 /** Nota geral calculada a partir das Ratings recebidas (estilo carta de FIFA, 0-99). */
@@ -241,4 +268,22 @@ export interface Payment {
   status: PaymentStatus;
   method: PaymentMethod | null;
   paidAt: string | null;
+}
+
+export type FreeAgentInviteStatus = 'pending' | 'accepted' | 'declined';
+
+/**
+ * Convite pra um "jogador livre" (opt-in, de fora da pelada) participar de um jogo
+ * específico. Diferente do convidado avulso (`Player.isGuest`), quem recebe já tem
+ * conta e conteúdo próprio — só não é membro da pelada que está convidando.
+ */
+export interface FreeAgentInvite {
+  id: UUID;
+  gameId: UUID;
+  peladaId: UUID;
+  playerId: UUID;
+  invitedByPlayerId: UUID;
+  status: FreeAgentInviteStatus;
+  createdAt: string;
+  respondedAt: string | null;
 }

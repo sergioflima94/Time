@@ -25,10 +25,13 @@ import { buildPunishment } from '@/lib/punishment';
 import type {
   Attendance,
   AttendanceStatus,
+  AvailabilitySlot,
   DrawMethod,
   Field,
+  FreeAgentInvite,
   Game,
   GameStatus,
+  GeoPoint,
   Goal,
   MatchTurn,
   Payment,
@@ -68,11 +71,20 @@ interface AppState {
   matchTurns: MatchTurn[];
   goals: Goal[];
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
+  freeAgentInvites: FreeAgentInvite[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
   /** Admin adiciona um convidado sem conta direto na chamada de um jogo específico; entra confirmado (ou na espera, se lotado). */
   addGuest: (gameId: string, name: string) => Player;
+
+  // bolsa de jogadores livres (opt-in, busca por proximidade)
+  setFreeAgentOptIn: (playerId: string, optIn: boolean) => void;
+  setFreeAgentSettings: (playerId: string, input: { radiusKm: number; availability: AvailabilitySlot[] }) => void;
+  updateMyLocation: (playerId: string, location: GeoPoint) => void;
+  /** Admin convida um jogador livre (de fora da pelada) pra um jogo específico. */
+  sendFreeAgentInvite: (gameId: string, peladaId: string, playerId: string, invitedByPlayerId: string) => FreeAgentInvite;
+  respondFreeAgentInvite: (inviteId: string, accept: boolean) => void;
 
   // sorteio de times
   setGameTeams: (gameId: string, teams: Team[], teamPlayers: TeamPlayer[]) => void;
@@ -158,6 +170,7 @@ export const useAppStore = create<AppState>()(
       matchTurns: MOCK_MATCH_TURNS,
       goals: MOCK_GOALS,
       matchQueue: {},
+      freeAgentInvites: [],
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -220,11 +233,64 @@ export const useAppStore = create<AppState>()(
           premiumUntil: null,
           premiumAutoRenew: false,
           isGuest: true,
+          freeAgentOptIn: false,
+          freeAgentRadiusKm: null,
+          freeAgentAvailability: [],
+          location: null,
+          locationUpdatedAt: null,
           createdAt: nowIso(),
         };
         set((state) => ({ players: [...state.players, guest] }));
         get().setAttendance(gameId, guest.id, 'confirmed');
         return guest;
+      },
+
+      setFreeAgentOptIn: (playerId, optIn) => {
+        set((state) => ({
+          players: state.players.map((p) => (p.id === playerId ? { ...p, freeAgentOptIn: optIn } : p)),
+        }));
+      },
+
+      setFreeAgentSettings: (playerId, input) => {
+        set((state) => ({
+          players: state.players.map((p) =>
+            p.id === playerId ? { ...p, freeAgentRadiusKm: input.radiusKm, freeAgentAvailability: input.availability } : p,
+          ),
+        }));
+      },
+
+      updateMyLocation: (playerId, location) => {
+        set((state) => ({
+          players: state.players.map((p) => (p.id === playerId ? { ...p, location, locationUpdatedAt: nowIso() } : p)),
+        }));
+      },
+
+      sendFreeAgentInvite: (gameId, peladaId, playerId, invitedByPlayerId) => {
+        const invite: FreeAgentInvite = {
+          id: uid(),
+          gameId,
+          peladaId,
+          playerId,
+          invitedByPlayerId,
+          status: 'pending',
+          createdAt: nowIso(),
+          respondedAt: null,
+        };
+        set((state) => ({ freeAgentInvites: [...state.freeAgentInvites, invite] }));
+        return invite;
+      },
+
+      respondFreeAgentInvite: (inviteId, accept) => {
+        const invite = get().freeAgentInvites.find((i) => i.id === inviteId);
+        if (!invite) return;
+        set((state) => ({
+          freeAgentInvites: state.freeAgentInvites.map((i) =>
+            i.id === inviteId ? { ...i, status: accept ? 'accepted' : 'declined', respondedAt: nowIso() } : i,
+          ),
+        }));
+        if (accept) {
+          get().setAttendance(invite.gameId, invite.playerId, 'confirmed');
+        }
       },
 
       setGameTeams: (gameId, teams, teamPlayers) => {
@@ -523,6 +589,7 @@ export const useAppStore = create<AppState>()(
         matchTurns: state.matchTurns,
         goals: state.goals,
         matchQueue: state.matchQueue,
+        freeAgentInvites: state.freeAgentInvites,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

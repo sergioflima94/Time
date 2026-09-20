@@ -52,6 +52,13 @@ module.exports = {
         },
       ],
       [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'O app usa sua localização pra achar jogadores livres perto de você (só se você ativar essa opção no Perfil).',
+        },
+      ],
+      [
         'react-native-google-mobile-ads',
         {
           androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || TEST_ADMOB_ANDROID_APP_ID,

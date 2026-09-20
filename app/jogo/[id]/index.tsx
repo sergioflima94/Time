@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
+import { NearbyFreeAgentsSection } from '@/components/NearbyFreeAgentsSection';
 import { PaymentSplitSection } from '@/components/PaymentSplitSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -30,6 +31,9 @@ export default function GameDetailScreen() {
   const punishments = useAppStore((s) => s.punishments);
   const games = useAppStore((s) => s.games);
   const isAdmin = useAppStore((s) => (game ? s.isAdmin(currentPlayerId, game.peladaId) : false));
+  const peladaMemberIds = useAppStore(
+    useShallow((s) => new Set(s.memberships.filter((m) => m.peladaId === game?.peladaId && m.active).map((m) => m.playerId))),
+  );
 
   const setAttendance = useAppStore((s) => s.setAttendance);
   const updateGameMaxPlayers = useAppStore((s) => s.updateGameMaxPlayers);
@@ -193,6 +197,14 @@ export default function GameDetailScreen() {
               </Pressable>
             )}
           </View>
+        )}
+
+        {isAdmin && (
+          <NearbyFreeAgentsSection
+            game={game}
+            currentPlayerId={currentPlayerId}
+            excludePlayerIds={new Set([...peladaMemberIds, ...attendances.map((a) => a.playerId)])}
+          />
         )}
       </Card>
 

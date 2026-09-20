@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
+import { FreeAgentInvitesSection } from '@/components/FreeAgentInvitesSection';
+import { FreeAgentSection } from '@/components/FreeAgentSection';
 import { PlayerCard } from '@/components/PlayerCard';
 import { PremiumSection } from '@/components/PremiumSection';
 import { Badge } from '@/components/ui/Badge';
@@ -110,6 +112,9 @@ export default function PerfilScreen() {
         onSubscribe={() => renewPremium(currentPlayerId)}
         onCancelAutoRenew={() => cancelPremiumAutoRenew(currentPlayerId)}
       />
+
+      <FreeAgentInvitesSection playerId={currentPlayerId} />
+      <FreeAgentSection player={player} />
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Personalizar carta</Text>
