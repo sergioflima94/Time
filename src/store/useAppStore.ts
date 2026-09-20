@@ -131,7 +131,6 @@ interface AppState {
 
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
-  setPlayerCardStyle: (playerId: string, cardStyleId: string | null) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
   updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null }) => void;
   setCurrentPelada: (peladaId: string) => void;
@@ -227,7 +226,6 @@ export const useAppStore = create<AppState>()(
           avatarUrl: null,
           phone: null,
           preferredPosition: 'line',
-          cardStyleId: null,
           cardBackgroundUrl: null,
           premiumSince: null,
           premiumUntil: null,
@@ -481,12 +479,6 @@ export const useAppStore = create<AppState>()(
       setPlayerPhoto: (playerId, photoUrl) => {
         set((state) => ({
           players: state.players.map((p) => (p.id === playerId ? { ...p, avatarUrl: photoUrl } : p)),
-        }));
-      },
-
-      setPlayerCardStyle: (playerId, cardStyleId) => {
-        set((state) => ({
-          players: state.players.map((p) => (p.id === playerId ? { ...p, cardStyleId } : p)),
         }));
       },
 

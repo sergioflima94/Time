@@ -12,8 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
-import { CARD_STYLES } from '@/constants/cardStyles';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { formatGameDateShort } from '@/lib/format';
 import { computePlayerGoalStats, computePlayerGoalStatsByGroup } from '@/lib/goals';
@@ -36,7 +35,6 @@ export default function PerfilScreen() {
   const myPeladas = useMyPeladas();
   const punishments = useAppStore(useShallow((s) => s.punishments.filter((p) => p.playerId === currentPlayerId)));
   const setPlayerPhoto = useAppStore((s) => s.setPlayerPhoto);
-  const setPlayerCardStyle = useAppStore((s) => s.setPlayerCardStyle);
   const setPlayerCardBackground = useAppStore((s) => s.setPlayerCardBackground);
   const renewPremium = useAppStore((s) => s.renewPremium);
   const cancelPremiumAutoRenew = useAppStore((s) => s.cancelPremiumAutoRenew);
@@ -69,15 +67,6 @@ export default function PerfilScreen() {
     setPickingBg(false);
   }
 
-  function handleSelectStyle(styleId: string, premium: boolean) {
-    if (premium && !isPremium) {
-      setShowLockNotice(true);
-      return;
-    }
-    setShowLockNotice(false);
-    setPlayerCardStyle(currentPlayerId, styleId === 'default' ? null : styleId);
-  }
-
   return (
     <Screen>
       <Pressable style={styles.cardCenter} onPress={handleChangePhoto} disabled={pickingPhoto}>
@@ -85,7 +74,6 @@ export default function PerfilScreen() {
           name={player.name}
           nickname={player.nickname}
           photoUrl={player.avatarUrl}
-          cardStyleId={player.cardStyleId}
           cardBackgroundUrl={player.cardBackgroundUrl}
           position={player.preferredPosition}
           overall={overall}
@@ -117,31 +105,18 @@ export default function PerfilScreen() {
       <FreeAgentSection player={player} />
 
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Personalizar carta</Text>
-        <View style={styles.swatchRow}>
-          {CARD_STYLES.map((style) => {
-            const selected = !player.cardBackgroundUrl && (player.cardStyleId ?? 'default') === style.id;
-            const swatchColor = style.colors ? style.colors[0] : colors.textFaint;
-            const locked = style.premium && !isPremium;
-            return (
-              <Pressable
-                key={style.id}
-                onPress={() => handleSelectStyle(style.id, style.premium)}
-                style={[styles.swatch, { backgroundColor: swatchColor }, selected && styles.swatchSelected]}
-              >
-                {selected && <Ionicons name="checkmark" size={16} color={colors.white} />}
-                {!selected && locked && <Ionicons name="lock-closed" size={12} color="rgba(255,255,255,0.85)" />}
-              </Pressable>
-            );
-          })}
-        </View>
+        <Text style={styles.sectionTitle}>Plano de fundo da carta</Text>
+        <Text style={styles.bgHint}>
+          A cor da faixa (bronze/prata/ouro/especial) é sempre definida pela sua nota geral e
+          aparece por cima — você só escolhe a foto de fundo.
+        </Text>
 
         <View style={styles.bgRow}>
           <Text style={styles.bgLabel}>
             {player.cardBackgroundUrl
               ? 'Fundo com foto personalizada'
               : isPremium
-                ? 'Ou use uma foto como fundo da carta'
+                ? 'Use uma foto como fundo da carta'
                 : 'Fundo com foto é exclusivo do Premium'}
           </Text>
           <View style={styles.bgActions}>
@@ -292,22 +267,10 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
   },
-  swatchRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  swatch: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  swatchSelected: {
-    borderColor: colors.text,
+  bgHint: {
+    color: colors.textFaint,
+    fontSize: 12,
+    marginTop: 2,
   },
   bgRow: {
     marginTop: spacing.md,

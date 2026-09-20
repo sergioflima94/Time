@@ -100,8 +100,8 @@ fluxos de demonstração para validar a experiência antes de integrar algo de v
 - **Assinatura Premium individual** (`src/components/PremiumSection.tsx`, tela
   Perfil): é mensal de verdade — `player.premiumUntil` guarda até quando o período
   pago vale (`src/lib/premium.ts`); sem renovar, `isPremiumActive()` passa a retornar
-  `false` e o jogador perde os benefícios (sem anúncios, estilos/fundo de foto
-  exclusivos em `src/constants/cardStyles.ts`). O checkout é simulado, mas a intenção
+  `false` e o jogador perde os benefícios (sem anúncios, fundo de foto exclusivo na
+  carta). O checkout é simulado, mas a intenção
   é que a assinatura seja **gerenciada pela App Store / Google Play** (cobrança,
   renovação e cancelamento ficam por conta delas, não do nosso app) — por isso o botão
   "Gerenciar assinatura" já abre a tela nativa de assinaturas de cada loja.
@@ -165,6 +165,13 @@ hoje, como tudo é local/mock, isso ainda não existe.
   Entra confirmado (ou na espera, se lotado), participa do sorteio normalmente, e
   aparece com uma badge "Convidado" — mas não vira membro da pelada nem aparece no
   Elenco.
+- **Bolsa de jogadores livres** (`src/lib/geo.ts`, `FreeAgentSection`,
+  `NearbyFreeAgentsSection`, `FreeAgentInvitesSection`): jogador ativa opt-in no
+  Perfil (localização via `expo-location`, raio em km, disponibilidade por
+  dia/horário). Admin de um jogo busca quem está livre perto (distância + horário
+  batendo) e manda convite pra esse jogo específico, mesmo sem a pessoa ser membro da
+  pelada. Quem recebe aceita/recusa no Perfil ("Convites pra jogar"); aceitar confirma
+  presença normalmente.
 
 ## Próximos passos sugeridos
 
@@ -178,22 +185,44 @@ hoje, como tudo é local/mock, isso ainda não existe.
   da pelada (artilheiro, mais assíduo), fila de espera com notificação automática de
   vaga, Pix real com QR Code no rateio, aviso de previsão do tempo, modo temporada.
 
-## Redesign em andamento (Figma) — decisões já tomadas
+## Redesign — decisões tomadas
 
-Retomando em https://www.figma.com/design/gSP52KL2snZVqMqchrKHwF (telas prontas até
-agora: Login, Cadastro, Agenda + componentes base). Direção combinada com o dono do
-produto, a portar para o código assim que o Figma estiver completo:
+Acompanhando também em https://www.figma.com/design/gSP52KL2snZVqMqchrKHwF (telas
+prontas lá: Login, Cadastro, Agenda + componentes base — pausado por limite de cota do
+plano Figma; o que já foi decidido abaixo já está implementado direto no código).
 
-- **Paleta menos monocromática em verde** — manter a identidade, mas trazer mais
-  variação de cor pelo app (sem exagerar).
-- **Carta do jogador estilo "abertura de pacote" do FIFA** — mostrar atributos
-  (Ataque, Defesa, Velocidade, e possivelmente Físico/Passe) no card, não só a nota
-  geral. Hoje o card só mostra nota + saldo de gols (`src/components/PlayerCard.tsx`).
-- **Cor/moldura da carta pela nota geral** — a faixa bronze/prata/ouro/especial já
-  existe (`src/constants/cardStyles.ts`), mas precisa ficar clara/automática de
-  acordo com a nota real do jogador, não só escolha manual de estilo.
-- **Customização extra de carta no plano Premium** — detalhes a definir depois pelo
-  dono do produto; por ora é só uma pendência marcada, sem escopo fechado.
+- ✅ **Paleta menos monocromática em verde** — fundo/cards em grafite neutro
+  (`src/constants/theme.ts`), cor de destaque variando por aba (Agenda=verde,
+  Jogadores=azul, Perfil=dourado, Admin=roxo).
+- ✅ **Carta do jogador estilo "abertura de pacote" do FIFA** — mostra Ataque, Defesa e
+  Velocidade, gradiente de 3 tons por faixa e brilho diagonal
+  (`src/components/PlayerCard.tsx`).
+- ✅ **Cor da carta só pela nota geral, sem escolha manual** — o jogador **não** escolhe
+  mais uma cor pra carta; a única personalização é a **foto de fundo** (Premium), e a
+  cor da faixa (bronze/prata/ouro/especial, de `overallTier()` em `src/lib/ratings.ts`)
+  sempre aparece por cima como uma camada semi-transparente, tanto com foto quanto sem.
+  O antigo seletor de cores (`src/constants/cardStyles.ts`) foi removido.
+- **Customização extra de carta no plano Premium** — além da foto de fundo, detalhes
+  adicionais ainda a definir pelo dono do produto.
 - **Rateio da quadra**: confirmado que o comportamento atual (recalcula o valor por
   pessoa ao vivo conforme gente confirma/desiste, em vez de travar um valor fixo) é
   o desejado — nenhuma mudança necessária em `PaymentSplitSection`/`getSplitAmount`.
+
+## Próximo grande passo: dono de campo/quadra + e-commerce (ainda não iniciado)
+
+Pedido do dono do produto, escopo grande, aguardando priorização antes de começar a
+implementar:
+
+- **Conta do dono do campo pra receber**: hoje o rateio (`Payment`) só tem status
+  pago/pendente/dispensado, sem destinatário — precisa modelar quem recebe cada
+  pagamento (o dono do campo, outro cobrador, ou "recebe na hora/dinheiro"), inclusive
+  permitindo um jogador pagar parte pra um e parte pra outro.
+- **Estabelecimento com múltiplos campos/esportes**: hoje `Field` é 1 registro simples
+  por pelada; precisa de uma entidade "Estabelecimento" dona de vários campos, cada um
+  com seu esporte (society, futsal, campo etc.), gerenciada por um papel novo ("dono do
+  campo") separado de admin de pelada.
+- **Agendamento**: o dono do campo precisa de uma agenda própria dos horários
+  disponíveis/ocupados de cada campo, que as peladas reservam.
+- **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva.
+- **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
+  carrinho, checkout, pedidos.

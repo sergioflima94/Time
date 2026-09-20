@@ -14,7 +14,8 @@ create table players (
   name text not null,
   nickname text,
   avatar_url text,
-  card_style_id text,
+  -- foto de fundo da carta (Premium). A cor da faixa (bronze/prata/ouro/especial) é
+  -- sempre calculada pela nota geral e desenhada por cima — não é escolhida pelo jogador.
   card_background_url text,
   -- assinatura Premium mensal, gerenciada pela App Store/Google Play (RevenueCat) — ver src/lib/premium.ts
   premium_since timestamptz,
@@ -23,6 +24,13 @@ create table players (
   is_guest boolean not null default false,
   phone text,
   preferred_position text not null default 'line' check (preferred_position in ('goalkeeper', 'line')),
+  -- bolsa de jogadores livres (opt-in) — ver src/lib/geo.ts
+  free_agent_opt_in boolean not null default false,
+  free_agent_radius_km numeric,
+  free_agent_availability jsonb not null default '[]', -- AvailabilitySlot[]: [{weekday, startTime, endTime}]
+  location_lat double precision,
+  location_lng double precision,
+  location_updated_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -180,6 +188,22 @@ create table punishments (
 );
 
 -- ---------------------------------------------------------------------
+-- free_agent_invites: convite pra um "jogador livre" (fora da pelada) jogar
+-- um jogo específico — ver src/lib/geo.ts e src/components/NearbyFreeAgentsSection.tsx
+-- ---------------------------------------------------------------------
+create table free_agent_invites (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  pelada_id uuid not null references peladas (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  invited_by_player_id uuid not null references players (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  unique (game_id, player_id)
+);
+
+-- ---------------------------------------------------------------------
 -- View: nota geral do jogador estilo "carta de FIFA" (0-99)
 -- ---------------------------------------------------------------------
 create view player_overalls as
@@ -210,6 +234,7 @@ alter table goals enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
+alter table free_agent_invites enable row level security;
 
 create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
@@ -321,4 +346,16 @@ create policy "payments_write_self_or_admin" on payments for all using (
     select 1 from games g join players p on p.id = payments.player_id
     where g.id = game_id and (p.auth_user_id = auth.uid() or is_admin_of_pelada(g.pelada_id))
   )
+);
+
+-- free_agent_invites: o admin que convidou e o próprio jogador convidado (mesmo sem
+-- ser membro da pelada) veem e respondem o convite; só admin cria/cancela.
+create policy "free_agent_invites_select_involved" on free_agent_invites for select using (
+  is_admin_of_pelada(pelada_id)
+  or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
+);
+create policy "free_agent_invites_write_admin" on free_agent_invites for insert with check (is_admin_of_pelada(pelada_id));
+create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites for update using (
+  is_admin_of_pelada(pelada_id)
+  or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
 );

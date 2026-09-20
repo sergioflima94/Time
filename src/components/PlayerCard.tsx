@@ -3,8 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { getCardStyle } from '@/constants/cardStyles';
 import { colors, radius, spacing } from '@/constants/theme';
+import { hexToRgba } from '@/lib/color';
 import type { PlayerGoalStats } from '@/lib/goals';
 import { overallTier } from '@/lib/ratings';
 import type { PlayerOverall } from '@/types';
@@ -13,7 +13,7 @@ interface PlayerCardProps {
   name: string;
   nickname?: string | null;
   photoUrl?: string | null;
-  cardStyleId?: string | null;
+  /** Foto de fundo escolhida pelo jogador (Premium). A cor da faixa sempre aparece por cima, como uma camada — não dá pra escolher a cor da carta. */
   cardBackgroundUrl?: string | null;
   position: 'goalkeeper' | 'line';
   overall: PlayerOverall;
@@ -25,7 +25,6 @@ export function PlayerCard({
   name,
   nickname,
   photoUrl,
-  cardStyleId,
   cardBackgroundUrl,
   position,
   overall,
@@ -33,9 +32,7 @@ export function PlayerCard({
   width = 160,
 }: PlayerCardProps) {
   const tier = overallTier(overall.overall);
-  const customStyle = getCardStyle(cardStyleId ?? null);
-  const cardGradient: [string, string] | [string, string, string] = customStyle.colors ?? tier.gradient;
-  const borderColor = customStyle.colors ? customStyle.colors[0] : tier.color;
+  const borderColor = tier.color;
   const height = width * 1.35;
   const [photoFailed, setPhotoFailed] = useState(false);
   const showPhoto = !!photoUrl && !photoFailed;
@@ -54,17 +51,19 @@ export function PlayerCard({
         />
       ) : (
         <LinearGradient
-          colors={cardGradient}
+          colors={tier.gradient}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
       )}
+      {/* Camada de cor da faixa (bronze/prata/ouro/especial) por cima do fundo — sempre
+          automática pela nota geral, nunca escolhida pelo jogador. */}
       {showBackground && (
         <LinearGradient
-          colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.75)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
+          colors={[hexToRgba(tier.gradient[0], 0.22), hexToRgba(tier.gradient[2], 0.82)]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
       )}

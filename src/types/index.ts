@@ -24,9 +24,11 @@ export interface Player {
   avatarUrl: string | null;
   phone: string | null;
   preferredPosition: PlayerPosition;
-  /** Estilo de cor/fundo escolhido pelo jogador para a própria carta. null = usa a cor da faixa (bronze/prata/ouro/especial). */
-  cardStyleId: string | null;
-  /** Foto escolhida pelo jogador como fundo da carta. Quando definida, tem prioridade sobre cardStyleId. */
+  /**
+   * Foto escolhida pelo jogador como fundo da própria carta (exclusivo Premium). A cor
+   * da faixa (bronze/prata/ouro/especial, decidida pela nota geral) sempre aparece por
+   * cima como uma camada — o jogador não escolhe a cor, só o plano de fundo.
+   */
   cardBackgroundUrl: string | null;
   /**
    * Assinatura Premium (sem anúncios, estilos/fundo de carta exclusivos) — mensal e
