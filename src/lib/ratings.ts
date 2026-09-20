@@ -53,9 +53,9 @@ export function getPendingRatingGames(
 }
 
 /** Faixa de cor da carta, igual aos games de futebol: bronze/prata/ouro/especial. */
-export function overallTier(overall: number): { label: string; color: string } {
-  if (overall >= 85) return { label: 'Especial', color: '#7C3AED' };
-  if (overall >= 75) return { label: 'Ouro', color: '#D4AF37' };
-  if (overall >= 65) return { label: 'Prata', color: '#9CA3AF' };
-  return { label: 'Bronze', color: '#B08D57' };
+export function overallTier(overall: number): { label: string; color: string; gradient: [string, string, string] } {
+  if (overall >= 85) return { label: 'Especial', color: '#A855F7', gradient: ['#C026D3', '#7C3AED', '#1E1B4B'] };
+  if (overall >= 75) return { label: 'Ouro', color: '#F0C64C', gradient: ['#FDE68A', '#D4AF37', '#78350F'] };
+  if (overall >= 65) return { label: 'Prata', color: '#D6DBE2', gradient: ['#F1F5F9', '#9CA3AF', '#334155'] };
+  return { label: 'Bronze', color: '#D69A63', gradient: ['#E8B27E', '#B08D57', '#4A2E12'] };
 }

@@ -34,7 +34,7 @@ export function PlayerCard({
 }: PlayerCardProps) {
   const tier = overallTier(overall.overall);
   const customStyle = getCardStyle(cardStyleId ?? null);
-  const [gradientTop, gradientBase] = customStyle.colors ?? [tier.color, colors.bgElevated];
+  const cardGradient: [string, string] | [string, string, string] = customStyle.colors ?? tier.gradient;
   const borderColor = customStyle.colors ? customStyle.colors[0] : tier.color;
   const height = width * 1.35;
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -54,7 +54,7 @@ export function PlayerCard({
         />
       ) : (
         <LinearGradient
-          colors={[gradientTop, gradientBase]}
+          colors={cardGradient}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -68,6 +68,15 @@ export function PlayerCard({
           style={StyleSheet.absoluteFill}
         />
       )}
+      {/* Brilho diagonal estilo carta de pacote */}
+      <LinearGradient
+        colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.08)']}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
       <View style={styles.header}>
         <Text style={styles.overall}>{overall.overall}</Text>
@@ -101,7 +110,9 @@ export function PlayerCard({
       <Text style={styles.name} numberOfLines={1}>
         {nickname || name}
       </Text>
-      <Text style={styles.tierLabel}>{tier.label}</Text>
+      <View style={styles.tierPill}>
+        <Text style={styles.tierLabel}>{tier.label}</Text>
+      </View>
 
       <View style={styles.statsRow}>
         <Stat label="ATA" value={overall.attack} />
@@ -144,9 +155,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   overall: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: colors.white,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   position: {
     fontSize: 13,
@@ -185,12 +199,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+  tierPill: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginTop: 4,
+    marginBottom: spacing.sm,
+  },
   tierLabel: {
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
-    marginTop: 2,
-    marginBottom: spacing.sm,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statsRow: {
     flexDirection: 'row',

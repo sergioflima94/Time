@@ -20,6 +20,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Agenda',
+          tabBarActiveTintColor: colors.primary,
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar" color={color} size={size} />,
         }}
       />
@@ -27,6 +28,7 @@ export default function TabsLayout() {
         name="jogadores"
         options={{
           title: 'Jogadores',
+          tabBarActiveTintColor: colors.secondary,
           tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
         }}
       />
@@ -34,6 +36,7 @@ export default function TabsLayout() {
         name="perfil"
         options={{
           title: 'Perfil',
+          tabBarActiveTintColor: colors.gold,
           tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" color={color} size={size} />,
         }}
       />
@@ -41,6 +44,7 @@ export default function TabsLayout() {
         name="admin"
         options={{
           title: 'Admin',
+          tabBarActiveTintColor: colors.special,
           tabBarIcon: ({ color, size }) => <Ionicons name="settings" color={color} size={size} />,
         }}
       />
