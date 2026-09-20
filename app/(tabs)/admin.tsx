@@ -145,10 +145,16 @@ function AdminsSection() {
 function FieldsSection() {
   const pelada = useCurrentPelada();
   const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.peladaId === pelada.id)));
+  const establishments = useAppStore((s) => s.establishments);
   const addField = useAppStore((s) => s.addField);
+  const linkFieldToEstablishment = useAppStore((s) => s.linkFieldToEstablishment);
+  const unlinkFieldEstablishment = useAppStore((s) => s.unlinkFieldEstablishment);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [linkingFieldId, setLinkingFieldId] = useState<string | null>(null);
+  const [codeDraft, setCodeDraft] = useState('');
+  const [linkError, setLinkError] = useState(false);
 
   function handleAdd() {
     if (!name.trim()) return;
@@ -156,6 +162,18 @@ function FieldsSection() {
     setName('');
     setAddress('');
     setOpen(false);
+  }
+
+  function handleLink(fieldId: string) {
+    if (!codeDraft.trim()) return;
+    const ok = linkFieldToEstablishment(fieldId, codeDraft.trim());
+    if (!ok) {
+      setLinkError(true);
+      return;
+    }
+    setLinkingFieldId(null);
+    setCodeDraft('');
+    setLinkError(false);
   }
 
   return (
@@ -166,14 +184,52 @@ function FieldsSection() {
           <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.primary} />
         </Pressable>
       </View>
-      {fields.map((f) => (
-        <View key={f.id} style={styles.row}>
-          <View>
-            <Text style={styles.rowText}>{f.name}</Text>
-            {f.address && <Text style={styles.rowSub}>{f.address}</Text>}
+      {fields.map((f) => {
+        const establishment = establishments.find((e) => e.id === f.establishmentId);
+        return (
+          <View key={f.id} style={styles.fieldBlock}>
+            <View style={styles.row}>
+              <View>
+                <Text style={styles.rowText}>{f.name}</Text>
+                {f.address && <Text style={styles.rowSub}>{f.address}</Text>}
+                {establishment ? (
+                  <Text style={styles.establishmentLinked}>
+                    🏟️ Dono cadastrado · recebe{' '}
+                    {establishment.payoutMethod === 'pix' ? `via Pix (${establishment.pixKey})` : 'na hora'}
+                  </Text>
+                ) : (
+                  <Text style={styles.rowSub}>Sem dono cadastrado — o rateio fica combinado por fora</Text>
+                )}
+              </View>
+              {establishment ? (
+                <Pressable onPress={() => unlinkFieldEstablishment(f.id)}>
+                  <Text style={styles.linkDanger}>desvincular</Text>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => { setLinkingFieldId(f.id); setLinkError(false); }}>
+                  <Text style={styles.link}>vincular dono</Text>
+                </Pressable>
+              )}
+            </View>
+            {linkingFieldId === f.id && (
+              <View style={styles.linkForm}>
+                <TextField
+                  label=""
+                  value={codeDraft}
+                  onChangeText={(v) => { setCodeDraft(v); setLinkError(false); }}
+                  placeholder="Código do estabelecimento"
+                  autoCapitalize="characters"
+                  style={{ flex: 1 }}
+                />
+                <Button label="Vincular" small onPress={() => handleLink(f.id)} />
+              </View>
+            )}
+            {linkingFieldId === f.id && linkError && (
+              <Text style={styles.linkErrorText}>Código não encontrado.</Text>
+            )}
           </View>
-        </View>
-      ))}
+        );
+      })}
       {open && (
         <View style={styles.form}>
           <TextField label="Nome do campo" value={name} onChangeText={setName} placeholder="Arena Society Central" />
@@ -446,5 +502,24 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
+  },
+  fieldBlock: {
+    paddingVertical: spacing.xs,
+  },
+  establishmentLinked: {
+    color: colors.primary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  linkForm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  linkErrorText: {
+    color: colors.danger,
+    fontSize: 11,
+    marginTop: 2,
   },
 });

@@ -25,6 +25,7 @@ export default function GameDetailScreen() {
   const players = useAppStore((s) => s.players);
   const game = useAppStore((s) => s.games.find((g) => g.id === id));
   const field = useAppStore((s) => s.fields.find((f) => f.id === game?.fieldId));
+  const establishment = useAppStore((s) => s.establishments.find((e) => e.id === field?.establishmentId));
   const attendances = useAppStore(useShallow((s) => s.attendances.filter((a) => a.gameId === id)));
   const teams = useAppStore(useShallow((s) => s.teams.filter((t) => t.gameId === id)));
   const teamPlayers = useAppStore((s) => s.teamPlayers);
@@ -214,6 +215,7 @@ export default function GameDetailScreen() {
         confirmed={confirmed}
         isAdmin={isAdmin}
         currentPlayerId={currentPlayerId}
+        establishment={establishment ?? null}
       />
 
       {isAdmin && (

@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   CURRENT_PLAYER_ID,
   MOCK_ATTENDANCES,
+  MOCK_ESTABLISHMENTS,
   MOCK_FIELDS,
   MOCK_GAMES,
   MOCK_GOALS,
@@ -27,6 +28,8 @@ import type {
   AttendanceStatus,
   AvailabilitySlot,
   DrawMethod,
+  Establishment,
+  EstablishmentPayoutMethod,
   Field,
   FreeAgentInvite,
   Game,
@@ -72,6 +75,7 @@ interface AppState {
   goals: Goal[];
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
   freeAgentInvites: FreeAgentInvite[];
+  establishments: Establishment[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
@@ -106,6 +110,9 @@ interface AppState {
 
   // admin: campos, agenda, vagas
   addField: (peladaId: string, name: string, address: string, notes: string) => Field;
+  /** Vincula um campo a um estabelecimento cadastrado (via código de acesso). false = código não encontrado. */
+  linkFieldToEstablishment: (fieldId: string, accessCode: string) => boolean;
+  unlinkFieldEstablishment: (fieldId: string) => void;
   addSchedule: (input: {
     peladaId: string;
     fieldId: string;
@@ -144,9 +151,15 @@ interface AppState {
   // rateio ("vaquinha") do custo da quadra
   setGameFieldCost: (gameId: string, fieldCost: number | null) => void;
   setPaymentStatus: (gameId: string, playerId: string, status: PaymentStatus, method?: PaymentMethod) => void;
+  /** Um jogador paga a própria parte e/ou a de outros confirmados de uma vez (ex.: pai e filho). */
+  payForPlayers: (gameId: string, payerPlayerId: string, playerIds: string[], method: PaymentMethod) => void;
 
   // duração/limite de gols da partida
   setGameMatchMinutes: (gameId: string, matchMinutes: number) => void;
+
+  // dono de campo/quadra — estabelecimento e conta pra receber o rateio
+  createEstablishment: (ownerPlayerId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => Establishment;
+  updateEstablishment: (establishmentId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -170,6 +183,7 @@ export const useAppStore = create<AppState>()(
       goals: MOCK_GOALS,
       matchQueue: {},
       freeAgentInvites: [],
+      establishments: MOCK_ESTABLISHMENTS,
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -380,9 +394,57 @@ export const useAppStore = create<AppState>()(
       },
 
       addField: (peladaId, name, address, notes) => {
-        const field: Field = { id: uid(), peladaId, name, address: address || null, notes: notes || null, createdBy: get().currentPlayerId };
+        const field: Field = {
+          id: uid(),
+          peladaId,
+          name,
+          address: address || null,
+          notes: notes || null,
+          establishmentId: null,
+          createdBy: get().currentPlayerId,
+        };
         set((state) => ({ fields: [...state.fields, field] }));
         return field;
+      },
+
+      linkFieldToEstablishment: (fieldId, accessCode) => {
+        const normalized = accessCode.trim().toUpperCase();
+        const establishment = get().establishments.find((e) => e.accessCode.toUpperCase() === normalized);
+        if (!establishment) return false;
+        set((state) => ({
+          fields: state.fields.map((f) => (f.id === fieldId ? { ...f, establishmentId: establishment.id } : f)),
+        }));
+        return true;
+      },
+
+      unlinkFieldEstablishment: (fieldId) => {
+        set((state) => ({
+          fields: state.fields.map((f) => (f.id === fieldId ? { ...f, establishmentId: null } : f)),
+        }));
+      },
+
+      createEstablishment: (ownerPlayerId, input) => {
+        const establishment: Establishment = {
+          id: uid(),
+          ownerPlayerId,
+          name: input.name,
+          payoutMethod: input.payoutMethod,
+          pixKey: input.payoutMethod === 'pix' ? input.pixKey : null,
+          accessCode: uid().toUpperCase(),
+          createdAt: nowIso(),
+        };
+        set((state) => ({ establishments: [...state.establishments, establishment] }));
+        return establishment;
+      },
+
+      updateEstablishment: (establishmentId, input) => {
+        set((state) => ({
+          establishments: state.establishments.map((e) =>
+            e.id === establishmentId
+              ? { ...e, name: input.name, payoutMethod: input.payoutMethod, pixKey: input.payoutMethod === 'pix' ? input.pixKey : null }
+              : e,
+          ),
+        }));
       },
 
       addSchedule: (input) => {
@@ -549,16 +611,37 @@ export const useAppStore = create<AppState>()(
           if (existing) {
             return {
               payments: state.payments.map((p) =>
-                p.id === existing.id ? { ...p, status, method: method ?? p.method, paidAt } : p,
+                p.id === existing.id ? { ...p, status, method: method ?? p.method, paidAt, paidByPlayerId: status === 'paid' ? p.paidByPlayerId : null } : p,
               ),
             };
           }
           return {
             payments: [
               ...state.payments,
-              { id: uid(), gameId, playerId, status, method: method ?? null, paidAt } satisfies Payment,
+              { id: uid(), gameId, playerId, status, method: method ?? null, paidAt, paidByPlayerId: null } satisfies Payment,
             ],
           };
+        });
+      },
+
+      payForPlayers: (gameId, payerPlayerId, playerIds, method) => {
+        const paidAt = nowIso();
+        set((state) => {
+          const targets = new Set(playerIds);
+          const untouched = state.payments.filter((p) => !(p.gameId === gameId && targets.has(p.playerId)));
+          const updated = playerIds.map((playerId) => {
+            const existing = state.payments.find((p) => p.gameId === gameId && p.playerId === playerId);
+            return {
+              id: existing?.id ?? uid(),
+              gameId,
+              playerId,
+              status: 'paid' as PaymentStatus,
+              method,
+              paidAt,
+              paidByPlayerId: payerPlayerId === playerId ? null : payerPlayerId,
+            } satisfies Payment;
+          });
+          return { payments: [...untouched, ...updated] };
         });
       },
     }),
@@ -582,6 +665,7 @@ export const useAppStore = create<AppState>()(
         goals: state.goals,
         matchQueue: state.matchQueue,
         freeAgentInvites: state.freeAgentInvites,
+        establishments: state.establishments,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

@@ -193,7 +193,13 @@ export default function PerfilScreen() {
         )}
       </Card>
 
-      <Button label="Sair" variant="outline" onPress={logout} style={{ marginTop: spacing.xl }} />
+      <Button
+        label="🏟️ Sou dono de um campo"
+        variant="secondary"
+        onPress={() => router.push('/estabelecimento')}
+        style={{ marginTop: spacing.xl }}
+      />
+      <Button label="Sair" variant="outline" onPress={logout} style={{ marginTop: spacing.sm }} />
     </Screen>
   );
 }

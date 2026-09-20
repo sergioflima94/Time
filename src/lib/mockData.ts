@@ -1,5 +1,6 @@
 import type {
   Attendance,
+  Establishment,
   Field,
   Game,
   Goal,
@@ -99,8 +100,20 @@ export const MOCK_MEMBERSHIPS: PeladaMembership[] = [
   { peladaId: 'pel2', playerId: 'p9', role: 'member', active: true, joinedAt: iso(now) },
 ];
 
+export const MOCK_ESTABLISHMENTS: Establishment[] = [
+  {
+    id: 'est1',
+    ownerPlayerId: 'p2',
+    name: 'Arena Society Central',
+    payoutMethod: 'pix',
+    pixKey: 'arena.central@pix.com.br',
+    accessCode: 'ARENA-CENTRAL',
+    createdAt: iso(now),
+  },
+];
+
 export const MOCK_FIELDS: Field[] = [
-  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', createdBy: 'p1' },
+  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', establishmentId: 'est1', createdBy: 'p1' },
 ];
 
 export const MOCK_SCHEDULES: Schedule[] = [
@@ -171,6 +184,7 @@ export const MOCK_PAYMENTS: Payment[] = confirmedIds.map((playerId, idx) => {
     status: paid ? 'paid' : 'pending',
     method: paid ? 'pix' : null,
     paidAt: paid ? iso(now) : null,
+    paidByPlayerId: null,
   } satisfies Payment;
 });
 

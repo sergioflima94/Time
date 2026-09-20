@@ -208,21 +208,33 @@ plano Figma; o que já foi decidido abaixo já está implementado direto no cód
   pessoa ao vivo conforme gente confirma/desiste, em vez de travar um valor fixo) é
   o desejado — nenhuma mudança necessária em `PaymentSplitSection`/`getSplitAmount`.
 
-## Próximo grande passo: dono de campo/quadra + e-commerce (ainda não iniciado)
+## Dono de campo/quadra + e-commerce (escopo grande, em fases)
 
-Pedido do dono do produto, escopo grande, aguardando priorização antes de começar a
-implementar:
+Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra receber ✅,
+(2) agendamento multi-campo, (3) e-commerce (loja única do app pra começar).
 
-- **Conta do dono do campo pra receber**: hoje o rateio (`Payment`) só tem status
-  pago/pendente/dispensado, sem destinatário — precisa modelar quem recebe cada
-  pagamento (o dono do campo, outro cobrador, ou "recebe na hora/dinheiro"), inclusive
-  permitindo um jogador pagar parte pra um e parte pra outro.
-- **Estabelecimento com múltiplos campos/esportes**: hoje `Field` é 1 registro simples
-  por pelada; precisa de uma entidade "Estabelecimento" dona de vários campos, cada um
-  com seu esporte (society, futsal, campo etc.), gerenciada por um papel novo ("dono do
-  campo") separado de admin de pelada.
-- **Agendamento**: o dono do campo precisa de uma agenda própria dos horários
-  disponíveis/ocupados de cada campo, que as peladas reservam.
-- **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva.
+- ✅ **Estabelecimento e conta pra receber** (`Establishment` em `src/types/index.ts`,
+  ações em `useAppStore.ts`, tela `app/estabelecimento.tsx` — acessível em Perfil →
+  "🏟️ Sou dono de um campo"): qualquer jogador pode cadastrar um estabelecimento
+  independente de pelada, escolhendo receber via **Pix** (chave cadastrada) ou
+  **combinar na hora**. Gera um `accessCode` único pra compartilhar.
+- ✅ **Campo vinculado ao estabelecimento**: em Admin → Campos, o admin da pelada cola o
+  código do estabelecimento (`useAppStore.linkFieldToEstablishment`) pra vincular aquele
+  campo ao dono real — sem isso, o campo funciona exatamente como antes (rateio
+  combinado por fora). `Field.establishmentId` é opcional/retrocompatível.
+- ✅ **Pagar por mim e por outro jogador**: na tela do jogo, `PaymentSplitSection` mostra
+  um banner "Recebe [estabelecimento] via Pix/na hora" quando o campo tem dono
+  cadastrado, e quem ainda não pagou pode expandir "+ Pagar também por outra pessoa"
+  pra cobrir a própria parte + de outros confirmados numa única ação
+  (`useAppStore.payForPlayers`) — o destino do dinheiro continua sendo só o
+  estabelecimento, o que muda é quem fisicamente paga. A lista "Quem já pagou" mostra
+  "pago por [nome]" quando alguém cobriu a parte de outro.
+- **Estabelecimento com múltiplos campos/esportes + agendamento** (próxima fase): hoje
+  `Establishment` ainda não tem uma lista de campos próprios nem agenda de
+  horários — o vínculo é 1 campo de pelada → 1 estabelecimento, sem marketplace de
+  reserva entre peladas ainda. `Field.sport` também não existe (fica implícito no
+  `Pelada.sport`).
+- **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
+  agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
-  carrinho, checkout, pedidos.
+  carrinho, checkout, pedidos. Loja única do app pra começar (não multi-vendedor).

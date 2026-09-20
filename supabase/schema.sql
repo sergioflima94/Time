@@ -58,12 +58,29 @@ create table pelada_memberships (
   primary key (pelada_id, player_id)
 );
 
+-- ---------------------------------------------------------------------
+-- establishments: dono de campo/quadra — papel independente de pelada.
+-- Cadastra como quer receber o rateio das partidas jogadas no campo dele.
+-- ---------------------------------------------------------------------
+create table establishments (
+  id uuid primary key default gen_random_uuid(),
+  owner_player_id uuid not null references players (id) on delete cascade,
+  name text not null,
+  payout_method text not null default 'in_person' check (payout_method in ('pix', 'in_person')),
+  pix_key text,
+  -- código curto que um admin de pelada usa pra vincular um campo a este estabelecimento
+  access_code text not null unique,
+  created_at timestamptz not null default now()
+);
+
 create table fields (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   name text not null,
   address text,
   notes text,
+  -- vincula esse campo a um estabelecimento cadastrado (dono real, recebe o rateio). null = sem dono cadastrado.
+  establishment_id uuid references establishments (id) on delete set null,
   created_by uuid not null references players (id)
 );
 
@@ -172,6 +189,8 @@ create table payments (
   status text not null default 'pending' check (status in ('pending', 'paid', 'waived')),
   method text check (method in ('pix', 'cash', 'card')),
   paid_at timestamptz,
+  -- quem efetivamente pagou, quando alguém paga a própria parte e a de outro jogador junto. null = o próprio jogador.
+  paid_by_player_id uuid references players (id),
   unique (game_id, player_id)
 );
 
@@ -223,6 +242,7 @@ group by rated_player_id;
 alter table players enable row level security;
 alter table peladas enable row level security;
 alter table pelada_memberships enable row level security;
+alter table establishments enable row level security;
 alter table fields enable row level security;
 alter table schedules enable row level security;
 alter table games enable row level security;
@@ -274,6 +294,16 @@ create policy "memberships_insert_self" on pelada_memberships for insert with ch
 
 create policy "fields_select_members" on fields for select using (is_member_of_pelada(pelada_id));
 create policy "fields_write_admins" on fields for all using (is_admin_of_pelada(pelada_id));
+
+-- establishments: qualquer autenticado pode ler (precisa achar pelo access_code pra
+-- vincular um campo), mas só o dono edita o próprio estabelecimento.
+create policy "establishments_select_all" on establishments for select using (true);
+create policy "establishments_insert_self" on establishments for insert with check (
+  exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
+);
+create policy "establishments_update_owner" on establishments for update using (
+  exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
+);
 
 create policy "schedules_select_members" on schedules for select using (is_member_of_pelada(pelada_id));
 create policy "schedules_write_admins" on schedules for all using (is_admin_of_pelada(pelada_id));

@@ -111,7 +111,27 @@ export interface Field {
   name: string;
   address: string | null;
   notes: string | null;
+  /** Vincula esse campo a um estabelecimento cadastrado (dono de verdade, recebe o rateio). null = sem dono cadastrado, funciona como hoje. */
+  establishmentId: UUID | null;
   createdBy: UUID;
+}
+
+export type EstablishmentPayoutMethod = 'pix' | 'in_person';
+
+/**
+ * Dono de campo/quadra — um papel independente de pelada. Cadastra o estabelecimento
+ * e como quer receber o rateio das partidas jogadas lá (Pix, ou combinar na hora).
+ */
+export interface Establishment {
+  id: UUID;
+  ownerPlayerId: UUID;
+  name: string;
+  payoutMethod: EstablishmentPayoutMethod;
+  /** Chave Pix pra receber — obrigatória quando payoutMethod = 'pix'. */
+  pixKey: string | null;
+  /** Código curto que o admin de uma pelada usa pra vincular um campo a este estabelecimento. */
+  accessCode: string;
+  createdAt: string;
 }
 
 export type RecurrenceType = 'single' | 'weekly' | 'biweekly';
@@ -270,6 +290,8 @@ export interface Payment {
   status: PaymentStatus;
   method: PaymentMethod | null;
   paidAt: string | null;
+  /** Quem efetivamente pagou — pode ser diferente de playerId quando alguém paga a própria parte e a de outro jogador junto. null = o próprio jogador pagou. */
+  paidByPlayerId: UUID | null;
 }
 
 export type FreeAgentInviteStatus = 'pending' | 'accepted' | 'declined';

@@ -10,7 +10,7 @@ import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { formatBRL, getSplitAmount } from '@/lib/payments';
 import { useAppStore } from '@/store/useAppStore';
-import type { Attendance } from '@/types';
+import type { Attendance, Establishment } from '@/types';
 
 interface PaymentSplitSectionProps {
   gameId: string;
@@ -18,16 +18,27 @@ interface PaymentSplitSectionProps {
   confirmed: Attendance[];
   isAdmin: boolean;
   currentPlayerId: string;
+  establishment: Establishment | null;
 }
 
-export function PaymentSplitSection({ gameId, fieldCost, confirmed, isAdmin, currentPlayerId }: PaymentSplitSectionProps) {
+export function PaymentSplitSection({
+  gameId,
+  fieldCost,
+  confirmed,
+  isAdmin,
+  currentPlayerId,
+  establishment,
+}: PaymentSplitSectionProps) {
   const players = useAppStore((s) => s.players);
   const payments = useAppStore(useShallow((s) => s.payments.filter((p) => p.gameId === gameId)));
   const setGameFieldCost = useAppStore((s) => s.setGameFieldCost);
   const setPaymentStatus = useAppStore((s) => s.setPaymentStatus);
+  const payForPlayers = useAppStore((s) => s.payForPlayers);
 
   const [editingCost, setEditingCost] = useState(false);
   const [costDraft, setCostDraft] = useState(fieldCost ? String(fieldCost) : '');
+  const [payingForOthers, setPayingForOthers] = useState(false);
+  const [selectedOthers, setSelectedOthers] = useState<Set<string>>(new Set());
 
   if (!fieldCost && !isAdmin) return null;
 
@@ -35,11 +46,28 @@ export function PaymentSplitSection({ gameId, fieldCost, confirmed, isAdmin, cur
   const paymentOf = (playerId: string) => payments.find((p) => p.playerId === playerId);
   const myPayment = paymentOf(currentPlayerId);
   const iAmConfirmed = confirmed.some((a) => a.playerId === currentPlayerId);
+  const othersUnpaid = confirmed.filter((a) => a.playerId !== currentPlayerId && paymentOf(a.playerId)?.status !== 'paid');
 
   function saveCost() {
     const n = Number(costDraft.replace(',', '.'));
     setGameFieldCost(gameId, n > 0 ? n : null);
     setEditingCost(false);
+  }
+
+  function toggleOther(playerId: string) {
+    setSelectedOthers((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+  }
+
+  function confirmPayment() {
+    const playerIds = [currentPlayerId, ...selectedOthers];
+    payForPlayers(gameId, currentPlayerId, playerIds, 'pix');
+    setPayingForOthers(false);
+    setSelectedOthers(new Set());
   }
 
   return (
@@ -48,6 +76,16 @@ export function PaymentSplitSection({ gameId, fieldCost, confirmed, isAdmin, cur
         <Text style={styles.sectionTitle}>Rateio da quadra</Text>
         {fieldCost && <Text style={styles.total}>{formatBRL(fieldCost)}</Text>}
       </View>
+
+      {establishment && (
+        <View style={styles.recipientRow}>
+          <Ionicons name="business" size={13} color={colors.textMuted} />
+          <Text style={styles.recipientText}>
+            Recebe {establishment.name} ·{' '}
+            {establishment.payoutMethod === 'pix' ? `Pix ${establishment.pixKey}` : 'combinar na hora'}
+          </Text>
+        </View>
+      )}
 
       {isAdmin && (
         <View style={styles.editRow}>
@@ -76,12 +114,41 @@ export function PaymentSplitSection({ gameId, fieldCost, confirmed, isAdmin, cur
           </Text>
 
           {iAmConfirmed && (
-            <View style={styles.myPaymentRow}>
-              <Text style={styles.myPaymentText}>Sua parte: {formatBRL(splitAmount)}</Text>
-              {myPayment?.status === 'paid' ? (
-                <Badge label="Pago" color={colors.primary} />
-              ) : (
-                <Button label="Marcar como pago (Pix)" small onPress={() => setPaymentStatus(gameId, currentPlayerId, 'paid', 'pix')} />
+            <View style={styles.payWrap}>
+              <View style={styles.myPaymentRow}>
+                <Text style={styles.myPaymentText}>Sua parte: {formatBRL(splitAmount)}</Text>
+                {myPayment?.status === 'paid' ? (
+                  <Badge label="Pago" color={colors.primary} />
+                ) : (
+                  <Button
+                    label={selectedOthers.size > 0 ? `Pagar ${formatBRL(splitAmount * (1 + selectedOthers.size))}` : 'Marcar como pago (Pix)'}
+                    small
+                    onPress={confirmPayment}
+                  />
+                )}
+              </View>
+
+              {myPayment?.status !== 'paid' && othersUnpaid.length > 0 && (
+                <Pressable onPress={() => setPayingForOthers((v) => !v)}>
+                  <Text style={styles.link}>
+                    {payingForOthers ? 'Fechar' : '+ Pagar também por outra pessoa'}
+                  </Text>
+                </Pressable>
+              )}
+
+              {payingForOthers && (
+                <View style={styles.othersList}>
+                  {othersUnpaid.map((a) => {
+                    const player = players.find((p) => p.id === a.playerId);
+                    const checked = selectedOthers.has(a.playerId);
+                    return (
+                      <Pressable key={a.playerId} style={styles.otherRow} onPress={() => toggleOther(a.playerId)}>
+                        <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={18} color={checked ? colors.primary : colors.textFaint} />
+                        <Text style={styles.otherName}>{player?.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               )}
             </View>
           )}
@@ -93,9 +160,13 @@ export function PaymentSplitSection({ gameId, fieldCost, confirmed, isAdmin, cur
                 const player = players.find((p) => p.id === a.playerId);
                 const payment = paymentOf(a.playerId);
                 const paid = payment?.status === 'paid';
+                const paidBy = payment?.paidByPlayerId ? players.find((p) => p.id === payment.paidByPlayerId) : null;
                 return (
                   <View key={a.playerId} style={styles.adminRow}>
-                    <Text style={styles.adminRowName}>{player?.name}</Text>
+                    <View>
+                      <Text style={styles.adminRowName}>{player?.name}</Text>
+                      {paid && paidBy && <Text style={styles.paidByText}>pago por {paidBy.name}</Text>}
+                    </View>
                     <Pressable
                       onPress={() => setPaymentStatus(gameId, a.playerId, paid ? 'pending' : 'paid', paid ? undefined : 'cash')}
                     >
@@ -134,6 +205,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  recipientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recipientText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    flex: 1,
+  },
   editRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -148,6 +229,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
+  payWrap: {
+    gap: spacing.xs,
+  },
   myPaymentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -157,6 +241,20 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  othersList: {
+    gap: 4,
+    paddingLeft: spacing.xs,
+  },
+  otherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+  },
+  otherName: {
+    color: colors.text,
+    fontSize: 13,
   },
   adminList: {
     marginTop: spacing.sm,
@@ -179,5 +277,10 @@ const styles = StyleSheet.create({
   adminRowName: {
     color: colors.text,
     fontSize: 14,
+  },
+  paidByText: {
+    color: colors.textFaint,
+    fontSize: 11,
+    marginTop: 1,
   },
 });
