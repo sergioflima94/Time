@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport } from '@/constants/sports';
 import { computeAllOveralls } from '@/lib/ratings';
 import { drawTeams, type DraftedTeam, type DraftPlayer } from '@/lib/teamDraft';
 import { useAppStore } from '@/store/useAppStore';
@@ -21,6 +22,8 @@ const TEAM_NAMES = ['Time A', 'Time B', 'Time C', 'Time D', 'Time E', 'Time F'];
 export default function SorteioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const game = useAppStore((s) => s.games.find((g) => g.id === id));
+  const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game?.peladaId));
+  const hasGoalkeeper = getSport(pelada?.sportId).hasGoalkeeper;
   const players = useAppStore((s) => s.players);
   const attendances = useAppStore(
     useShallow((s) => s.attendances.filter((a) => a.gameId === id && a.status === 'confirmed')),
@@ -29,7 +32,7 @@ export default function SorteioScreen() {
   const setGameTeams = useAppStore((s) => s.setGameTeams);
 
   const [method, setMethod] = useState<DrawMethod>(game?.drawMethod ?? 'rating');
-  const [teamSize, setTeamSize] = useState(String(game?.playersPerTeam ?? 6));
+  const [teamSize, setTeamSize] = useState(String(game?.playersPerTeam ?? getSport(pelada?.sportId).suggestedTeamSize));
   const [preview, setPreview] = useState<DraftedTeam[] | null>(null);
 
   if (!game) {
@@ -50,7 +53,7 @@ export default function SorteioScreen() {
         name: player.name,
         photoUrl: player.avatarUrl,
         overall: overalls[player.id]?.overall ?? 60,
-        isGoalkeeper: player.preferredPosition === 'goalkeeper',
+        isGoalkeeper: hasGoalkeeper && player.preferredPosition === 'goalkeeper',
         confirmedOrder: a.confirmedOrder ?? idx,
       };
     });
@@ -109,7 +112,7 @@ export default function SorteioScreen() {
                 <View key={p.id} style={styles.playerRow}>
                   <Avatar name={p.name} photoUrl={p.photoUrl} size={22} />
                   <Text style={styles.playerLine}>
-                    {p.isGoalkeeper ? '🧤 ' : ''}
+                    {hasGoalkeeper && p.isGoalkeeper ? '🧤 ' : ''}
                     {p.name}
                     {method === 'rating' ? ` (${p.overall})` : ''}
                   </Text>

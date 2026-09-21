@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport, scoreLabel } from '@/constants/sports';
 import { hexToRgba } from '@/lib/color';
 import type { PlayerGoalStats } from '@/lib/goals';
 import { overallTier } from '@/lib/ratings';
@@ -16,6 +17,8 @@ interface PlayerCardProps {
   /** Foto de fundo escolhida pelo jogador (Premium). A cor da faixa sempre aparece por cima, como uma camada — não dá pra escolher a cor da carta. */
   cardBackgroundUrl?: string | null;
   position: 'goalkeeper' | 'line';
+  /** Esporte de referência (SportId) — decide se mostra badge de goleiro e o rótulo gol/ponto. */
+  sportId?: string | null;
   overall: PlayerOverall;
   goalStats?: PlayerGoalStats;
   width?: number;
@@ -27,10 +30,12 @@ export function PlayerCard({
   photoUrl,
   cardBackgroundUrl,
   position,
+  sportId,
   overall,
   goalStats,
   width = 160,
 }: PlayerCardProps) {
+  const sport = getSport(sportId);
   const tier = overallTier(overall.overall);
   const borderColor = tier.color;
   const height = width * 1.35;
@@ -79,7 +84,7 @@ export function PlayerCard({
 
       <View style={styles.header}>
         <Text style={styles.overall}>{overall.overall}</Text>
-        <Text style={styles.position}>{position === 'goalkeeper' ? 'GOL' : 'LIN'}</Text>
+        {sport.hasGoalkeeper && <Text style={styles.position}>{position === 'goalkeeper' ? 'GOL' : 'LIN'}</Text>}
       </View>
 
       <View style={styles.avatarWrap}>
@@ -123,7 +128,7 @@ export function PlayerCard({
       </Text>
       {goalStats && (
         <Text style={styles.goalStats}>
-          ⚽ {goalStats.scored} {goalStats.scored === 1 ? 'gol' : 'gols'} · saldo{' '}
+          {sport.icon} {goalStats.scored} {scoreLabel(sportId, goalStats.scored)} · saldo{' '}
           {goalStats.balance > 0 ? `+${goalStats.balance}` : goalStats.balance}
         </Text>
       )}

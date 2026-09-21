@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport, scoreLabel } from '@/constants/sports';
 import { advanceQueue, type MatchResult } from '@/lib/teamDraft';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -27,6 +28,9 @@ export default function CronometroScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const game = useAppStore((s) => s.games.find((g) => g.id === id));
+  const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game?.peladaId));
+  const sport = getSport(pelada?.sportId);
+  const scoreWord = sport.scoreSingular.charAt(0).toUpperCase() + sport.scoreSingular.slice(1);
   const teams = useAppStore(useShallow((s) => s.teams.filter((t) => t.gameId === id)));
   const teamPlayers = useAppStore((s) => s.teamPlayers);
   const players = useAppStore((s) => s.players);
@@ -145,7 +149,7 @@ export default function CronometroScreen() {
     <Screen>
       <Card style={styles.timerCard}>
         <Text style={styles.timerLabel}>
-          Tempo da rodada{game.matchGoalLimit ? ` · até ${game.matchGoalLimit} gols` : ''}
+          Tempo da rodada{game.matchGoalLimit ? ` · até ${game.matchGoalLimit} ${scoreLabel(sport.id, game.matchGoalLimit)}` : ''}
         </Text>
         <Text style={styles.timer}>{formatTime(remaining)}</Text>
         <View style={styles.progressTrack}>
@@ -189,14 +193,24 @@ export default function CronometroScreen() {
 
         {isAdmin && (
           <View style={styles.goalButtonsRow}>
-            <Button label={`⚽ Gol ${teamA?.name ?? 'Time A'}`} small variant="secondary" onPress={() => setPickingGoalTeam('A')} />
-            <Button label={`⚽ Gol ${teamB?.name ?? 'Time B'}`} small variant="secondary" onPress={() => setPickingGoalTeam('B')} />
+            <Button
+              label={`${sport.icon} ${scoreWord} ${teamA?.name ?? 'Time A'}`}
+              small
+              variant="secondary"
+              onPress={() => setPickingGoalTeam('A')}
+            />
+            <Button
+              label={`${sport.icon} ${scoreWord} ${teamB?.name ?? 'Time B'}`}
+              small
+              variant="secondary"
+              onPress={() => setPickingGoalTeam('B')}
+            />
           </View>
         )}
 
         {isAdmin && pickingGoalTeam && (
           <View style={styles.scorerPicker}>
-            <Text style={styles.scorerPickerTitle}>Quem fez o gol?</Text>
+            <Text style={styles.scorerPickerTitle}>Quem fez o {sport.scoreSingular}?</Text>
             <View style={styles.scorerList}>
               {rosterOf(pickingGoalTeam === 'A' ? teamAId : teamBId).map((r) => (
                 <Pressable
@@ -215,7 +229,7 @@ export default function CronometroScreen() {
                 <View style={styles.scorerUnknownIcon}>
                   <Ionicons name="help" size={14} color={colors.textMuted} />
                 </View>
-                <Text style={styles.scorerOptionText}>Gol contra / sem autor</Text>
+                <Text style={styles.scorerOptionText}>{sport.hasGoalkeeper ? `${scoreWord} contra / sem autor` : `${scoreWord} sem autor`}</Text>
               </Pressable>
             </View>
             <Pressable onPress={() => setPickingGoalTeam(null)}>
@@ -229,13 +243,14 @@ export default function CronometroScreen() {
             {turnGoals.map((g) => (
               <View key={g.id} style={styles.goalsLogRow}>
                 <Text style={styles.goalsLogText}>
-                  ⚽ {g.scorerPlayerId ? playerName(g.scorerPlayerId) : 'Gol contra'} ({g.teamId === teamAId ? teamA?.name : teamB?.name})
+                  {sport.icon} {g.scorerPlayerId ? playerName(g.scorerPlayerId) : `${scoreWord} contra`} (
+                  {g.teamId === teamAId ? teamA?.name : teamB?.name})
                 </Text>
               </View>
             ))}
             {isAdmin && (
               <Pressable onPress={() => currentTurn && undoLastGoal(currentTurn.id)}>
-                <Text style={styles.undoLink}>Desfazer último gol</Text>
+                <Text style={styles.undoLink}>Desfazer último {sport.scoreSingular}</Text>
               </Pressable>
             )}
           </View>

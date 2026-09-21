@@ -24,6 +24,8 @@ export interface Player {
   avatarUrl: string | null;
   phone: string | null;
   preferredPosition: PlayerPosition;
+  /** Esportes favoritos (SportIds de src/constants/sports.ts) — jogador multi-esporte, pode marcar mais de um. */
+  favoriteSports: string[];
   /**
    * Foto escolhida pelo jogador como fundo da própria carta (exclusivo Premium). A cor
    * da faixa (bronze/prata/ouro/especial, decidida pela nota geral) sempre aparece por
@@ -88,7 +90,10 @@ export interface Pelada {
   id: UUID;
   name: string;
   description: string | null;
-  sport: 'society' | 'futsal' | 'campo';
+  /** Esporte da pelada (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto), cor de destaque e se o sorteio usa goleiro. */
+  sportId: string;
+  /** Só relevante quando sportId === 'futebol' — variante do campo. */
+  footballVariant: 'society' | 'futsal' | 'campo';
   defaultMaxPlayers: number;
   defaultMatchMinutes: number;
   /** Código curto pra convidar gente nova pra pelada (link/compartilhamento). */
@@ -324,6 +329,8 @@ export interface Championship {
   id: UUID;
   establishmentId: UUID;
   name: string;
+  /** Esporte do campeonato (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto), cor e se as partidas usam goleiro. */
+  sportId: string;
   format: ChampionshipFormat;
   /** Campo do estabelecimento onde as partidas acontecem (opcional — pode definir por partida depois). */
   fieldId: UUID | null;

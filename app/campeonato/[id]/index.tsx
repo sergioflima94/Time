@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport, scoreLabel } from '@/constants/sports';
 import { computeStandings, computeTopScorers, formatChampionshipStatus } from '@/lib/championship';
 import { formatBRL } from '@/lib/payments';
 import { useAppStore } from '@/store/useAppStore';
@@ -35,6 +36,7 @@ export default function ChampionshipScreen() {
     );
   }
 
+  const sport = getSport(championship.sportId);
   const isOwner = establishment?.ownerPlayerId === currentPlayerId;
   const teamName = (teamId: string | null) => teams.find((t) => t.id === teamId)?.name ?? '?';
   const teamColor = (teamId: string | null) => teams.find((t) => t.id === teamId)?.color ?? colors.textFaint;
@@ -68,8 +70,8 @@ export default function ChampionshipScreen() {
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{championship.name}</Text>
-          <Text style={styles.subtitle}>{championship.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
+          <Text style={styles.title}>{sport.icon} {championship.name}</Text>
+          <Text style={styles.subtitle}>{sport.label} · {championship.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
         </View>
         <Badge label={formatChampionshipStatus(championship.status)} color={championship.status === 'registration' ? colors.secondary : colors.primary} />
       </View>
@@ -124,7 +126,7 @@ export default function ChampionshipScreen() {
             <Text style={styles.standingsCell}>V</Text>
             <Text style={styles.standingsCell}>E</Text>
             <Text style={styles.standingsCell}>D</Text>
-            <Text style={styles.standingsCell}>SG</Text>
+            <Text style={styles.standingsCell}>{sport.hasGoalkeeper ? 'SG' : 'SP'}</Text>
           </View>
           {standings.map((row, idx) => (
             <View key={row.team.id} style={styles.standingsRow}>
@@ -144,14 +146,14 @@ export default function ChampionshipScreen() {
 
       {topScorers.length > 0 && (
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Artilharia</Text>
+          <Text style={styles.sectionTitle}>{sport.hasGoalkeeper ? 'Artilharia' : 'Maiores pontuadores'}</Text>
           {topScorers.map((row, idx) => {
             const player = players.find((p) => p.id === row.playerId);
             return (
               <View key={row.playerId} style={styles.scorerRow}>
                 <Avatar name={player?.name ?? '?'} photoUrl={player?.avatarUrl} size={28} />
                 <Text style={styles.scorerName}>{idx + 1}. {player?.name}</Text>
-                <Text style={styles.hint}>⚽ {row.goals}</Text>
+                <Text style={styles.hint}>{sport.icon} {row.goals} {scoreLabel(sport.id, row.goals)}</Text>
               </View>
             );
           })}

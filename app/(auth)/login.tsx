@@ -26,7 +26,7 @@ export default function LoginScreen() {
           <Ionicons name="football" size={40} color={colors.bg} />
         </View>
         <Text style={styles.title}>Pelada</Text>
-        <Text style={styles.subtitle}>Times, chamada e cronômetro pro seu futebol amador</Text>
+        <Text style={styles.subtitle}>Times, chamada e cronômetro pro seu esporte amador — futebol, vôlei e mais</Text>
       </View>
 
       {isMockMode && (

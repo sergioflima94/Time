@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors, spacing } from '@/constants/theme';
+import { getSport, scoreLabel } from '@/constants/sports';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { formatGameDateShort } from '@/lib/format';
 import { computePlayerGoalStats, computePlayerGoalStatsByGroup } from '@/lib/goals';
@@ -76,6 +77,7 @@ export default function PerfilScreen() {
           photoUrl={player.avatarUrl}
           cardBackgroundUrl={player.cardBackgroundUrl}
           position={player.preferredPosition}
+          sportId={player.favoriteSports[0]}
           overall={overall}
           goalStats={goalStats}
           width={190}
@@ -143,21 +145,25 @@ export default function PerfilScreen() {
 
       {myPeladas.length > 1 && (
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Gols por grupo</Text>
+          <Text style={styles.sectionTitle}>Gols/pontos por grupo</Text>
           <View style={styles.goalGroupRow}>
             <Text style={styles.goalGroupName}>Geral (todos os grupos)</Text>
             <Text style={styles.goalGroupStats}>
-              ⚽ {goalStats.scored} · saldo {goalStats.balance > 0 ? `+${goalStats.balance}` : goalStats.balance}
+              🏆 {goalStats.scored} · saldo {goalStats.balance > 0 ? `+${goalStats.balance}` : goalStats.balance}
             </Text>
           </View>
-          {goalStatsByGroup.map((g) => (
-            <View key={g.peladaId} style={styles.goalGroupRow}>
-              <Text style={styles.goalGroupName}>{g.peladaName}</Text>
-              <Text style={styles.goalGroupStats}>
-                ⚽ {g.stats.scored} · saldo {g.stats.balance > 0 ? `+${g.stats.balance}` : g.stats.balance}
-              </Text>
-            </View>
-          ))}
+          {goalStatsByGroup.map((g) => {
+            const groupSport = getSport(myPeladas.find((p) => p.id === g.peladaId)?.sportId);
+            return (
+              <View key={g.peladaId} style={styles.goalGroupRow}>
+                <Text style={styles.goalGroupName}>{g.peladaName}</Text>
+                <Text style={styles.goalGroupStats}>
+                  {groupSport.icon} {g.stats.scored} {scoreLabel(groupSport.id, g.stats.scored)} · saldo{' '}
+                  {g.stats.balance > 0 ? `+${g.stats.balance}` : g.stats.balance}
+                </Text>
+              </View>
+            );
+          })}
         </Card>
       )}
 

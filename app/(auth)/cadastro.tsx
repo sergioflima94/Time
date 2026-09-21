@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
+import { SPORTS } from '@/constants/sports';
 import { pickProfilePhoto } from '@/lib/photo';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -21,6 +22,7 @@ export default function CadastroScreen() {
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState<PlayerPosition>('line');
+  const [favoriteSports, setFavoriteSports] = useState<string[]>(['futebol']);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [pickingPhoto, setPickingPhoto] = useState(false);
 
@@ -31,12 +33,23 @@ export default function CadastroScreen() {
     setPickingPhoto(false);
   }
 
+  function toggleFavoriteSport(sportId: string) {
+    setFavoriteSports((current) => {
+      if (current.includes(sportId)) {
+        const next = current.filter((id) => id !== sportId);
+        return next.length > 0 ? next : current;
+      }
+      return [...current, sportId];
+    });
+  }
+
   function handleSubmit() {
     updateProfile({
       name: name.trim() || 'Novo Jogador',
       nickname: nickname.trim() || null,
       phone: phone.trim() || null,
       preferredPosition: position,
+      favoriteSports,
     });
     if (photoUri) setPlayerPhoto(currentPlayerId, photoUri);
     login();
@@ -79,6 +92,24 @@ export default function CadastroScreen() {
         >
           <Text style={[styles.positionText, position === 'goalkeeper' && styles.positionTextActive]}>Goleiro</Text>
         </Pressable>
+      </View>
+
+      <Text style={styles.label}>Esportes favoritos</Text>
+      <Text style={styles.sportsHint}>Pode escolher mais de um — você é multi-esporte</Text>
+      <View style={styles.sportsGrid}>
+        {SPORTS.map((sport) => {
+          const active = favoriteSports.includes(sport.id);
+          return (
+            <Pressable
+              key={sport.id}
+              onPress={() => toggleFavoriteSport(sport.id)}
+              style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+            >
+              <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+              <Text style={[styles.sportChipText, active && { color: sport.color }]}>{sport.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <Button label="Criar conta e entrar" onPress={handleSubmit} disabled={!name.trim()} style={{ marginTop: spacing.xl }} />
@@ -171,5 +202,35 @@ const styles = StyleSheet.create({
   },
   positionTextActive: {
     color: colors.primary,
+  },
+  sportsHint: {
+    color: colors.textFaint,
+    fontSize: 11,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  sportsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  sportChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  sportChipIcon: {
+    fontSize: 15,
+  },
+  sportChipText: {
+    color: colors.textMuted,
+    fontWeight: '600',
+    fontSize: 13,
   },
 });

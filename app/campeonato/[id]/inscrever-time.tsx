@@ -12,6 +12,7 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport } from '@/constants/sports';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { pickProfilePhoto } from '@/lib/photo';
 import { generateTeamLogo } from '@/lib/teamLogo';
@@ -136,7 +137,7 @@ export default function InscreverTimeScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Inscrever time · {championship.name}</Text>
+        <Text style={styles.headerTitle}>{getSport(championship.sportId).icon} Inscrever time · {championship.name}</Text>
       </View>
 
       <SegmentedControl<'pelada' | 'avulso'>

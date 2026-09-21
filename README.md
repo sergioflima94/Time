@@ -244,7 +244,7 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   `Establishment` ainda não tem uma lista de campos próprios nem agenda de
   horários — o vínculo é 1 campo de pelada → 1 estabelecimento, sem marketplace de
   reserva entre peladas ainda. `Field.sport` também não existe (fica implícito no
-  `Pelada.sport`).
+  `Pelada.sportId`, ver "Multi-esporte" abaixo).
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
@@ -264,3 +264,35 @@ cliente chama por `supabase.functions.invoke(...)`.
 4. Sem Supabase configurado (modo mock) ou se a função falhar, o app cai automaticamente
    num gerador de emblema de exemplo (`api.dicebear.com`, grátis, sem chave) — assim dá
    pra testar o fluxo inteiro sem precisar de conta na OpenAI.
+
+## Multi-esporte
+
+O app não é só de futebol — cada pelada, campeonato e jogador tem um esporte associado,
+e a terminologia, cor de destaque e o sorteio de times se adaptam de acordo
+(`src/constants/sports.ts` é a fonte única de verdade: `SPORTS` lista os 5 esportes
+suportados — Futebol, Vôlei, Basquete, Handebol e Futevôlei — cada um com ícone, cor,
+`hasGoalkeeper` e o rótulo de pontuação singular/plural).
+
+- **Jogador**: no cadastro (`app/(auth)/cadastro.tsx`), escolhe um ou mais
+  **esportes favoritos** (`Player.favoriteSports: string[]`) — é multi-esporte, não
+  trava em um só. Usado como sugestão de terminologia na própria carta e pra filtrar
+  o pool de "jogadores livres" (só aparece pra convite em jogos do esporte que ele
+  marcou como favorito).
+- **Pelada**: tem um `sportId` fixo (em Admin → "Sobre a pelada"), decidido na criação
+  do grupo. Quando é `'futebol'`, ainda guarda a variante (`footballVariant`:
+  society/futsal/campo) só pra contexto, sem afetar terminologia/goleiro. A cor de
+  destaque do esporte aparece no nome da pelada (`PeladaSwitcher`) e como faixa lateral
+  nos cards de jogo (`GameCard`).
+- **Campeonato**: o dono do estabelecimento escolhe o esporte ao criar
+  (`app/estabelecimento.tsx`), independente do esporte das peladas donas dos times
+  inscritos — um campeonato de vôlei pode aceitar um time avulso mesmo que a pelada de
+  origem de algum jogador seja de futebol.
+- **Terminologia gol/ponto**: `scoreLabel(sportId, count)` decide "gol/gols" (futebol,
+  handebol) vs. "ponto/pontos" (vôlei, basquete, futevôlei) — usado no placar ao vivo
+  (`app/jogo/[id]/cronometro.tsx`, `app/campeonato/[id]/partida/[matchId].tsx`), na
+  carta do jogador e na artilharia/classificação do campeonato.
+- **Sorteio sem goleiro**: `src/lib/teamDraft.ts` já era agnóstico a isso — a
+  distribuição de goleiros só roda se a lista de goleiros não estiver vazia. A tela de
+  sorteio (`app/jogo/[id]/sorteio.tsx`) agora só marca um jogador como goleiro
+  (`isGoalkeeper`) quando o esporte da pelada tem goleiro (`hasGoalkeeper`); pra vôlei,
+  basquete e futevôlei, todo mundo entra como "linha" e o distintivo 🧤 nem aparece.

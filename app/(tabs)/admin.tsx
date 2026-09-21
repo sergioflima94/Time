@@ -11,6 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
+import { SPORTS } from '@/constants/sports';
 import { useCurrentPelada } from '@/hooks/useCurrentPelada';
 import { drawMethodLabel, formatGameDateShort, recurrenceLabel, WEEKDAY_LABELS } from '@/lib/format';
 import { formatBRL } from '@/lib/payments';
@@ -53,12 +54,13 @@ function PeladaInfoSection() {
 
   const [name, setName] = useState(pelada.name);
   const [description, setDescription] = useState(pelada.description ?? '');
+  const [sportId, setSportId] = useState(pelada.sportId);
 
-  const dirty = name.trim() !== pelada.name || description.trim() !== (pelada.description ?? '');
+  const dirty = name.trim() !== pelada.name || description.trim() !== (pelada.description ?? '') || sportId !== pelada.sportId;
 
   function handleSave() {
     if (!name.trim()) return;
-    updatePeladaInfo(pelada.id, { name: name.trim(), description: description.trim() || null });
+    updatePeladaInfo(pelada.id, { name: name.trim(), description: description.trim() || null, sportId });
   }
 
   return (
@@ -72,6 +74,22 @@ function PeladaInfoSection() {
         placeholder="Ex: Society toda quinta às 20h, time completo"
         multiline
       />
+      <Text style={styles.sportLabel}>Esporte</Text>
+      <View style={styles.sportsGrid}>
+        {SPORTS.map((sport) => {
+          const active = sportId === sport.id;
+          return (
+            <Pressable
+              key={sport.id}
+              onPress={() => setSportId(sport.id)}
+              style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+            >
+              <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+              <Text style={[styles.sportChipText, active && { color: sport.color }]}>{sport.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
       <Button label="Salvar" small onPress={handleSave} disabled={!dirty || !name.trim()} />
     </Card>
   );
@@ -453,6 +471,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sportLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  sportsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  sportChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  sportChipIcon: {
+    fontSize: 15,
+  },
+  sportChipText: {
+    color: colors.textMuted,
+    fontWeight: '600',
+    fontSize: 13,
   },
   row: {
     flexDirection: 'row',

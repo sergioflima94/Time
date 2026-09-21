@@ -11,6 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
+import { SPORTS } from '@/constants/sports';
 import { formatChampionshipStatus } from '@/lib/championship';
 import { useAppStore } from '@/store/useAppStore';
 import type { ChampionshipFormat, EstablishmentPayoutMethod } from '@/types';
@@ -117,6 +118,7 @@ function ChampionshipsSection({ establishmentId }: { establishmentId: string }) 
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [sportId, setSportId] = useState('futebol');
   const [format, setFormat] = useState<ChampionshipFormat>('round_robin');
   const [maxTeams, setMaxTeams] = useState('8');
   const [entryFee, setEntryFee] = useState('');
@@ -126,6 +128,7 @@ function ChampionshipsSection({ establishmentId }: { establishmentId: string }) 
     if (!name.trim()) return;
     const championship = createChampionship(establishmentId, currentPlayerId, {
       name: name.trim(),
+      sportId,
       format,
       fieldId: fields[0]?.id ?? null,
       maxTeams: maxTeams.trim() ? Number(maxTeams) : null,
@@ -147,20 +150,39 @@ function ChampionshipsSection({ establishmentId }: { establishmentId: string }) 
         </Pressable>
       </View>
 
-      {championships.map((c) => (
-        <Pressable key={c.id} style={styles.champRow} onPress={() => router.push(`/campeonato/${c.id}`)}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.champName}>{c.name}</Text>
-            <Text style={styles.hint}>{c.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
-          </View>
-          <Badge label={formatChampionshipStatus(c.status)} color={c.status === 'registration' ? colors.secondary : colors.primary} />
-        </Pressable>
-      ))}
+      {championships.map((c) => {
+        const sport = SPORTS.find((s) => s.id === c.sportId) ?? SPORTS[0];
+        return (
+          <Pressable key={c.id} style={styles.champRow} onPress={() => router.push(`/campeonato/${c.id}`)}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.champName}>{sport.icon} {c.name}</Text>
+              <Text style={styles.hint}>{sport.label} · {c.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
+            </View>
+            <Badge label={formatChampionshipStatus(c.status)} color={c.status === 'registration' ? colors.secondary : colors.primary} />
+          </Pressable>
+        );
+      })}
       {championships.length === 0 && !open && <Text style={styles.hint}>Nenhum campeonato criado ainda.</Text>}
 
       {open && (
         <View style={styles.form}>
           <TextField label="Nome do campeonato" value={name} onChangeText={setName} placeholder="Copa Arena Society Central" />
+          <Text style={styles.hint}>Esporte</Text>
+          <View style={styles.sportsGrid}>
+            {SPORTS.map((sport) => {
+              const active = sportId === sport.id;
+              return (
+                <Pressable
+                  key={sport.id}
+                  onPress={() => setSportId(sport.id)}
+                  style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+                >
+                  <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+                  <Text style={[styles.sportChipText, active && { color: sport.color }]}>{sport.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <SegmentedControl<ChampionshipFormat>
             label="Formato"
             options={[
@@ -252,6 +274,30 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
+  },
+  sportsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  sportChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  sportChipIcon: {
+    fontSize: 15,
+  },
+  sportChipText: {
+    color: colors.textMuted,
+    fontWeight: '600',
+    fontSize: 13,
   },
   form: {
     marginTop: spacing.md,

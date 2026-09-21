@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport } from '@/constants/sports';
 import { useAppStore } from '@/store/useAppStore';
 
 function formatTime(totalSeconds: number): string {
@@ -34,6 +35,8 @@ export default function ChampionshipMatchScreen() {
   const undoLastChampionshipGoal = useAppStore((s) => s.undoLastChampionshipGoal);
   const endChampionshipMatch = useAppStore((s) => s.endChampionshipMatch);
 
+  const sport = getSport(championship?.sportId);
+  const scoreWord = sport.scoreSingular.charAt(0).toUpperCase() + sport.scoreSingular.slice(1);
   const isOwner = establishment?.ownerPlayerId === currentPlayerId;
   const matchSeconds = (championship?.matchMinutes ?? 10) * 60;
   const [remaining, setRemaining] = useState(matchSeconds);
@@ -151,14 +154,14 @@ export default function ChampionshipMatchScreen() {
 
         {isOwner && !isFinished && (
           <View style={styles.goalButtonsRow}>
-            <Button label={`⚽ Gol ${teamA?.name ?? 'A'}`} small variant="secondary" onPress={() => setPickingGoalTeam('A')} />
-            <Button label={`⚽ Gol ${teamB?.name ?? 'B'}`} small variant="secondary" onPress={() => setPickingGoalTeam('B')} />
+            <Button label={`${sport.icon} ${scoreWord} ${teamA?.name ?? 'A'}`} small variant="secondary" onPress={() => setPickingGoalTeam('A')} />
+            <Button label={`${sport.icon} ${scoreWord} ${teamB?.name ?? 'B'}`} small variant="secondary" onPress={() => setPickingGoalTeam('B')} />
           </View>
         )}
 
         {isOwner && pickingGoalTeam && (
           <View style={styles.scorerPicker}>
-            <Text style={styles.scorerPickerTitle}>Quem fez o gol?</Text>
+            <Text style={styles.scorerPickerTitle}>Quem fez o {sport.scoreSingular}?</Text>
             {rosterOf(pickingGoalTeam === 'A' ? match.teamAId ?? undefined : match.teamBId ?? undefined).map((r) => (
               <Pressable key={r.playerId} style={styles.scorerOption} onPress={() => handleGoal(pickingGoalTeam === 'A' ? match.teamAId! : match.teamBId!, r.playerId)}>
                 <Avatar name={playerName(r.playerId)} photoUrl={playerPhoto(r.playerId)} size={22} />
@@ -166,7 +169,7 @@ export default function ChampionshipMatchScreen() {
               </Pressable>
             ))}
             <Pressable style={styles.scorerOption} onPress={() => handleGoal(pickingGoalTeam === 'A' ? match.teamAId! : match.teamBId!, null)}>
-              <Text style={styles.scorerOptionText}>Gol contra / sem autor</Text>
+              <Text style={styles.scorerOptionText}>{sport.hasGoalkeeper ? `${scoreWord} contra / sem autor` : `${scoreWord} sem autor`}</Text>
             </Pressable>
             <Pressable onPress={() => setPickingGoalTeam(null)}>
               <Text style={styles.cancelPicker}>Cancelar</Text>
@@ -178,12 +181,13 @@ export default function ChampionshipMatchScreen() {
           <View style={styles.goalsLog}>
             {goals.map((g) => (
               <Text key={g.id} style={styles.goalsLogText}>
-                ⚽ {g.scorerPlayerId ? playerName(g.scorerPlayerId) : 'Gol contra'} ({g.teamId === match.teamAId ? teamA?.name : teamB?.name})
+                {sport.icon} {g.scorerPlayerId ? playerName(g.scorerPlayerId) : `${scoreWord} contra`} (
+                {g.teamId === match.teamAId ? teamA?.name : teamB?.name})
               </Text>
             ))}
             {isOwner && !isFinished && (
               <Pressable onPress={() => undoLastChampionshipGoal(match.id)}>
-                <Text style={styles.undoLink}>Desfazer último gol</Text>
+                <Text style={styles.undoLink}>Desfazer último {sport.scoreSingular}</Text>
               </Pressable>
             )}
           </View>

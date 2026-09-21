@@ -56,6 +56,7 @@ export default function JogadoresScreen() {
               photoUrl={item.avatarUrl}
               cardBackgroundUrl={item.cardBackgroundUrl}
               position={item.preferredPosition}
+              sportId={pelada.sportId}
               overall={overalls[item.id]}
               goalStats={goalStats[item.id]}
               width={150}

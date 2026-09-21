@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { colors, spacing } from '@/constants/theme';
+import { getSport } from '@/constants/sports';
 import { formatGameDateLong } from '@/lib/format';
 import { useAppStore } from '@/store/useAppStore';
 import type { Game } from '@/types';
@@ -20,6 +21,8 @@ const STATUS_META: Record<Game['status'], { label: string; color: string }> = {
 
 export function GameCard({ game }: { game: Game }) {
   const field = useAppStore((s) => s.fields.find((f) => f.id === game.fieldId));
+  const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game.peladaId));
+  const sport = getSport(pelada?.sportId);
   const confirmedCount = useAppStore(
     (s) => s.attendances.filter((a) => a.gameId === game.id && a.status === 'confirmed').length,
   );
@@ -27,7 +30,7 @@ export function GameCard({ game }: { game: Game }) {
 
   return (
     <Pressable onPress={() => router.push(`/jogo/${game.id}`)}>
-      <Card style={styles.card}>
+      <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: sport.color }]}>
         <View style={styles.topRow}>
           <Badge label={status.label} color={status.color} />
           <View style={styles.vagas}>

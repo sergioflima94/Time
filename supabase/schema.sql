@@ -24,6 +24,9 @@ create table players (
   is_guest boolean not null default false,
   phone text,
   preferred_position text not null default 'line' check (preferred_position in ('goalkeeper', 'line')),
+  -- esportes favoritos (multi-esporte) — SportIds de src/constants/sports.ts. Usado como sugestão
+  -- de terminologia (gol/ponto) na carta e pra filtrar o pool de jogadores livres por esporte.
+  favorite_sports text[] not null default array['futebol'],
   -- bolsa de jogadores livres (opt-in) — ver src/lib/geo.ts
   free_agent_opt_in boolean not null default false,
   free_agent_radius_km numeric,
@@ -41,7 +44,11 @@ create table peladas (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
-  sport text not null default 'society' check (sport in ('society', 'futsal', 'campo')),
+  -- esporte da pelada (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto),
+  -- cor de destaque e se o sorteio de times usa goleiro.
+  sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  -- só relevante quando sport_id = 'futebol' — variante do campo.
+  football_variant text not null default 'society' check (football_variant in ('society', 'futsal', 'campo')),
   default_max_players int not null default 16,
   default_match_minutes int not null default 10,
   invite_code text not null unique,
@@ -223,6 +230,83 @@ create table free_agent_invites (
 );
 
 -- ---------------------------------------------------------------------
+-- championships: torneios organizados por um estabelecimento (dono de campo).
+-- Aceita times vindos de uma pelada existente ou times avulsos (criados só pro campeonato).
+-- Formato pontos corridos ou mata-mata — ver src/lib/championship.ts
+-- ---------------------------------------------------------------------
+create table championships (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  name text not null,
+  -- esporte do campeonato (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto),
+  -- cor de destaque e se as partidas usam goleiro.
+  sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  format text not null check (format in ('round_robin', 'knockout')),
+  field_id uuid references fields (id) on delete set null,
+  max_teams int,
+  entry_fee numeric(10, 2),
+  registration_code text not null unique,
+  registration_deadline timestamptz,
+  match_minutes int not null default 10,
+  status text not null default 'registration' check (status in ('registration', 'in_progress', 'finished')),
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now()
+);
+
+create table championship_teams (
+  id uuid primary key default gen_random_uuid(),
+  championship_id uuid not null references championships (id) on delete cascade,
+  name text not null,
+  color text not null default '#22C55E',
+  -- emblema do time — escolhido da galeria ou gerado por IA (ver src/lib/teamLogo.ts). null = usa só a cor.
+  logo_url text,
+  -- null = time avulso, criado só pra esse campeonato.
+  pelada_id uuid references peladas (id) on delete set null,
+  registered_by_player_id uuid not null references players (id),
+  status text not null default 'pending' check (status in ('pending', 'confirmed')),
+  created_at timestamptz not null default now()
+);
+
+create table championship_team_players (
+  championship_team_id uuid not null references championship_teams (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  is_goalkeeper boolean not null default false,
+  primary key (championship_team_id, player_id)
+);
+
+create table championship_matches (
+  id uuid primary key default gen_random_uuid(),
+  championship_id uuid not null references championships (id) on delete cascade,
+  round int not null,
+  round_label text not null,
+  -- null enquanto aguarda o time avançar (mata-mata: vencedor de outra partida ainda não decidido)
+  team_a_id uuid references championship_teams (id),
+  team_b_id uuid references championship_teams (id),
+  -- mata-mata: de qual partida vem o time A / B, pra propagar o vencedor automaticamente
+  feeds_from_match_a_id uuid references championship_matches (id),
+  feeds_from_match_b_id uuid references championship_matches (id),
+  field_id uuid references fields (id),
+  scheduled_at timestamptz,
+  started_at timestamptz,
+  ended_at timestamptz,
+  status text not null default 'scheduled' check (status in ('scheduled', 'in_progress', 'finished')),
+  -- só preenchido se precisou de pênaltis pra desempatar (mata-mata)
+  penalty_score_a int,
+  penalty_score_b int,
+  -- null = empate (só possível em pontos corridos) ou partida ainda não terminou
+  winner_team_id uuid references championship_teams (id)
+);
+
+-- gol/ponto marcado numa partida de campeonato — separado de goals (que é de jogo de pelada)
+create table championship_goals (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references championship_matches (id) on delete cascade,
+  team_id uuid not null references championship_teams (id),
+  scorer_player_id uuid references players (id),
+  scored_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------
 -- View: nota geral do jogador estilo "carta de FIFA" (0-99)
 -- ---------------------------------------------------------------------
 create view player_overalls as
@@ -255,6 +339,11 @@ alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
 alter table free_agent_invites enable row level security;
+alter table championships enable row level security;
+alter table championship_teams enable row level security;
+alter table championship_team_players enable row level security;
+alter table championship_matches enable row level security;
+alter table championship_goals enable row level security;
 
 create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
@@ -388,4 +477,53 @@ create policy "free_agent_invites_write_admin" on free_agent_invites for insert 
 create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites for update using (
   is_admin_of_pelada(pelada_id)
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
+);
+
+create function is_owner_of_championship(p_championship_id uuid) returns boolean as $$
+  select exists (
+    select 1 from championships c
+    join establishments e on e.id = c.establishment_id
+    join players p on p.id = e.owner_player_id
+    where c.id = p_championship_id and p.auth_user_id = auth.uid()
+  );
+$$ language sql security definer stable;
+
+-- championships: público pra leitura (precisa achar pelo registration_code pra inscrever
+-- um time), mas só o dono do estabelecimento organiza/edita.
+create policy "championships_select_all" on championships for select using (true);
+create policy "championships_write_owner" on championships for all using (
+  exists (select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
+    select id from players where auth_user_id = auth.uid()
+  ))
+);
+
+-- championship_teams: leitura pública; o dono do campeonato ou quem inscreveu o time edita.
+create policy "championship_teams_select_all" on championship_teams for select using (true);
+create policy "championship_teams_insert_authenticated" on championship_teams for insert with check (auth.uid() is not null);
+create policy "championship_teams_update_owner_or_registrant" on championship_teams for update using (
+  is_owner_of_championship(championship_id)
+  or exists (select 1 from players p where p.id = registered_by_player_id and p.auth_user_id = auth.uid())
+);
+create policy "championship_teams_delete_owner_or_registrant" on championship_teams for delete using (
+  is_owner_of_championship(championship_id)
+  or exists (select 1 from players p where p.id = registered_by_player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "championship_team_players_select_all" on championship_team_players for select using (true);
+create policy "championship_team_players_write_owner_or_registrant" on championship_team_players for all using (
+  exists (
+    select 1 from championship_teams t
+    where t.id = championship_team_id
+    and (is_owner_of_championship(t.championship_id) or exists (
+      select 1 from players p where p.id = t.registered_by_player_id and p.auth_user_id = auth.uid()
+    ))
+  )
+);
+
+create policy "championship_matches_select_all" on championship_matches for select using (true);
+create policy "championship_matches_write_owner" on championship_matches for all using (is_owner_of_championship(championship_id));
+
+create policy "championship_goals_select_all" on championship_goals for select using (true);
+create policy "championship_goals_write_owner" on championship_goals for all using (
+  exists (select 1 from championship_matches m where m.id = match_id and is_owner_of_championship(m.championship_id))
 );

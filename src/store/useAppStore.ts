@@ -75,6 +75,7 @@ function makeGuestPlayer(name: string): Player {
     avatarUrl: null,
     phone: null,
     preferredPosition: 'line',
+    favoriteSports: ['futebol'],
     cardBackgroundUrl: null,
     premiumSince: null,
     premiumUntil: null,
@@ -176,10 +177,10 @@ interface AppState {
 
   isAdmin: (playerId: string, peladaId: string) => boolean;
 
-  updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null }) => void;
+  updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
-  updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null }) => void;
+  updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null; sportId: string }) => void;
   setCurrentPelada: (peladaId: string) => void;
   /** Entra numa pelada usando o código de convite. Retorna a pelada encontrada, ou null se o código não existir. */
   joinPeladaByCode: (code: string, playerId: string) => Pelada | null;
@@ -205,7 +206,7 @@ interface AppState {
   createChampionship: (
     establishmentId: string,
     createdBy: string,
-    input: { name: string; format: ChampionshipFormat; fieldId: string | null; maxTeams: number | null; entryFee: number | null; matchMinutes: number },
+    input: { name: string; sportId: string; format: ChampionshipFormat; fieldId: string | null; maxTeams: number | null; entryFee: number | null; matchMinutes: number },
   ) => Championship;
   /** Inscreve um time (de uma pelada existente, ou avulso) via código do campeonato. playerNames = jogadores sem conta (viram convidados). */
   registerChampionshipTeam: (
@@ -498,6 +499,7 @@ export const useAppStore = create<AppState>()(
           id: uid(),
           establishmentId,
           name: input.name,
+          sportId: input.sportId,
           format: input.format,
           fieldId: input.fieldId,
           maxTeams: input.maxTeams,

@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getSport } from '@/constants/sports';
 import { findNearbyFreeAgents, formatDistance } from '@/lib/geo';
 import { getCurrentLocation } from '@/lib/location';
 import { useAppStore } from '@/store/useAppStore';
@@ -22,7 +23,11 @@ export function NearbyFreeAgentsSection({ game, currentPlayerId, excludePlayerId
   const [locating, setLocating] = useState(false);
 
   const me = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId));
-  const players = useAppStore(useShallow((s) => s.players.filter((p) => p.freeAgentOptIn)));
+  const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game.peladaId));
+  const sport = getSport(pelada?.sportId);
+  const players = useAppStore(
+    useShallow((s) => s.players.filter((p) => p.freeAgentOptIn && p.favoriteSports.includes(sport.id))),
+  );
   const invitesForGame = useAppStore(useShallow((s) => s.freeAgentInvites.filter((i) => i.gameId === game.id)));
   const updateMyLocation = useAppStore((s) => s.updateMyLocation);
   const sendFreeAgentInvite = useAppStore((s) => s.sendFreeAgentInvite);
@@ -59,7 +64,7 @@ export function NearbyFreeAgentsSection({ game, currentPlayerId, excludePlayerId
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Jogadores livres perto de você</Text>
+      <Text style={styles.title}>{sport.icon} Jogadores de {sport.label.toLowerCase()} livres perto de você</Text>
       {locating && (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color={colors.secondary} />
@@ -78,7 +83,8 @@ export function NearbyFreeAgentsSection({ game, currentPlayerId, excludePlayerId
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{player.name}</Text>
               <Text style={styles.meta}>
-                {formatDistance(distanceKm)} · {player.preferredPosition === 'goalkeeper' ? 'Goleiro' : 'Linha'}
+                {formatDistance(distanceKm)}
+                {sport.hasGoalkeeper ? ` · ${player.preferredPosition === 'goalkeeper' ? 'Goleiro' : 'Linha'}` : ''}
                 {availableAtGameTime ? ' · livre nesse horário' : ' · fora da disponibilidade'}
               </Text>
             </View>
