@@ -15,6 +15,14 @@ npm run ios     # requer macOS + Xcode
 npm run android # requer Android Studio / emulador
 ```
 
+> **Rodando de um ambiente remoto/sandbox (ex.: Claude Code na nuvem)**: `npm run
+> start`/`expo start --tunnel` precisa alcançar `ngrok.com` e os domínios da Expo
+> (`api.expo.dev`, `cdp.expo.dev`) pra gerar o QR code que o Expo Go escaneia — se a
+> rede desse ambiente bloquear esses domínios (política de egress da organização), o
+> túnel não sobe e não tem como abrir no Expo Go a partir de lá. Nesse caso, rode os
+> comandos acima na sua própria máquina (com internet normal) e escaneie o QR gerado
+> localmente.
+
 ## Modo demonstração (sem backend)
 
 Sem nenhuma configuração adicional, o app roda inteiro com **dados de exemplo**
@@ -26,6 +34,28 @@ de internet ou conta em nenhum serviço.
 Assim que o Supabase for configurado (próxima seção), a ideia é trocar as chamadas
 das stores por queries reais ao Supabase (o cliente já está pronto em
 `src/lib/supabase.ts`, exportando `isMockMode` para você saber qual modo está ativo).
+
+### Contas de demonstração
+
+O modo mock **não tem login de verdade** — qualquer e-mail/senha na tela de login
+entra sempre no mesmo perfil local, "Você" (`p1` em `src/lib/mockData.ts`), sem
+precisar de conta ou senha real. Esse perfil já vem pré-configurado com os
+principais papéis do app, pra testar tudo sem cadastrar nada na mão:
+
+- **Dono de time (admin de pelada)**: "Você" é admin da "Pelada dos Amigos -
+  Quintas" (`pel1`). Código de convite `AMIGOS-QUI`. Pra testar como jogador comum
+  de uma segunda pelada (a "Vôlei da Empresa - Sábados", `pel2`), entre com o código
+  `EMPRESA-SAB` em Agenda → trocar pelada → "Entrar em outra pelada".
+- **Dono de campo/estabelecimento com vários esportes**: "Você" também é dono do
+  **Complexo Esportivo Vila Nova** (Perfil → "🏟️ Sou dono de um campo"), com 4
+  campos já cadastrados, um por esporte — ⚽ Society, 🏐 Vôlei, 🏀 Basquete e 🏖️
+  Futevôlei. Código de acesso `VILA-NOVA` (pra um admin de pelada vincular um campo
+  da pelada dele a esse estabelecimento). Também existe um segundo estabelecimento de
+  exemplo, "Arena Society Central" (`est1`, dono `p2`), código `ARENA-CENTRAL`, com um
+  campo já vinculado a uma pelada.
+
+Pra virar admin de outra pelada ou dono de outro estabelecimento, basta usar essas
+telas normalmente — é tudo local, não afeta ninguém além do seu próprio aparelho.
 
 ## Configurando o Supabase (dados reais, multiusuário)
 
