@@ -38,10 +38,13 @@ export default function CronometroScreen() {
   const setMatchQueue = useAppStore((s) => s.setMatchQueue);
   const matchTurns = useAppStore(useShallow((s) => s.matchTurns.filter((t) => t.gameId === id)));
   const goals = useAppStore(useShallow((s) => s.goals.filter((g) => g.gameId === id)));
+  const playerFatigue = useAppStore(useShallow((s) => s.playerFatigue.filter((f) => f.gameId === id)));
   const startMatchTurn = useAppStore((s) => s.startMatchTurn);
   const endMatchTurn = useAppStore((s) => s.endMatchTurn);
   const registerGoal = useAppStore((s) => s.registerGoal);
   const undoLastGoal = useAppStore((s) => s.undoLastGoal);
+  const substitutePlayer = useAppStore((s) => s.substitutePlayer);
+  const clearPlayerFatigue = useAppStore((s) => s.clearPlayerFatigue);
   const isAdmin = useAppStore((s) => (game ? s.isAdmin(currentPlayerId, game.peladaId) : false));
 
   const matchSeconds = (game?.matchMinutes ?? 10) * 60;
@@ -49,6 +52,8 @@ export default function CronometroScreen() {
   const [remaining, setRemaining] = useState(matchSeconds);
   const [running, setRunning] = useState(false);
   const [pickingGoalTeam, setPickingGoalTeam] = useState<'A' | 'B' | null>(null);
+  const [substituting, setSubstituting] = useState<{ teamId: string; playerId: string } | null>(null);
+  const [subReason, setSubReason] = useState<'normal' | 'resting' | 'done_for_today'>('normal');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentTurn = matchTurns.find((t) => !t.endedAt);
@@ -118,6 +123,24 @@ export default function CronometroScreen() {
   const scoreA = scoreOf(teamAId);
   const scoreB = scoreOf(teamBId);
   const turnGoals = currentTurn ? goals.filter((g) => g.matchTurnId === currentTurn.id) : [];
+
+  const onFieldIds = new Set([...rosterOf(teamAId), ...rosterOf(teamBId)].map((r) => r.playerId));
+  const fatiguedIds = new Set(
+    playerFatigue
+      .filter((f) => f.status === 'done_for_today' || (f.status === 'resting' && (f.matchesRemaining ?? 0) > 0))
+      .map((f) => f.playerId),
+  );
+  const gameTeamIds = new Set(teams.map((t) => t.id));
+  const substituteCandidates = teamPlayers.filter(
+    (tp) => gameTeamIds.has(tp.teamId) && !onFieldIds.has(tp.playerId) && !fatiguedIds.has(tp.playerId),
+  );
+
+  function handleSubstitute(inPlayerId: string) {
+    if (!id || !substituting) return;
+    substitutePlayer(id, substituting.teamId, substituting.playerId, inPlayerId, subReason);
+    setSubstituting(null);
+    setSubReason('normal');
+  }
 
   function handleResult(result: MatchResult) {
     if (!id || !queue) return;
@@ -264,6 +287,7 @@ export default function CronometroScreen() {
           roster={rosterOf(teamAId)}
           playerName={playerName}
           playerPhoto={playerPhoto}
+          onPressPlayer={isAdmin ? (playerId) => setSubstituting({ teamId: teamAId, playerId }) : undefined}
         />
         <Text style={styles.vs}>x</Text>
         <TeamBox
@@ -272,8 +296,73 @@ export default function CronometroScreen() {
           roster={rosterOf(teamBId)}
           playerName={playerName}
           playerPhoto={playerPhoto}
+          onPressPlayer={isAdmin ? (playerId) => setSubstituting({ teamId: teamBId, playerId }) : undefined}
         />
       </View>
+
+      {isAdmin && substituting && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Substituir {playerName(substituting.playerId)}</Text>
+
+          <Text style={styles.subLabel}>Motivo</Text>
+          <View style={styles.reasonRow}>
+            <Pressable
+              style={[styles.reasonChip, subReason === 'normal' && styles.reasonChipActive]}
+              onPress={() => setSubReason('normal')}
+            >
+              <Text style={[styles.reasonChipText, subReason === 'normal' && styles.reasonChipTextActive]}>Troca normal</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.reasonChip, subReason === 'resting' && styles.reasonChipActive]}
+              onPress={() => setSubReason('resting')}
+            >
+              <Text style={[styles.reasonChipText, subReason === 'resting' && styles.reasonChipTextActive]}>🥵 Cansado · 2 partidas fora</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.reasonChip, subReason === 'done_for_today' && styles.reasonChipActive]}
+              onPress={() => setSubReason('done_for_today')}
+            >
+              <Text style={[styles.reasonChipText, subReason === 'done_for_today' && styles.reasonChipTextActive]}>🏠 Encerrou por hoje</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.subLabel}>Quem entra</Text>
+          {substituteCandidates.length === 0 && <Text style={styles.hint}>Ninguém disponível pra entrar agora.</Text>}
+          <View style={styles.scorerList}>
+            {substituteCandidates.map((c) => (
+              <Pressable key={c.playerId} style={styles.scorerOption} onPress={() => handleSubstitute(c.playerId)}>
+                <Avatar name={playerName(c.playerId)} photoUrl={playerPhoto(c.playerId)} size={22} />
+                <Text style={styles.scorerOptionText}>{playerName(c.playerId)}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable
+            onPress={() => {
+              setSubstituting(null);
+              setSubReason('normal');
+            }}
+          >
+            <Text style={styles.cancelPicker}>Cancelar</Text>
+          </Pressable>
+        </Card>
+      )}
+
+      {playerFatigue.length > 0 && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Jogadores de fora</Text>
+          {playerFatigue.map((f) => (
+            <View key={f.id} style={styles.waitingRow}>
+              <Text style={styles.waitingName}>{playerName(f.playerId)}</Text>
+              <Text style={styles.hint}>
+                {f.status === 'done_for_today' ? '🏠 encerrou por hoje' : `🥵 volta em ${f.matchesRemaining} rodada${f.matchesRemaining === 1 ? '' : 's'}`}
+              </Text>
+              <Pressable onPress={() => id && clearPlayerFatigue(id, f.playerId)}>
+                <Text style={styles.undoLink}>voltar a jogar</Text>
+              </Pressable>
+            </View>
+          ))}
+        </Card>
+      )}
 
       {isAdmin && (
         <Card style={styles.section}>
@@ -311,24 +400,31 @@ function TeamBox({
   roster,
   playerName,
   playerPhoto,
+  onPressPlayer,
 }: {
   name?: string;
   color?: string;
   roster: { playerId: string; isGoalkeeper: boolean }[];
   playerName: (id: string) => string;
   playerPhoto: (id: string) => string | null;
+  onPressPlayer?: (playerId: string) => void;
 }) {
   return (
     <View style={styles.teamBox}>
       <Badge label={name ?? '—'} color={color ?? colors.primary} />
       {roster.map((r) => (
-        <View key={r.playerId} style={styles.teamBoxPlayerRow}>
+        <Pressable
+          key={r.playerId}
+          style={styles.teamBoxPlayerRow}
+          onPress={onPressPlayer ? () => onPressPlayer(r.playerId) : undefined}
+        >
           <Avatar name={playerName(r.playerId)} photoUrl={playerPhoto(r.playerId)} size={22} />
           <Text style={styles.teamBoxPlayer}>
             {r.isGoalkeeper ? '🧤 ' : ''}
             {playerName(r.playerId)}
           </Text>
-        </View>
+          {onPressPlayer && <Ionicons name="swap-horizontal" size={13} color={colors.textFaint} />}
+        </Pressable>
       ))}
     </View>
   );
@@ -476,6 +572,7 @@ const styles = StyleSheet.create({
   teamBoxPlayer: {
     color: colors.textMuted,
     fontSize: 12,
+    flex: 1,
   },
   vs: {
     color: colors.textFaint,
@@ -517,5 +614,40 @@ const styles = StyleSheet.create({
   waitingCount: {
     color: colors.textMuted,
     fontSize: 12,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  subLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xs,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  reasonChip: {
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.bgElevated,
+  },
+  reasonChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(34,197,94,0.15)',
+  },
+  reasonChipText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reasonChipTextActive: {
+    color: colors.primary,
   },
 });

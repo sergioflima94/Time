@@ -113,6 +113,16 @@ supabase/schema.sql          schema completo + Row Level Security
 - **Fila de rodízio**: os dois primeiros times da fila jogam; os demais ficam
   "de próximo". Quem vence fica esperando o próximo desafiante, quem perde vai para o
   fim da fila (empate: os dois saem e os dois próximos entram).
+- **Troca de jogador em campo** (tela do cronômetro, `app/jogo/[id]/cronometro.tsx`):
+  o admin toca em qualquer jogador dos dois times que estão jogando pra substituí-lo
+  por alguém disponível — inclusive jogadores de times que estão "de próximo" na fila,
+  já que eles não estão em campo no momento. Três motivos: **troca normal** (só troca,
+  sem restrição), **🥵 cansado** (fica de fora automaticamente pelas próximas 2 rodadas
+  — o contador desce toda vez que uma rodada termina, `useAppStore.endMatchTurn`, e ele
+  volta a aparecer como opção de substituto sozinho) e **🏠 encerrou por hoje** (fora
+  pelo resto do jogo, até o admin reverter em "Jogadores de fora" → "voltar a jogar").
+  Esse status (`PlayerFatigue` em `src/types/index.ts`) é por jogo, não é punição nem
+  falta — não afeta o histórico de faltas do jogador.
 - **Punição** (`src/lib/punishment.ts`): confirmou presença e não foi = falta. A 1ª
   falta é só um aviso; a 2ª deixa o jogador de fora do próximo jogo; da 3ª em diante,
   fora dos 2 próximos jogos. O admin marca a falta na tela do jogo, depois de encerrado.

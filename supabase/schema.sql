@@ -179,6 +179,19 @@ create table goals (
   scored_at timestamptz not null default now()
 );
 
+-- jogador tirado de campo por cansaço (não é falta/punição) — ver "Troca de jogador em
+-- campo" no README. "resting" volta sozinho depois de matches_remaining rodadas
+-- encerradas; "done_for_today" fica de fora até o admin reverter manualmente.
+create table player_fatigue (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  status text not null check (status in ('resting', 'done_for_today')),
+  matches_remaining int,
+  created_at timestamptz not null default now(),
+  unique (game_id, player_id)
+);
+
 create table ratings (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
@@ -340,6 +353,7 @@ alter table teams enable row level security;
 alter table team_players enable row level security;
 alter table match_turns enable row level security;
 alter table goals enable row level security;
+alter table player_fatigue enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -458,6 +472,13 @@ create policy "goals_select_members" on goals for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
 create policy "goals_write_admins" on goals for all using (
+  exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "player_fatigue_select_members" on player_fatigue for select using (
+  exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
+);
+create policy "player_fatigue_write_admins" on player_fatigue for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 

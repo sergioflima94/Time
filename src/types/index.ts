@@ -227,6 +227,24 @@ export interface TeamPlayer {
   isGoalkeeper: boolean;
 }
 
+export type PlayerFatigueStatus = 'resting' | 'done_for_today';
+
+/**
+ * Jogador tirado de campo por cansaço durante o jogo (não é falta nem punição).
+ * "resting" volta a poder jogar sozinho depois de `matchesRemaining` rodadas
+ * encerradas; "done_for_today" fica de fora pelo resto do jogo, até o admin
+ * reverter manualmente.
+ */
+export interface PlayerFatigue {
+  id: UUID;
+  gameId: UUID;
+  playerId: UUID;
+  status: PlayerFatigueStatus;
+  /** Só usado quando status === 'resting'. */
+  matchesRemaining: number | null;
+  createdAt: string;
+}
+
 /** Um "turno" de jogo, ex.: Time A x Time B, enquanto Time C espera. */
 export interface MatchTurn {
   id: UUID;

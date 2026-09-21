@@ -55,6 +55,7 @@ import type {
   Pelada,
   PeladaMembership,
   Player,
+  PlayerFatigue,
   Punishment,
   PunishmentType,
   Rating,
@@ -110,6 +111,7 @@ interface AppState {
   matchTurns: MatchTurn[];
   goals: Goal[];
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
+  playerFatigue: PlayerFatigue[];
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
@@ -142,6 +144,17 @@ interface AppState {
   registerGoal: (gameId: string, matchTurnId: string, teamId: string, scorerPlayerId: string | null) => void;
   undoLastGoal: (matchTurnId: string) => void;
   setGameGoalLimit: (gameId: string, matchGoalLimit: number | null) => void;
+
+  // troca de jogador em campo (cansaço/lesão) — ver PlayerFatigue
+  substitutePlayer: (
+    gameId: string,
+    teamId: string,
+    outPlayerId: string,
+    inPlayerId: string,
+    reason: 'normal' | 'resting' | 'done_for_today',
+  ) => void;
+  /** Reverte manualmente o status de cansaço (o jogador volta a poder ser escalado). */
+  clearPlayerFatigue: (gameId: string, playerId: string) => void;
 
   // avaliações
   submitRating: (rating: Omit<Rating, 'id' | 'createdAt' | 'overall'>) => void;
@@ -246,6 +259,7 @@ export const useAppStore = create<AppState>()(
       matchTurns: MOCK_MATCH_TURNS,
       goals: MOCK_GOALS,
       matchQueue: {},
+      playerFatigue: [],
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
@@ -391,13 +405,25 @@ export const useAppStore = create<AppState>()(
       },
 
       endMatchTurn: (matchTurnId, winnerTeamId) => {
-        set((state) => ({
-          matchTurns: state.matchTurns.map((t) => {
+        set((state) => {
+          const turn = state.matchTurns.find((t) => t.id === matchTurnId);
+          const matchTurns = state.matchTurns.map((t) => {
             if (t.id !== matchTurnId) return t;
             const durationSeconds = t.startedAt ? Math.round((Date.now() - new Date(t.startedAt).getTime()) / 1000) : 0;
             return { ...t, endedAt: nowIso(), durationSeconds, winnerTeamId };
-          }),
-        }));
+          });
+          // cada rodada encerrada conta pro descanso de quem saiu "cansado — 2 partidas fora"
+          const playerFatigue = turn
+            ? state.playerFatigue
+                .map((f) =>
+                  f.gameId === turn.gameId && f.status === 'resting' && f.matchesRemaining !== null
+                    ? { ...f, matchesRemaining: f.matchesRemaining - 1 }
+                    : f,
+                )
+                .filter((f) => f.status !== 'resting' || (f.matchesRemaining ?? 0) > 0)
+            : state.playerFatigue;
+          return { matchTurns, playerFatigue };
+        });
       },
 
       registerGoal: (gameId, matchTurnId, teamId, scorerPlayerId) => {
@@ -417,6 +443,40 @@ export const useAppStore = create<AppState>()(
 
       setGameGoalLimit: (gameId, matchGoalLimit) => {
         set((state) => ({ games: state.games.map((g) => (g.id === gameId ? { ...g, matchGoalLimit } : g)) }));
+      },
+
+      substitutePlayer: (gameId, teamId, outPlayerId, inPlayerId, reason) => {
+        set((state) => {
+          const outEntry = state.teamPlayers.find((tp) => tp.teamId === teamId && tp.playerId === outPlayerId);
+          const teamPlayers = [
+            ...state.teamPlayers.filter((tp) => !(tp.teamId === teamId && tp.playerId === outPlayerId)),
+            { teamId, playerId: inPlayerId, isGoalkeeper: outEntry?.isGoalkeeper ?? false },
+          ];
+
+          // quem entra estava descansando/tinha encerrado por hoje? volta a jogar, então some com o status antigo.
+          let playerFatigue = state.playerFatigue.filter(
+            (f) => !(f.gameId === gameId && (f.playerId === outPlayerId || f.playerId === inPlayerId)),
+          );
+          if (reason === 'resting') {
+            playerFatigue = [
+              ...playerFatigue,
+              { id: uid(), gameId, playerId: outPlayerId, status: 'resting', matchesRemaining: 2, createdAt: nowIso() },
+            ];
+          } else if (reason === 'done_for_today') {
+            playerFatigue = [
+              ...playerFatigue,
+              { id: uid(), gameId, playerId: outPlayerId, status: 'done_for_today', matchesRemaining: null, createdAt: nowIso() },
+            ];
+          }
+
+          return { teamPlayers, playerFatigue };
+        });
+      },
+
+      clearPlayerFatigue: (gameId, playerId) => {
+        set((state) => ({
+          playerFatigue: state.playerFatigue.filter((f) => !(f.gameId === gameId && f.playerId === playerId)),
+        }));
       },
 
       submitRating: (rating) => {
@@ -875,6 +935,7 @@ export const useAppStore = create<AppState>()(
         matchTurns: state.matchTurns,
         goals: state.goals,
         matchQueue: state.matchQueue,
+        playerFatigue: state.playerFatigue,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,
