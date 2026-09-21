@@ -82,13 +82,18 @@ create table establishments (
 
 create table fields (
   id uuid primary key default gen_random_uuid(),
-  pelada_id uuid not null references peladas (id) on delete cascade,
+  -- null = campo próprio do estabelecimento, cadastrado direto pelo dono, sem pertencer a nenhuma pelada.
+  pelada_id uuid references peladas (id) on delete cascade,
   name text not null,
   address text,
   notes text,
   -- vincula esse campo a um estabelecimento cadastrado (dono real, recebe o rateio). null = sem dono cadastrado.
   establishment_id uuid references establishments (id) on delete set null,
-  created_by uuid not null references players (id)
+  -- esporte jogado nesse campo — campo de pelada herda o esporte dela; campo próprio do
+  -- estabelecimento escolhe o esporte no cadastro (permite vários esportes no mesmo estabelecimento).
+  sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  created_by uuid not null references players (id),
+  check (pelada_id is not null or establishment_id is not null)
 );
 
 create table schedules (
@@ -381,8 +386,20 @@ create policy "memberships_insert_self" on pelada_memberships for insert with ch
   role = 'member' and exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
-create policy "fields_select_members" on fields for select using (is_member_of_pelada(pelada_id));
-create policy "fields_write_admins" on fields for all using (is_admin_of_pelada(pelada_id));
+-- campo de pelada: só membros veem/editam (como antes). Campo próprio do estabelecimento
+-- (pelada_id null): leitura pública (precisa aparecer pra quem for montar um campeonato ali),
+-- só o dono do estabelecimento cadastra/edita/remove.
+create policy "fields_select_members_or_public" on fields for select using (
+  (pelada_id is not null and is_member_of_pelada(pelada_id)) or pelada_id is null
+);
+create policy "fields_write_admins_or_owner" on fields for all using (
+  (pelada_id is not null and is_admin_of_pelada(pelada_id))
+  or (pelada_id is null and exists (
+    select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
+      select id from players where auth_user_id = auth.uid()
+    )
+  ))
+);
 
 -- establishments: qualquer autenticado pode ler (precisa achar pelo access_code pra
 -- vincular um campo), mas só o dono edita o próprio estabelecimento.

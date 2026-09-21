@@ -154,6 +154,9 @@ interface AppState {
   /** Vincula um campo a um estabelecimento cadastrado (via código de acesso). false = código não encontrado. */
   linkFieldToEstablishment: (fieldId: string, accessCode: string) => boolean;
   unlinkFieldEstablishment: (fieldId: string) => void;
+  /** Campo próprio do estabelecimento (sem pelada) — o dono cadastra direto, escolhendo o esporte. */
+  addEstablishmentField: (establishmentId: string, ownerPlayerId: string, input: { name: string; address: string; sportId: string }) => Field;
+  removeEstablishmentField: (fieldId: string) => void;
   addSchedule: (input: {
     peladaId: string;
     fieldId: string;
@@ -441,6 +444,7 @@ export const useAppStore = create<AppState>()(
       },
 
       addField: (peladaId, name, address, notes) => {
+        const pelada = get().peladas.find((p) => p.id === peladaId);
         const field: Field = {
           id: uid(),
           peladaId,
@@ -448,10 +452,30 @@ export const useAppStore = create<AppState>()(
           address: address || null,
           notes: notes || null,
           establishmentId: null,
+          sportId: pelada?.sportId ?? 'futebol',
           createdBy: get().currentPlayerId,
         };
         set((state) => ({ fields: [...state.fields, field] }));
         return field;
+      },
+
+      addEstablishmentField: (establishmentId, ownerPlayerId, input) => {
+        const field: Field = {
+          id: uid(),
+          peladaId: null,
+          name: input.name,
+          address: input.address || null,
+          notes: null,
+          establishmentId,
+          sportId: input.sportId,
+          createdBy: ownerPlayerId,
+        };
+        set((state) => ({ fields: [...state.fields, field] }));
+        return field;
+      },
+
+      removeEstablishmentField: (fieldId) => {
+        set((state) => ({ fields: state.fields.filter((f) => f.id !== fieldId) }));
       },
 
       linkFieldToEstablishment: (fieldId, accessCode) => {

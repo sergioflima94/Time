@@ -105,8 +105,85 @@ export default function EstablishmentScreen() {
         </Card>
       )}
 
+      {establishment && <MyFieldsSection establishmentId={establishment.id} />}
       {establishment && <ChampionshipsSection establishmentId={establishment.id} />}
     </Screen>
+  );
+}
+
+function MyFieldsSection({ establishmentId }: { establishmentId: string }) {
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const myFields = useAppStore(
+    useShallow((s) => s.fields.filter((f) => f.establishmentId === establishmentId && f.peladaId === null)),
+  );
+  const addEstablishmentField = useAppStore((s) => s.addEstablishmentField);
+  const removeEstablishmentField = useAppStore((s) => s.removeEstablishmentField);
+
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [sportId, setSportId] = useState('futebol');
+
+  function handleAdd() {
+    if (!name.trim()) return;
+    addEstablishmentField(establishmentId, currentPlayerId, { name: name.trim(), address: address.trim(), sportId });
+    setName('');
+    setAddress('');
+    setOpen(false);
+  }
+
+  return (
+    <Card style={styles.section}>
+      <View style={styles.headerRow2}>
+        <Text style={styles.sectionTitle}>Meus campos</Text>
+        <Pressable onPress={() => setOpen((v) => !v)}>
+          <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.primary} />
+        </Pressable>
+      </View>
+      <Text style={styles.hint}>
+        Campos que você mesmo cadastra, um por esporte — não dependem de nenhuma pelada.
+      </Text>
+
+      {myFields.map((f) => {
+        const sport = SPORTS.find((s) => s.id === f.sportId) ?? SPORTS[0];
+        return (
+          <View key={f.id} style={styles.champRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.champName}>{sport.icon} {f.name}</Text>
+              <Text style={styles.hint}>{sport.label}{f.address ? ` · ${f.address}` : ''}</Text>
+            </View>
+            <Pressable onPress={() => removeEstablishmentField(f.id)} hitSlop={8}>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            </Pressable>
+          </View>
+        );
+      })}
+      {myFields.length === 0 && !open && <Text style={styles.hint}>Nenhum campo cadastrado ainda.</Text>}
+
+      {open && (
+        <View style={styles.form}>
+          <TextField label="Nome do campo" value={name} onChangeText={setName} placeholder="Quadra 1 - Vôlei" />
+          <TextField label="Endereço (opcional)" value={address} onChangeText={setAddress} placeholder="Rua Exemplo, 123" />
+          <Text style={styles.hint}>Esporte</Text>
+          <View style={styles.sportsGrid}>
+            {SPORTS.map((sport) => {
+              const active = sportId === sport.id;
+              return (
+                <Pressable
+                  key={sport.id}
+                  onPress={() => setSportId(sport.id)}
+                  style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+                >
+                  <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+                  <Text style={[styles.sportChipText, active && { color: sport.color }]}>{sport.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button label="Adicionar campo" onPress={handleAdd} disabled={!name.trim()} />
+        </View>
+      )}
+    </Card>
   );
 }
 
@@ -126,11 +203,12 @@ function ChampionshipsSection({ establishmentId }: { establishmentId: string }) 
 
   function handleCreate() {
     if (!name.trim()) return;
+    const matchingField = fields.find((f) => f.sportId === sportId) ?? fields[0];
     const championship = createChampionship(establishmentId, currentPlayerId, {
       name: name.trim(),
       sportId,
       format,
-      fieldId: fields[0]?.id ?? null,
+      fieldId: matchingField?.id ?? null,
       maxTeams: maxTeams.trim() ? Number(maxTeams) : null,
       entryFee: entryFee.trim() ? Number(entryFee.replace(',', '.')) : null,
       matchMinutes: Number(matchMinutes) || 10,

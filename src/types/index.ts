@@ -112,12 +112,15 @@ export interface PeladaMembership {
 
 export interface Field {
   id: UUID;
-  peladaId: UUID;
+  /** null = campo próprio do estabelecimento, não pertence a nenhuma pelada específica. */
+  peladaId: UUID | null;
   name: string;
   address: string | null;
   notes: string | null;
   /** Vincula esse campo a um estabelecimento cadastrado (dono de verdade, recebe o rateio). null = sem dono cadastrado, funciona como hoje. */
   establishmentId: UUID | null;
+  /** Esporte jogado nesse campo (SportId de src/constants/sports.ts). Campo de pelada herda o esporte dela; campo próprio do estabelecimento escolhe o esporte na hora de cadastrar — assim um estabelecimento pode ter campos de esportes diferentes. */
+  sportId: string;
   createdBy: UUID;
 }
 

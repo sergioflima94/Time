@@ -240,11 +240,16 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
 - ✅ **Emblema do time** (`src/lib/teamLogo.ts`, na inscrição do time): escolhe uma foto da
   galeria ou gera por IA a partir de uma descrição (ex.: "leão dourado com bola de
   futebol"). Ver "Configurar geração de emblema por IA" abaixo.
-- **Estabelecimento com múltiplos campos/esportes + agendamento** (próxima fase): hoje
-  `Establishment` ainda não tem uma lista de campos próprios nem agenda de
-  horários — o vínculo é 1 campo de pelada → 1 estabelecimento, sem marketplace de
-  reserva entre peladas ainda. `Field.sport` também não existe (fica implícito no
-  `Pelada.sportId`, ver "Multi-esporte" abaixo).
+- ✅ **Campos próprios do estabelecimento, um por esporte** (`app/estabelecimento.tsx` →
+  "Meus campos"): além de vincular campos que já pertencem a uma pelada (fluxo antigo),
+  o dono agora cadastra campos direto no próprio estabelecimento — sem depender de
+  nenhuma pelada (`Field.peladaId` agora é opcional) — escolhendo o esporte de cada um
+  (`Field.sportId`). Assim um único estabelecimento cobre vários esportes (ex.: quadra de
+  society, quadra de vôlei, quadra de basquete, arena de areia pro futevôlei). Na hora de
+  criar um campeonato, o campo é escolhido automaticamente pelo esporte do campeonato.
+- **Agenda de horários** (próxima fase): os campos do estabelecimento ainda não têm uma
+  grade de horários pra reserva — hoje servem só pra vincular jogos/campeonatos, sem
+  marketplace de reserva entre peladas ainda.
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,

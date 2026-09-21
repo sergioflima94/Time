@@ -117,10 +117,27 @@ export const MOCK_ESTABLISHMENTS: Establishment[] = [
     accessCode: 'ARENA-CENTRAL',
     createdAt: iso(now),
   },
+  // Estabelecimento próprio de "Você" (p1) — dono de campos de vários esportes diferentes,
+  // pra testar o fluxo de dono de campo já pronto, sem precisar cadastrar nada na mão.
+  {
+    id: 'est2',
+    ownerPlayerId: 'p1',
+    name: 'Complexo Esportivo Vila Nova',
+    payoutMethod: 'pix',
+    pixKey: 'vilanova.esportes@pix.com.br',
+    accessCode: 'VILA-NOVA',
+    createdAt: iso(now),
+  },
 ];
 
 export const MOCK_FIELDS: Field[] = [
-  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', establishmentId: 'est1', createdBy: 'p1' },
+  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', establishmentId: 'est1', sportId: 'futebol', createdBy: 'p1' },
+  // Campos próprios do Complexo Esportivo Vila Nova (est2, dono = p1) — um por esporte,
+  // sem depender de nenhuma pelada.
+  { id: 'f2', peladaId: null, name: 'Quadra 1 - Society', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futebol', createdBy: 'p1' },
+  { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', createdBy: 'p1' },
+  { id: 'f4', peladaId: null, name: 'Quadra 3 - Basquete', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'basquete', createdBy: 'p1' },
+  { id: 'f5', peladaId: null, name: 'Arena de Areia - Futevôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futvolei', createdBy: 'p1' },
 ];
 
 export const MOCK_SCHEDULES: Schedule[] = [
