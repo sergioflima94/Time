@@ -138,3 +138,108 @@ export function advanceQueue(queue: string[], result: MatchResult): string[] {
   const loser = result === 'teamA' ? teamB : teamA;
   return [winner, ...waiting, loser];
 }
+
+export const TEAM_COLORS = ['#22C55E', '#3B82F6', '#F59E0B', '#EF4444', '#A855F7', '#14B8A6'];
+export const TEAM_NAMES = ['Time A', 'Time B', 'Time C', 'Time D', 'Time E', 'Time F', 'Time G', 'Time H'];
+
+export function teamName(index: number): string {
+  return TEAM_NAMES[index] ?? `Time ${index + 1}`;
+}
+
+export function teamColor(index: number): string {
+  return TEAM_COLORS[index % TEAM_COLORS.length];
+}
+
+export interface WaitingCandidate {
+  playerId: string;
+  /** Posição na ordenação do método escolhido na 1ª vez (0 = prioridade mais alta). Usado só como desempate. */
+  tiebreakRank: number;
+  isGoalkeeper: boolean;
+}
+
+export interface IndividualDraftResult {
+  teamA: DraftedTeam;
+  teamB: DraftedTeam;
+  /** Todo mundo que sobrou vira bolsa de espera — ninguém mais fica em time fixo. */
+  waiting: WaitingCandidate[];
+}
+
+function orderByMethod(list: DraftPlayer[], method: DrawMethod): DraftPlayer[] {
+  if (method === 'random') return shuffle(list);
+  if (method === 'rating') return [...list].sort((a, b) => b.overall - a.overall);
+  return [...list].sort((a, b) => (a.confirmedOrder ?? 0) - (b.confirmedOrder ?? 0));
+}
+
+/**
+ * Sorteia só o 1º confronto (times A e B) e deixa todo o resto como bolsa de
+ * jogadores avulsos, ordenada pelo método escolhido — essa ordem vira o
+ * critério de desempate de prioridade sempre que um novo desafiante for
+ * puxado da bolsa (ver `pickNextChallenger`), depois de "quem esperou mais".
+ */
+export function drawFirstMatchIndividual(players: DraftPlayer[], teamSize: number, method: DrawMethod): IndividualDraftResult {
+  const orderedGoalkeepers = orderByMethod(players.filter((p) => p.isGoalkeeper), method);
+  const orderedLines = orderByMethod(players.filter((p) => !p.isGoalkeeper), method);
+
+  const teamASeed: DraftPlayer[] = [];
+  const teamBSeed: DraftPlayer[] = [];
+  // 1 goleiro pra cada time primeiro, se houver
+  orderedGoalkeepers.slice(0, 2).forEach((gk, i) => (i % 2 === 0 ? teamASeed : teamBSeed).push(gk));
+
+  const remainingGoalkeepers = orderedGoalkeepers.slice(2);
+  const pool = [...remainingGoalkeepers, ...orderedLines];
+  // mesma lógica de preenchimento do drawTeams: zig-zag (snake) por nota equilibra
+  // melhor a soma dos dois times do que "chunk" (primeira metade pra A, resto pra B).
+  const [teamA, teamB] = fillRespectingCapacity(
+    [teamASeed, teamBSeed],
+    pool,
+    [teamSize - teamASeed.length, teamSize - teamBSeed.length],
+    method === 'rating' ? 'rating' : 'chunk',
+  );
+
+  const usedIds = new Set([...teamA, ...teamB].map((p) => p.id));
+  const waitingOrdered = [...orderedGoalkeepers, ...orderedLines].filter((p) => !usedIds.has(p.id));
+  const waiting: WaitingCandidate[] = waitingOrdered.map((p, i) => ({ playerId: p.id, tiebreakRank: i, isGoalkeeper: p.isGoalkeeper }));
+
+  const toDrafted = (list: DraftPlayer[]): DraftedTeam => ({
+    players: list,
+    goalkeeper: list.find((p) => p.isGoalkeeper) ?? null,
+    totalOverall: list.reduce((sum, p) => sum + p.overall, 0),
+  });
+
+  return { teamA: toDrafted(teamA), teamB: toDrafted(teamB), waiting };
+}
+
+export interface WaitingEntry extends WaitingCandidate {
+  roundsWaited: number;
+}
+
+/**
+ * Puxa o próximo desafiante da bolsa de espera: prioridade por quem já ficou
+ * mais rodadas de fora (`roundsWaited` maior primeiro); empate é resolvido
+ * pela ordem do sorteio original (`tiebreakRank` menor primeiro). Se ninguém
+ * dos escolhidos for goleiro mas houver um disponível mais abaixo na fila, ele
+ * entra no lugar de quem tinha menor prioridade (esportes sem goleiro nunca
+ * têm ninguém com `isGoalkeeper: true` na bolsa, então isso nunca dispara).
+ */
+export function pickNextChallenger(
+  waiting: WaitingEntry[],
+  teamSize: number,
+): { chosen: WaitingEntry[]; remaining: WaitingEntry[] } {
+  const sorted = [...waiting].sort((a, b) => b.roundsWaited - a.roundsWaited || a.tiebreakRank - b.tiebreakRank);
+  const chosen = sorted.slice(0, teamSize);
+  let rest = sorted.slice(teamSize);
+
+  if (chosen.length > 0 && !chosen.some((c) => c.isGoalkeeper)) {
+    const gkIdx = rest.findIndex((c) => c.isGoalkeeper);
+    if (gkIdx !== -1) {
+      const [gk] = rest.splice(gkIdx, 1);
+      const displaced = chosen.pop()!;
+      chosen.push(gk);
+      rest = [displaced, ...rest];
+    }
+  }
+
+  const chosenIds = new Set(chosen.map((c) => c.playerId));
+  const remaining = waiting.filter((w) => !chosenIds.has(w.playerId));
+  return { chosen, remaining };
+}

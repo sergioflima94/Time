@@ -113,6 +113,15 @@ supabase/schema.sql          schema completo + Row Level Security
 - **Fila de rodízio**: os dois primeiros times da fila jogam; os demais ficam
   "de próximo". Quem vence fica esperando o próximo desafiante, quem perde vai para o
   fim da fila (empate: os dois saem e os dois próximos entram).
+- **Rodízio individual** (opção no sorteio, `app/jogo/[id]/sorteio.tsx` →
+  "Como formar os times"): em vez de montar todos os times fixos de uma vez, sorteia só
+  o 1º confronto e joga o resto numa bolsa de jogadores avulsos (`WaitingPlayer` em
+  `src/types/index.ts`) — sem time fixo pros próximos jogos. A cada rodada encerrada, o
+  próximo desafiante é remontado do zero puxando da bolsa por prioridade: quem já ficou
+  mais rodadas esperando entra primeiro; empate é resolvido pela ordem do método de
+  sorteio escolhido na primeira vez (nota, chegada ou aleatório —
+  `src/lib/teamDraft.ts#pickNextChallenger`). Jogador marcado cansado/encerrado (ver
+  item acima) fica de fora do sorteio da bolsa mesmo esperando, até o admin liberar.
 - **Troca de jogador em campo** (tela do cronômetro, `app/jogo/[id]/cronometro.tsx`):
   o admin toca em qualquer jogador dos dois times que estão jogando pra substituí-lo
   por alguém disponível — inclusive jogadores de times que estão "de próximo" na fila,
@@ -196,6 +205,11 @@ hoje, como tudo é local/mock, isso ainda não existe.
   + `src/hooks/useCurrentPelada.ts`); a Agenda mostra um seletor de pelada quando o
   jogador está em mais de uma. Gols na carta mostram o total geral, e o Perfil lista o
   detalhe por grupo (`computePlayerGoalStatsByGroup`, em `src/lib/goals.ts`).
+- **Criar uma pelada nova** (`app/criar-pelada.tsx`, `useAppStore.createPelada`):
+  qualquer jogador pode fundar uma pelada — vira admin dela na hora, com um
+  `inviteCode` gerado automaticamente. Não tem limite: o mesmo jogador pode ser
+  dono/admin de quantas peladas quiser, além de continuar membro comum de outras.
+  Acessível pelo seletor de pelada (Agenda → trocar pelada → "Criar uma pelada nova").
 - **Convite**: cada pelada tem um `inviteCode` único. No Admin, "Convidar jogadores"
   mostra o código e compartilha (via `Share.share`, que inclui WhatsApp entre as
   opções) uma mensagem pronta. Quem recebe usa a tela `/entrar-pelada` pra virar

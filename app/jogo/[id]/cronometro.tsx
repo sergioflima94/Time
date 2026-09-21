@@ -39,12 +39,14 @@ export default function CronometroScreen() {
   const matchTurns = useAppStore(useShallow((s) => s.matchTurns.filter((t) => t.gameId === id)));
   const goals = useAppStore(useShallow((s) => s.goals.filter((g) => g.gameId === id)));
   const playerFatigue = useAppStore(useShallow((s) => s.playerFatigue.filter((f) => f.gameId === id)));
+  const waitingPlayers = useAppStore(useShallow((s) => s.waitingPlayers.filter((w) => w.gameId === id)));
   const startMatchTurn = useAppStore((s) => s.startMatchTurn);
   const endMatchTurn = useAppStore((s) => s.endMatchTurn);
   const registerGoal = useAppStore((s) => s.registerGoal);
   const undoLastGoal = useAppStore((s) => s.undoLastGoal);
   const substitutePlayer = useAppStore((s) => s.substitutePlayer);
   const clearPlayerFatigue = useAppStore((s) => s.clearPlayerFatigue);
+  const resolveIndividualRound = useAppStore((s) => s.resolveIndividualRound);
   const isAdmin = useAppStore((s) => (game ? s.isAdmin(currentPlayerId, game.peladaId) : false));
 
   const matchSeconds = (game?.matchMinutes ?? 10) * 60;
@@ -131,9 +133,10 @@ export default function CronometroScreen() {
       .map((f) => f.playerId),
   );
   const gameTeamIds = new Set(teams.map((t) => t.id));
-  const substituteCandidates = teamPlayers.filter(
-    (tp) => gameTeamIds.has(tp.teamId) && !onFieldIds.has(tp.playerId) && !fatiguedIds.has(tp.playerId),
-  );
+  const isIndividualRotation = game.rotationMode === 'players';
+  const substituteCandidates: { playerId: string; isGoalkeeper: boolean }[] = isIndividualRotation
+    ? waitingPlayers.filter((w) => !fatiguedIds.has(w.playerId))
+    : teamPlayers.filter((tp) => gameTeamIds.has(tp.teamId) && !onFieldIds.has(tp.playerId) && !fatiguedIds.has(tp.playerId));
 
   function handleSubstitute(inPlayerId: string) {
     if (!id || !substituting) return;
@@ -143,14 +146,18 @@ export default function CronometroScreen() {
   }
 
   function handleResult(result: MatchResult) {
-    if (!id || !queue) return;
+    if (!id || !queue || !game) return;
     if (currentTurn) {
       const winnerTeamId = result === 'teamA' ? currentTurn.teamAId : result === 'teamB' ? currentTurn.teamBId : null;
       endMatchTurn(currentTurn.id, winnerTeamId);
     }
-    const nextQueue = advanceQueue(queue, result);
-    setMatchQueue(id, nextQueue);
-    if (nextQueue.length >= 2) startMatchTurn(id, nextQueue[0], nextQueue[1]);
+    if (isIndividualRotation) {
+      resolveIndividualRound(id, result, game.playersPerTeam);
+    } else {
+      const nextQueue = advanceQueue(queue, result);
+      setMatchQueue(id, nextQueue);
+      if (nextQueue.length >= 2) startMatchTurn(id, nextQueue[0], nextQueue[1]);
+    }
     setRemaining(matchSeconds);
     setRunning(false);
     setPickingGoalTeam(null);
@@ -375,7 +382,7 @@ export default function CronometroScreen() {
         </Card>
       )}
 
-      {waitingIds.length > 0 && (
+      {!isIndividualRotation && waitingIds.length > 0 && (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Próximos de fora</Text>
           {waitingIds.map((tId) => {
@@ -388,6 +395,27 @@ export default function CronometroScreen() {
               </View>
             );
           })}
+        </Card>
+      )}
+
+      {isIndividualRotation && waitingPlayers.length > 0 && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Fila de espera individual</Text>
+          <Text style={styles.hint}>Quem já esperou mais rodadas entra primeiro no próximo confronto.</Text>
+          {[...waitingPlayers]
+            .sort((a, b) => b.roundsWaited - a.roundsWaited || a.tiebreakRank - b.tiebreakRank)
+            .map((w, i) => (
+              <View key={w.playerId} style={styles.waitingRow}>
+                <Avatar name={playerName(w.playerId)} photoUrl={playerPhoto(w.playerId)} size={22} />
+                <Text style={styles.waitingName}>
+                  {w.isGoalkeeper ? '🧤 ' : ''}
+                  {playerName(w.playerId)}
+                </Text>
+                <Text style={styles.waitingCount}>
+                  {i === 0 ? 'próximo' : `${w.roundsWaited} rodada${w.roundsWaited === 1 ? '' : 's'} fora`}
+                </Text>
+              </View>
+            ))}
         </Card>
       )}
     </Screen>

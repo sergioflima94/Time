@@ -173,6 +173,7 @@ export const MOCK_GAMES: Game[] = [
     playersPerTeam: 6,
     matchMinutes: 10,
     drawMethod: 'rating',
+    rotationMode: 'teams',
     status: 'open',
     fieldCost: 240,
     matchGoalLimit: 2,

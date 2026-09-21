@@ -124,6 +124,10 @@ create table games (
   players_per_team int not null default 6,
   match_minutes int not null default 10,
   draw_method text not null default 'rating' check (draw_method in ('arrival', 'random', 'rating')),
+  -- "teams": sorteia todos os times de uma vez e eles se revezam em bloco (fila de rodízio
+  -- normal). "players": sorteia só o 1º confronto; o resto vira bolsa de jogadores avulsos
+  -- (ver waiting_players) e cada desafiante novo é remontado por prioridade individual.
+  rotation_mode text not null default 'teams' check (rotation_mode in ('teams', 'players')),
   status text not null default 'open' check (status in ('open', 'full', 'teams_drawn', 'in_progress', 'finished', 'cancelled')),
   field_cost numeric(10, 2),
   match_goal_limit int,
@@ -190,6 +194,22 @@ create table player_fatigue (
   matches_remaining int,
   created_at timestamptz not null default now(),
   unique (game_id, player_id)
+);
+
+-- jogador aguardando entrar num time no rodízio individual (games.rotation_mode =
+-- 'players') — fica fora de team_players até ser sorteado pra um novo time. Ver
+-- "Rodízio individual" no README.
+create table waiting_players (
+  game_id uuid not null references games (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  -- rodadas seguidas que já ficou de fora desde a última vez que jogou (ou desde o
+  -- sorteio inicial) — prioridade de entrada: maior primeiro.
+  rounds_waited int not null default 0,
+  -- desempate quando rounds_waited empata: ordem do método de sorteio escolhido na
+  -- primeira vez (nota, chegada, ou posição sorteada uma vez no aleatório).
+  tiebreak_rank int not null default 0,
+  is_goalkeeper boolean not null default false,
+  primary key (game_id, player_id)
 );
 
 create table ratings (
@@ -354,6 +374,7 @@ alter table team_players enable row level security;
 alter table match_turns enable row level security;
 alter table goals enable row level security;
 alter table player_fatigue enable row level security;
+alter table waiting_players enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -479,6 +500,13 @@ create policy "player_fatigue_select_members" on player_fatigue for select using
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
 create policy "player_fatigue_write_admins" on player_fatigue for all using (
+  exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "waiting_players_select_members" on waiting_players for select using (
+  exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
+);
+create policy "waiting_players_write_admins" on waiting_players for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
