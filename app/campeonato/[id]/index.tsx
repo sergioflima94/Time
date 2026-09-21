@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Image } from 'expo-image';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -100,7 +101,11 @@ export default function ChampionshipScreen() {
         <Text style={styles.sectionTitle}>Times ({teams.length})</Text>
         {teams.map((t) => (
           <View key={t.id} style={styles.teamRow}>
-            <View style={[styles.teamDot, { backgroundColor: t.color }]} />
+            {t.logoUrl ? (
+              <Image source={{ uri: t.logoUrl }} style={styles.teamLogo} contentFit="cover" />
+            ) : (
+              <View style={[styles.teamDot, { backgroundColor: t.color }]} />
+            )}
             <Text style={styles.teamRowName}>{t.name}</Text>
             <Text style={styles.hint}>{rosterCount(t.id)} jogadores</Text>
             {!t.peladaId && <Badge label="Avulso" color={colors.textFaint} textColor={colors.text} />}
@@ -255,6 +260,12 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+  teamLogo: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.full,
+    backgroundColor: colors.bgElevated,
   },
   teamRowName: {
     flex: 1,

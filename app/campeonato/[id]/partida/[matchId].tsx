@@ -131,9 +131,15 @@ export default function ChampionshipMatchScreen() {
 
       <Card style={styles.scoreboardCard}>
         <View style={styles.scoreboardRow}>
-          <Text style={[styles.scoreboardTeam, { color: teamA?.color }]} numberOfLines={1}>{teamA?.name}</Text>
+          <View style={styles.scoreboardSide}>
+            {teamA && <Avatar name={teamA.name} photoUrl={teamA.logoUrl} size={24} color={teamA.color} />}
+            <Text style={[styles.scoreboardTeam, { color: teamA?.color }]} numberOfLines={1}>{teamA?.name}</Text>
+          </View>
           <Text style={styles.scoreboardScore}>{scoreA} - {scoreB}</Text>
-          <Text style={[styles.scoreboardTeam, styles.scoreboardTeamRight, { color: teamB?.color }]} numberOfLines={1}>{teamB?.name}</Text>
+          <View style={[styles.scoreboardSide, styles.scoreboardSideRight]}>
+            <Text style={[styles.scoreboardTeam, styles.scoreboardTeamRight, { color: teamB?.color }]} numberOfLines={1}>{teamB?.name}</Text>
+            {teamB && <Avatar name={teamB.name} photoUrl={teamB.logoUrl} size={24} color={teamB.color} />}
+          </View>
         </View>
 
         {isFinished && (
@@ -247,6 +253,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  scoreboardSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  scoreboardSideRight: {
+    flexDirection: 'row-reverse',
   },
   scoreboardTeam: {
     flex: 1,

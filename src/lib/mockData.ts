@@ -222,10 +222,10 @@ export const MOCK_CHAMPIONSHIPS: Championship[] = [
 ];
 
 export const MOCK_CHAMPIONSHIP_TEAMS: ChampionshipTeam[] = [
-  { id: 'ct1', championshipId: 'champ1', name: 'Time do João', color: '#22C55E', peladaId: 'pel1', registeredByPlayerId: 'p1', status: 'confirmed', createdAt: iso(now) },
-  { id: 'ct2', championshipId: 'champ1', name: 'Galera do Bairro', color: '#3B82F6', peladaId: null, registeredByPlayerId: 'p7', status: 'confirmed', createdAt: iso(now) },
-  { id: 'ct3', championshipId: 'champ1', name: 'Amigos da Vila', color: '#D4AF37', peladaId: null, registeredByPlayerId: 'p13', status: 'confirmed', createdAt: iso(now) },
-  { id: 'ct4', championshipId: 'champ1', name: 'FC Independente', color: '#7C3AED', peladaId: null, registeredByPlayerId: 'p19', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct1', championshipId: 'champ1', name: 'Time do João', color: '#22C55E', logoUrl: 'https://api.dicebear.com/9.x/shapes/svg?seed=Time%20do%20Jo%C3%A3o', peladaId: 'pel1', registeredByPlayerId: 'p1', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct2', championshipId: 'champ1', name: 'Galera do Bairro', color: '#3B82F6', logoUrl: null, peladaId: null, registeredByPlayerId: 'p7', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct3', championshipId: 'champ1', name: 'Amigos da Vila', color: '#D4AF37', logoUrl: null, peladaId: null, registeredByPlayerId: 'p13', status: 'confirmed', createdAt: iso(now) },
+  { id: 'ct4', championshipId: 'champ1', name: 'FC Independente', color: '#7C3AED', logoUrl: null, peladaId: null, registeredByPlayerId: 'p19', status: 'confirmed', createdAt: iso(now) },
 ];
 
 export const MOCK_CHAMPIONSHIP_TEAM_PLAYERS: ChampionshipTeamPlayer[] = [

@@ -210,9 +210,10 @@ interface AppState {
   /** Inscreve um time (de uma pelada existente, ou avulso) via código do campeonato. playerNames = jogadores sem conta (viram convidados). */
   registerChampionshipTeam: (
     code: string,
-    input: { name: string; color: string; peladaId: string | null; registeredByPlayerId: string; playerIds: string[]; guestNames: string[] },
+    input: { name: string; color: string; logoUrl: string | null; peladaId: string | null; registeredByPlayerId: string; playerIds: string[]; guestNames: string[] },
   ) => ChampionshipTeam | null;
   removeChampionshipTeam: (teamId: string) => void;
+  setChampionshipTeamLogo: (teamId: string, logoUrl: string | null) => void;
   generateChampionshipFixtures: (championshipId: string) => void;
   startChampionshipMatch: (matchId: string) => void;
   registerChampionshipGoal: (matchId: string, teamId: string, scorerPlayerId: string | null) => void;
@@ -525,6 +526,7 @@ export const useAppStore = create<AppState>()(
           championshipId: championship.id,
           name: input.name,
           color: input.color,
+          logoUrl: input.logoUrl,
           peladaId: input.peladaId,
           registeredByPlayerId: input.registeredByPlayerId,
           status: 'confirmed',
@@ -548,6 +550,12 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           championshipTeams: state.championshipTeams.filter((t) => t.id !== teamId),
           championshipTeamPlayers: state.championshipTeamPlayers.filter((tp) => tp.championshipTeamId !== teamId),
+        }));
+      },
+
+      setChampionshipTeamLogo: (teamId, logoUrl) => {
+        set((state) => ({
+          championshipTeams: state.championshipTeams.map((t) => (t.id === teamId ? { ...t, logoUrl } : t)),
         }));
       },
 

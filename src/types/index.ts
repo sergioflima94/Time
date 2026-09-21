@@ -347,6 +347,8 @@ export interface ChampionshipTeam {
   championshipId: UUID;
   name: string;
   color: string;
+  /** Emblema do time — escolhido da galeria ou gerado por IA. null = usa só a cor. */
+  logoUrl: string | null;
   /** null = time avulso, criado só pra esse campeonato. */
   peladaId: UUID | null;
   registeredByPlayerId: UUID;

@@ -229,6 +229,17 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   (`useAppStore.payForPlayers`) — o destino do dinheiro continua sendo só o
   estabelecimento, o que muda é quem fisicamente paga. A lista "Quem já pagou" mostra
   "pago por [nome]" quando alguém cobriu a parte de outro.
+- ✅ **Campeonatos** (`src/lib/championship.ts`, telas em `app/campeonato/**`): o dono do
+  estabelecimento cria um campeonato (pontos corridos ou mata-mata), gera um código de
+  inscrição. Times entram vindos de uma pelada (reaproveita elenco) ou avulsos
+  (jogadores digitados na hora, sem precisar de conta). O dono gera a tabela de jogos —
+  pontos corridos monta todos os confrontos (método do círculo); mata-mata monta o
+  chaveamento com byes e avança o vencedor de fase em fase automaticamente. Cada
+  confronto tem cronômetro/placar próprios, com pênaltis pra desempate no mata-mata.
+  Classificação e artilharia são calculadas ao vivo.
+- ✅ **Emblema do time** (`src/lib/teamLogo.ts`, na inscrição do time): escolhe uma foto da
+  galeria ou gera por IA a partir de uma descrição (ex.: "leão dourado com bola de
+  futebol"). Ver "Configurar geração de emblema por IA" abaixo.
 - **Estabelecimento com múltiplos campos/esportes + agendamento** (próxima fase): hoje
   `Establishment` ainda não tem uma lista de campos próprios nem agenda de
   horários — o vínculo é 1 campo de pelada → 1 estabelecimento, sem marketplace de
@@ -238,3 +249,18 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
   carrinho, checkout, pedidos. Loja única do app pra começar (não multi-vendedor).
+
+### Configurar geração de emblema por IA
+
+O emblema do time pode ser gerado por IA a partir de uma descrição, usando a API de
+imagens da OpenAI (`gpt-image-1`). **A chave da OpenAI nunca fica no app** — ela mora
+só numa Supabase Edge Function (`supabase/functions/generate-team-logo`), que o
+cliente chama por `supabase.functions.invoke(...)`.
+
+1. Configure o Supabase de verdade (ver "Configurando o Supabase" acima).
+2. Faça o deploy da função: `supabase functions deploy generate-team-logo`.
+3. Configure a chave só no servidor: `supabase secrets set OPENAI_API_KEY=sk-...`
+   (nunca em `.env`/`EXPO_PUBLIC_*` — isso vai pro bundle do app e fica público).
+4. Sem Supabase configurado (modo mock) ou se a função falhar, o app cai automaticamente
+   num gerador de emblema de exemplo (`api.dicebear.com`, grátis, sem chave) — assim dá
+   pra testar o fluxo inteiro sem precisar de conta na OpenAI.
