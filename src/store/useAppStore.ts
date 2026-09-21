@@ -140,6 +140,10 @@ interface AppState {
   setGameTeams: (gameId: string, teams: Team[], teamPlayers: TeamPlayer[]) => void;
   setGameStatus: (gameId: string, status: Game['status']) => void;
   setMatchQueue: (gameId: string, queue: string[]) => void;
+  /** Admin renomeia e/ou muda a cor de um time já sorteado. */
+  updateTeam: (teamId: string, input: { name?: string; color?: string }) => void;
+  /** Move um time "de próximo" pra cima/baixo na fila (não mexe em quem já está jogando agora). */
+  moveTeamInQueue: (gameId: string, teamId: string, direction: 'up' | 'down') => void;
   /**
    * Sorteio "rodízio individual": monta só o 1º confronto (teamA x teamB) e joga
    * todo mundo que sobrou numa bolsa de espera (`waitingPlayers`) — sem times fixos
@@ -419,6 +423,26 @@ export const useAppStore = create<AppState>()(
 
       setMatchQueue: (gameId, queue) => {
         set((state) => ({ matchQueue: { ...state.matchQueue, [gameId]: queue } }));
+      },
+
+      updateTeam: (teamId, input) => {
+        set((state) => ({
+          teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...input } : t)),
+        }));
+      },
+
+      moveTeamInQueue: (gameId, teamId, direction) => {
+        set((state) => {
+          const queue = state.matchQueue[gameId] ?? [];
+          // os índices 0 e 1 já estão jogando — só reordena a partir do índice 2 (fila de espera).
+          const idx = queue.indexOf(teamId);
+          if (idx < 2) return {};
+          const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+          if (swapWith < 2 || swapWith >= queue.length) return {};
+          const nextQueue = [...queue];
+          [nextQueue[idx], nextQueue[swapWith]] = [nextQueue[swapWith], nextQueue[idx]];
+          return { matchQueue: { ...state.matchQueue, [gameId]: nextQueue } };
+        });
       },
 
       setGameTeamsIndividual: (gameId, teamA, teamB, teamAPlayers, teamBPlayers, waiting) => {

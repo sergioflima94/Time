@@ -86,7 +86,7 @@ telas normalmente — é tudo local, não afeta ninguém além do seu próprio a
 ```
 app/                        rotas (Expo Router)
   (auth)/                    login, cadastro
-  (tabs)/                    agenda, jogadores, perfil, admin
+  (tabs)/                    agenda, jogadores, times, perfil, admin
   jogo/[id]/                 detalhe do jogo, sorteio, cronômetro, avaliar
 
 src/
@@ -132,6 +132,11 @@ supabase/schema.sql          schema completo + Row Level Security
   pelo resto do jogo, até o admin reverter em "Jogadores de fora" → "voltar a jogar").
   Esse status (`PlayerFatigue` em `src/types/index.ts`) é por jogo, não é punição nem
   falta — não afeta o histórico de faltas do jogador.
+- **Aba Times** (`app/(tabs)/times.tsx`): mostra os times do jogo mais próximo já
+  sorteado da pelada atual — quem tá jogando agora, quem tá esperando (ou a fila de
+  espera individual, no modo de rodízio individual), e o elenco de cada time. Pro admin,
+  tem funções extras direto ali: renomear time, trocar a cor, e reordenar quem entra
+  antes na fila (só afeta quem ainda não está jogando).
 - **Punição** (`src/lib/punishment.ts`): confirmou presença e não foi = falta. A 1ª
   falta é só um aviso; a 2ª deixa o jogador de fora do próximo jogo; da 3ª em diante,
   fora dos 2 próximos jogos. O admin marca a falta na tela do jogo, depois de encerrado.

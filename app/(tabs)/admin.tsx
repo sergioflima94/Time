@@ -273,6 +273,7 @@ function SchedulesSection() {
   const [dayOfWeek, setDayOfWeek] = useState(4);
   const [time, setTime] = useState('20:00');
   const [maxPlayers, setMaxPlayers] = useState(String(pelada.defaultMaxPlayers));
+  const [matchMinutes, setMatchMinutes] = useState(String(pelada.defaultMatchMinutes));
   const [drawMethod, setDrawMethod] = useState<DrawMethod>('rating');
   const [fieldCost, setFieldCost] = useState('');
   const [goalLimit, setGoalLimit] = useState('');
@@ -287,7 +288,7 @@ function SchedulesSection() {
       time,
       startDate: new Date().toISOString().slice(0, 10),
       maxPlayers: Number(maxPlayers) || pelada.defaultMaxPlayers,
-      matchMinutes: pelada.defaultMatchMinutes,
+      matchMinutes: Number(matchMinutes) || pelada.defaultMatchMinutes,
       drawMethod,
       defaultFieldCost: fieldCost.trim() ? Number(fieldCost.replace(',', '.')) : null,
       matchGoalLimit: goalLimit.trim() ? Number(goalLimit) : null,
@@ -358,6 +359,13 @@ function SchedulesSection() {
             options={fields.map((f) => ({ value: f.id, label: f.name }))}
           />
           <TextField label="Limite de vagas" value={maxPlayers} onChangeText={setMaxPlayers} keyboardType="number-pad" />
+          <TextField
+            label="Duração de cada rodada (min)"
+            value={matchMinutes}
+            onChangeText={setMatchMinutes}
+            placeholder="Ex: 10"
+            keyboardType="number-pad"
+          />
           <TextField
             label="Custo da quadra (opcional, para rateio)"
             value={fieldCost}

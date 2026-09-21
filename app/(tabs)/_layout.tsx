@@ -33,6 +33,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="times"
+        options={{
+          title: 'Times',
+          tabBarActiveTintColor: colors.warning,
+          tabBarIcon: ({ color, size }) => <Ionicons name="shirt" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
