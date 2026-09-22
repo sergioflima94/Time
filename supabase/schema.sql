@@ -212,6 +212,18 @@ create table waiting_players (
   primary key (game_id, player_id)
 );
 
+-- amizade entre dois jogadores, independente de pelada (aba Amigos / rede social).
+create table friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references players (id) on delete cascade,
+  addressee_id uuid not null references players (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  check (requester_id <> addressee_id),
+  unique (requester_id, addressee_id)
+);
+
 create table ratings (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
@@ -375,6 +387,7 @@ alter table match_turns enable row level security;
 alter table goals enable row level security;
 alter table player_fatigue enable row level security;
 alter table waiting_players enable row level security;
+alter table friendships enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -508,6 +521,23 @@ create policy "waiting_players_select_members" on waiting_players for select usi
 );
 create policy "waiting_players_write_admins" on waiting_players for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+-- amizade só é visível/editável pelos dois jogadores envolvidos (pedido, aceite ou recusa).
+create policy "friendships_select_involved" on friendships for select using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_insert_requester" on friendships for insert with check (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_update_involved" on friendships for update using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_delete_involved" on friendships for delete using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
 );
 
 -- ratings: qualquer membro pode ler (cartas são públicas dentro da pelada);

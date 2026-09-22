@@ -305,6 +305,18 @@ export interface Rating {
   createdAt: string;
 }
 
+export type FriendshipStatus = 'pending' | 'accepted' | 'declined';
+
+/** Pedido/relação de amizade entre dois jogadores, independente de pelada. */
+export interface Friendship {
+  id: UUID;
+  requesterId: UUID;
+  addresseeId: UUID;
+  status: FriendshipStatus;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
 export type PunishmentType = 'no_show' | 'late_cancel';
 
 export interface Punishment {

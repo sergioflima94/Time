@@ -25,9 +25,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="jogadores"
+        name="amigos"
         options={{
-          title: 'Jogadores',
+          title: 'Amigos',
           tabBarActiveTintColor: colors.secondary,
           tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
         }}

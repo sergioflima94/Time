@@ -5,21 +5,28 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PLAYER_CARD_ASPECT, PlayerCard } from '@/components/PlayerCard';
 import { PlayerCardBack } from '@/components/PlayerCardBack';
 import { RotatingCard } from '@/components/RotatingCard';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
+import { useFriendshipWith } from '@/hooks/useFriends';
 import { computePlayerGoalStats } from '@/lib/goals';
 import { computePlayerOverall } from '@/lib/ratings';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function JogadorPerfilScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const player = useAppStore((s) => s.players.find((p) => p.id === id));
   const ratings = useAppStore((s) => s.ratings);
   const teamPlayers = useAppStore((s) => s.teamPlayers);
   const matchTurns = useAppStore((s) => s.matchTurns);
   const goals = useAppStore((s) => s.goals);
+  const sendFriendRequest = useAppStore((s) => s.sendFriendRequest);
+  const respondFriendRequest = useAppStore((s) => s.respondFriendRequest);
+  const removeFriendship = useAppStore((s) => s.removeFriendship);
+  const friendship = useFriendshipWith(id ?? '');
 
   if (!player) {
     return (
@@ -32,6 +39,7 @@ export default function JogadorPerfilScreen() {
   const overall = computePlayerOverall(player.id, ratings);
   const goalStats = computePlayerGoalStats(player.id, teamPlayers, matchTurns, goals);
   const primarySport = getSport(player.favoriteSports[0]);
+  const isMe = player.id === currentPlayerId;
 
   return (
     <Screen>
@@ -74,6 +82,34 @@ export default function JogadorPerfilScreen() {
 
       <Text style={styles.name}>{player.name}</Text>
       {player.nickname && <Text style={styles.nickname}>"{player.nickname}"</Text>}
+
+      {!isMe && (
+        <View style={styles.friendAction}>
+          {friendship.status === 'none' && (
+            <Button label="Adicionar amigo" variant="outline" onPress={() => sendFriendRequest(currentPlayerId, player.id)} />
+          )}
+          {friendship.status === 'pending_sent' && (
+            <Button label="Cancelar pedido" variant="ghost" onPress={() => removeFriendship(friendship.friendshipId)} />
+          )}
+          {friendship.status === 'pending_received' && (
+            <View style={styles.friendRequestRow}>
+              <Button label="Aceitar" onPress={() => respondFriendRequest(friendship.friendshipId, true)} style={{ flex: 1 }} />
+              <Button
+                label="Recusar"
+                variant="secondary"
+                onPress={() => respondFriendRequest(friendship.friendshipId, false)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          )}
+          {friendship.status === 'friends' && (
+            <View style={styles.friendBadge}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={styles.friendBadgeText}>Vocês são amigos</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {player.favoriteSports.length > 0 && (
         <Card style={styles.section}>
@@ -148,6 +184,24 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 2,
     marginBottom: spacing.lg,
+  },
+  friendAction: {
+    marginBottom: spacing.lg,
+  },
+  friendRequestRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  friendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  friendBadgeText: {
+    color: colors.success,
+    fontSize: 13,
+    fontWeight: '700',
   },
   section: {
     marginTop: spacing.md,

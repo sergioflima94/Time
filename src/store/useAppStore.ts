@@ -12,6 +12,7 @@ import {
   MOCK_CHAMPIONSHIPS,
   MOCK_ESTABLISHMENTS,
   MOCK_FIELDS,
+  MOCK_FRIENDSHIPS,
   MOCK_GAMES,
   MOCK_GOALS,
   MOCK_MATCH_TURNS,
@@ -44,6 +45,7 @@ import type {
   Establishment,
   EstablishmentPayoutMethod,
   Field,
+  Friendship,
   FreeAgentInvite,
   Game,
   GameStatus,
@@ -115,6 +117,7 @@ interface AppState {
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
   waitingPlayers: WaitingPlayer[];
   playerFatigue: PlayerFatigue[];
+  friendships: Friendship[];
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
@@ -222,6 +225,13 @@ interface AppState {
 
   isAdmin: (playerId: string, peladaId: string) => boolean;
 
+  // amigos (rede social)
+  /** Envia um pedido de amizade. Não faz nada se já existir pedido/amizade entre os dois (em qualquer direção). */
+  sendFriendRequest: (requesterId: string, addresseeId: string) => void;
+  respondFriendRequest: (friendshipId: string, accept: boolean) => void;
+  /** Cancela um pedido enviado (ainda pendente) ou desfaz uma amizade já aceita. */
+  removeFriendship: (friendshipId: string) => void;
+
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
@@ -295,6 +305,7 @@ export const useAppStore = create<AppState>()(
       matchQueue: {},
       waitingPlayers: [],
       playerFatigue: [],
+      friendships: MOCK_FRIENDSHIPS,
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
@@ -960,6 +971,37 @@ export const useAppStore = create<AppState>()(
         return get().memberships.some((m) => m.peladaId === peladaId && m.playerId === playerId && m.role === 'admin' && m.active);
       },
 
+      sendFriendRequest: (requesterId, addresseeId) => {
+        if (requesterId === addresseeId) return;
+        set((state) => {
+          const already = state.friendships.some(
+            (f) =>
+              f.status !== 'declined' &&
+              ((f.requesterId === requesterId && f.addresseeId === addresseeId) ||
+                (f.requesterId === addresseeId && f.addresseeId === requesterId)),
+          );
+          if (already) return {};
+          return {
+            friendships: [
+              ...state.friendships,
+              { id: uid(), requesterId, addresseeId, status: 'pending', createdAt: nowIso(), respondedAt: null } satisfies Friendship,
+            ],
+          };
+        });
+      },
+
+      respondFriendRequest: (friendshipId, accept) => {
+        set((state) => ({
+          friendships: state.friendships.map((f) =>
+            f.id === friendshipId ? { ...f, status: accept ? 'accepted' : 'declined', respondedAt: nowIso() } : f,
+          ),
+        }));
+      },
+
+      removeFriendship: (friendshipId) => {
+        set((state) => ({ friendships: state.friendships.filter((f) => f.id !== friendshipId) }));
+      },
+
       updateCurrentPlayerProfile: (input) => {
         set((state) => ({
           players: state.players.map((p) => (p.id === state.currentPlayerId ? { ...p, ...input } : p)),
@@ -1122,6 +1164,7 @@ export const useAppStore = create<AppState>()(
         matchQueue: state.matchQueue,
         waitingPlayers: state.waitingPlayers,
         playerFatigue: state.playerFatigue,
+        friendships: state.friendships,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,

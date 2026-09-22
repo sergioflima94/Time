@@ -143,9 +143,25 @@ supabase/schema.sql          schema completo + Row Level Security
   de admin de antes (renomear time, trocar cor, reordenar a fila). De lá também dá pra
   ir direto pra Agenda ou pro Admin daquela pelada específica (troca a pelada ativa e
   navega).
-  > Elenco e Admin (as outras abas) continuam mostrando só a pelada **ativa no
-  > momento** (`currentPeladaId`), trocada pelo seletor no topo da Agenda ou por aqui —
-  > ainda não são multi-time "de verdade" como a aba Times.
+  > Elenco continua mostrando só a pelada **ativa no momento** (`currentPeladaId`),
+  > trocada pelo seletor no topo da Agenda ou por aqui — ainda não é multi-time "de
+  > verdade" como a aba Times. O Admin agora tem um seletor de pelada próprio (ver
+  > abaixo) pra quem administra mais de um time.
+- **Admin multi-time** (`app/(tabs)/admin.tsx`): quando o jogador é admin de mais de
+  uma pelada, aparece o mesmo seletor de pelada do topo da Agenda (`PeladaSwitcher`)
+  no alto da tela de Admin, pra trocar qual time está administrando sem precisar ir
+  até a Agenda primeiro. Se a pelada selecionada não for uma em que ele é admin,
+  mostra o aviso de acesso negado com a dica de trocar ali mesmo.
+- **Aba Amigos** (`app/(tabs)/amigos.tsx`, antiga "Jogadores"): rede social do app.
+  Busca qualquer jogador (não só da pelada atual) por nome/apelido pra enviar pedido
+  de amizade (`Friendship` em `src/types/index.ts`, ações `sendFriendRequest` /
+  `respondFriendRequest` / `removeFriendship` em `useAppStore`), lista solicitações
+  recebidas com aceitar/recusar, um **feed de atividades** dos amigos (e de você
+  mesmo) gerado a partir de dados que já existem — gols marcados e peladas que
+  entrou (`src/lib/activity.ts`, `computeActivityFeed`) — e por fim o grid de cartas
+  dos amigos (era o grid de "Jogadores da pelada" antes), cada uma levando pro
+  perfil (`app/jogador/[id].tsx`). O botão de adicionar/aceitar amizade também
+  aparece direto no perfil do jogador, não só na busca.
 - **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
   **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
   retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,

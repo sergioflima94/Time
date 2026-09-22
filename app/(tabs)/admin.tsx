@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
+import { PeladaSwitcher } from '@/components/PeladaSwitcher';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +13,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { SPORTS } from '@/constants/sports';
-import { useCurrentPelada } from '@/hooks/useCurrentPelada';
+import { useCurrentPelada, useMyPeladas } from '@/hooks/useCurrentPelada';
 import { drawMethodLabel, formatGameDateShort, recurrenceLabel, WEEKDAY_LABELS } from '@/lib/format';
 import { formatBRL } from '@/lib/payments';
 import { computeNextOccurrence } from '@/lib/schedule';
@@ -22,28 +23,40 @@ import type { DrawMethod, RecurrenceType } from '@/types';
 export default function AdminScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const pelada = useCurrentPelada();
+  const myPeladas = useMyPeladas();
   const isAdmin = useAppStore((s) => s.isAdmin(currentPlayerId, pelada.id));
-
-  if (!isAdmin) {
-    return (
-      <Screen>
-        <View style={styles.notAdmin}>
-          <Ionicons name="lock-closed" size={32} color={colors.textFaint} />
-          <Text style={styles.notAdminText}>Você não é administrador desta pelada.</Text>
-        </View>
-      </Screen>
-    );
-  }
+  const memberships = useAppStore((s) => s.memberships);
+  const adminPeladaCount = myPeladas.filter((p) =>
+    memberships.some((m) => m.peladaId === p.id && m.playerId === currentPlayerId && m.role === 'admin' && m.active),
+  ).length;
 
   return (
     <Screen>
       <Text style={styles.title}>Administração</Text>
-      <PeladaInfoSection />
-      <InviteSection />
-      <AdminsSection />
-      <FieldsSection />
-      <SchedulesSection />
-      <PunishmentsSection />
+      {adminPeladaCount > 1 && (
+        <View style={styles.switcherWrap}>
+          <PeladaSwitcher />
+        </View>
+      )}
+
+      {!isAdmin ? (
+        <View style={styles.notAdmin}>
+          <Ionicons name="lock-closed" size={32} color={colors.textFaint} />
+          <Text style={styles.notAdminText}>
+            Você não é administrador de "{pelada.name}".
+            {adminPeladaCount > 0 ? ' Troque de time acima pra administrar outro.' : ''}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <PeladaInfoSection />
+          <InviteSection />
+          <AdminsSection />
+          <FieldsSection />
+          <SchedulesSection />
+          <PunishmentsSection />
+        </>
+      )}
     </Screen>
   );
 }
@@ -452,6 +465,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 2,
+  },
+  switcherWrap: {
+    marginBottom: spacing.lg,
   },
   notAdmin: {
     alignItems: 'center',
