@@ -325,6 +325,15 @@ export interface ActivityLike {
   createdAt: string;
 }
 
+/** Comentário num item do feed de atividades. Mesma chave `activityId` das curtidas. */
+export interface ActivityComment {
+  id: UUID;
+  activityId: string;
+  playerId: UUID;
+  text: string;
+  createdAt: string;
+}
+
 export type PunishmentType = 'no_show' | 'late_cancel';
 
 export interface Punishment {

@@ -163,10 +163,16 @@ supabase/schema.sql          schema completo + Row Level Security
   perfil (`app/jogador/[id].tsx`). O botão de adicionar/aceitar amizade também
   aparece direto no perfil do jogador, não só na busca. Cada item do feed pode ser
   **curtido** (`ActivityLike`, ação `toggleActivityLike`), e a aba ganha uma bolinha
-  vermelha no ícone (`src/components/AmigosTabIcon.tsx`) quando há pedido de amizade
-  pendente esperando resposta.
-  > Próximos passos que ficaram só de sugestão (não implementados): comentários no
-  > feed e uma central de notificações separada da aba Amigos.
+  vermelha no ícone (`src/components/AmigosTabIcon.tsx`) quando há notificação não
+  lida. Cada item do feed também aceita **comentários** (`ActivityComment`, ação
+  `addActivityComment`) — toca no ícone de balão pra abrir/fechar a lista e escrever.
+- **Central de notificações** (`app/notificacoes.tsx`, acessível pelo sino no topo da
+  aba Amigos): lista pedido de amizade recebido (com aceitar/recusar direto ali),
+  pedido que você mandou foi aceito, curtida e comentário em algo seu no feed — tudo
+  calculado a partir dos dados que já existem (`src/lib/notifications.ts`,
+  `computeNotifications`), sem uma tabela de "notificações" separada. Abrir a tela
+  marca tudo como lido (`notificationsSeenAt` em `useAppStore`), o que zera a bolinha
+  vermelha da aba Amigos (`useUnreadNotificationsCount`).
 - **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
   **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
   retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,

@@ -22,6 +22,7 @@ export default function RootLayout() {
           <Stack.Screen name="jogo/[id]" />
           <Stack.Screen name="time/[id]" />
           <Stack.Screen name="jogador/[id]" />
+          <Stack.Screen name="notificacoes" />
           <Stack.Screen name="entrar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="criar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="estabelecimento" />

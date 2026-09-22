@@ -15,6 +15,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
 import { useFriendRequests, useFriends, useFriendshipWith, type FriendRequest } from '@/hooks/useFriends';
 import { useIsAdFree } from '@/hooks/useIsAdFree';
+import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { computeActivityFeed, type ActivityItem } from '@/lib/activity';
 import { formatGameDateShort } from '@/lib/format';
 import { computeAllGoalStats } from '@/lib/goals';
@@ -37,6 +38,7 @@ export default function AmigosScreen() {
 
   const friends = useFriends();
   const { incoming } = useFriendRequests();
+  const unreadCount = useUnreadNotificationsCount();
   const [query, setQuery] = useState('');
 
   const overalls = computeAllOveralls(
@@ -68,8 +70,16 @@ export default function AmigosScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Amigos</Text>
-      <Text style={styles.subtitle}>Sua rede na Pelada — peça amizade, acompanhe o desempenho de quem você joga junto.</Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Amigos</Text>
+          <Text style={styles.subtitle}>Sua rede na Pelada — peça amizade, acompanhe o desempenho de quem você joga junto.</Text>
+        </View>
+        <Pressable style={styles.bellButton} onPress={() => router.push('/notificacoes')} hitSlop={8}>
+          <Ionicons name="notifications-outline" size={24} color={colors.text} />
+          {unreadCount > 0 && <View style={styles.bellDot} />}
+        </Pressable>
+      </View>
 
       <TextField label="Buscar jogador" placeholder="Nome ou apelido" value={query} onChangeText={setQuery} />
       {searchResults.length > 0 && (
@@ -171,13 +181,24 @@ function FriendRequestRow({ request }: { request: FriendRequest }) {
 
 function ActivityRow({ item, player, isMe }: { item: ActivityItem; player?: Player; isMe: boolean }) {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const players = useAppStore((s) => s.players);
   const likes = useAppStore(useShallow((s) => s.activityLikes.filter((l) => l.activityId === item.id)));
+  const comments = useAppStore(useShallow((s) => s.activityComments.filter((c) => c.activityId === item.id)));
   const toggleActivityLike = useAppStore((s) => s.toggleActivityLike);
+  const addActivityComment = useAppStore((s) => s.addActivityComment);
   const likedByMe = likes.some((l) => l.playerId === currentPlayerId);
+  const [showComments, setShowComments] = useState(false);
+  const [draft, setDraft] = useState('');
 
   if (!player) return null;
   const sport = getSport(item.sportId);
   const who = isMe ? 'Você' : player.nickname || player.name;
+
+  function handleSend() {
+    if (!draft.trim()) return;
+    addActivityComment(item.id, currentPlayerId, draft);
+    setDraft('');
+  }
 
   return (
     <View style={styles.activityRow}>
@@ -194,15 +215,70 @@ function ActivityRow({ item, player, isMe }: { item: ActivityItem; player?: Play
         </View>
         <Text style={styles.activityIcon}>{item.type === 'goal' ? sport.icon : '🎉'}</Text>
       </Pressable>
-      <Pressable style={styles.likeRow} onPress={() => toggleActivityLike(item.id, currentPlayerId)} hitSlop={8}>
-        <Ionicons name={likedByMe ? 'heart' : 'heart-outline'} size={16} color={likedByMe ? colors.danger : colors.textFaint} />
-        {likes.length > 0 && <Text style={styles.likeCount}>{likes.length}</Text>}
-      </Pressable>
+
+      <View style={styles.activityActionsRow}>
+        <Pressable style={styles.likeRow} onPress={() => toggleActivityLike(item.id, currentPlayerId)} hitSlop={8}>
+          <Ionicons name={likedByMe ? 'heart' : 'heart-outline'} size={16} color={likedByMe ? colors.danger : colors.textFaint} />
+          {likes.length > 0 && <Text style={styles.likeCount}>{likes.length}</Text>}
+        </Pressable>
+        <Pressable style={styles.likeRow} onPress={() => setShowComments((v) => !v)} hitSlop={8}>
+          <Ionicons name="chatbubble-outline" size={15} color={colors.textFaint} />
+          {comments.length > 0 && <Text style={styles.likeCount}>{comments.length}</Text>}
+        </Pressable>
+      </View>
+
+      {showComments && (
+        <View style={styles.commentsBox}>
+          {comments.map((c) => {
+            const author = players.find((p) => p.id === c.playerId);
+            if (!author) return null;
+            return (
+              <View key={c.id} style={styles.commentRow}>
+                <Avatar name={author.name} photoUrl={author.avatarUrl} size={22} />
+                <Text style={styles.commentText}>
+                  <Text style={styles.commentAuthor}>{author.nickname || author.name} </Text>
+                  {c.text}
+                </Text>
+              </View>
+            );
+          })}
+          <View style={styles.commentInputRow}>
+            <TextField
+              label=""
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Escreva um comentário..."
+              style={{ flex: 1 }}
+              onSubmitEditing={handleSend}
+            />
+            <Pressable style={styles.commentSendBtn} onPress={handleSend} hitSlop={8}>
+              <Ionicons name="send" size={16} color={colors.primary} />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  bellButton: {
+    marginTop: 2,
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.danger,
+  },
   title: {
     color: colors.text,
     fontSize: 22,
@@ -285,17 +361,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  activityActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.xs,
+    marginLeft: 32 + spacing.sm,
+  },
   likeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: spacing.xs,
-    marginLeft: 32 + spacing.sm,
   },
   likeCount: {
     color: colors.textFaint,
     fontSize: 11,
     fontWeight: '600',
+  },
+  commentsBox: {
+    marginTop: spacing.sm,
+    marginLeft: 32 + spacing.sm,
+    gap: spacing.xs,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  commentText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    flex: 1,
+  },
+  commentAuthor: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  commentSendBtn: {
+    padding: spacing.xs,
   },
   activityText: {
     color: colors.textMuted,

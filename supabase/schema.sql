@@ -235,6 +235,18 @@ create table activity_likes (
   unique (activity_id, player_id)
 );
 
+-- comentário num item do feed. Mesma chave activity_id (não é FK) do activity_likes.
+-- Notificações (pedido de amizade, aceite, curtida, comentário) são computadas em
+-- src/lib/notifications.ts a partir destas tabelas + friendships — não existe uma
+-- tabela "notifications" separada.
+create table activity_comments (
+  id uuid primary key default gen_random_uuid(),
+  activity_id text not null,
+  player_id uuid not null references players (id) on delete cascade,
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
 create table ratings (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
@@ -400,6 +412,7 @@ alter table player_fatigue enable row level security;
 alter table waiting_players enable row level security;
 alter table friendships enable row level security;
 alter table activity_likes enable row level security;
+alter table activity_comments enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -555,6 +568,14 @@ create policy "friendships_delete_involved" on friendships for delete using (
 -- curtidas do feed: qualquer jogador autenticado pode ler, mas só curte/descurte em nome próprio.
 create policy "activity_likes_select_all" on activity_likes for select using (auth.uid() is not null);
 create policy "activity_likes_write_self" on activity_likes for all using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "activity_comments_select_all" on activity_comments for select using (auth.uid() is not null);
+create policy "activity_comments_insert_self" on activity_comments for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "activity_comments_delete_self" on activity_comments for delete using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 

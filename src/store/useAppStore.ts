@@ -32,6 +32,7 @@ import { addPremiumPeriod } from '@/lib/premium';
 import { buildPunishment } from '@/lib/punishment';
 import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
 import type {
+  ActivityComment,
   ActivityLike,
   Attendance,
   AttendanceStatus,
@@ -120,6 +121,9 @@ interface AppState {
   playerFatigue: PlayerFatigue[];
   friendships: Friendship[];
   activityLikes: ActivityLike[];
+  activityComments: ActivityComment[];
+  /** Timestamp da última vez que o jogador abriu a central de notificações — define o que é "não lido". */
+  notificationsSeenAt: string | null;
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
@@ -235,6 +239,10 @@ interface AppState {
   removeFriendship: (friendshipId: string) => void;
   /** Curte/descurte um item do feed de atividades. */
   toggleActivityLike: (activityId: string, playerId: string) => void;
+  addActivityComment: (activityId: string, playerId: string, text: string) => void;
+  removeActivityComment: (commentId: string) => void;
+  /** Marca a central de notificações como vista agora (zera o contador de não lidas). */
+  markNotificationsSeen: () => void;
 
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
@@ -311,6 +319,8 @@ export const useAppStore = create<AppState>()(
       playerFatigue: [],
       friendships: MOCK_FRIENDSHIPS,
       activityLikes: [],
+      activityComments: [],
+      notificationsSeenAt: null,
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
@@ -1019,6 +1029,25 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      addActivityComment: (activityId, playerId, text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        set((state) => ({
+          activityComments: [
+            ...state.activityComments,
+            { id: uid(), activityId, playerId, text: trimmed, createdAt: nowIso() } satisfies ActivityComment,
+          ],
+        }));
+      },
+
+      removeActivityComment: (commentId) => {
+        set((state) => ({ activityComments: state.activityComments.filter((c) => c.id !== commentId) }));
+      },
+
+      markNotificationsSeen: () => {
+        set({ notificationsSeenAt: nowIso() });
+      },
+
       updateCurrentPlayerProfile: (input) => {
         set((state) => ({
           players: state.players.map((p) => (p.id === state.currentPlayerId ? { ...p, ...input } : p)),
@@ -1183,6 +1212,8 @@ export const useAppStore = create<AppState>()(
         playerFatigue: state.playerFatigue,
         friendships: state.friendships,
         activityLikes: state.activityLikes,
+        activityComments: state.activityComments,
+        notificationsSeenAt: state.notificationsSeenAt,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,
