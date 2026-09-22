@@ -224,6 +224,17 @@ create table friendships (
   unique (requester_id, addressee_id)
 );
 
+-- curtida num item do feed de atividades. activity_id é a chave estável calculada no
+-- app (ex.: "goal:<player_id>:<game_id>"), não uma FK — o feed em si é derivado de
+-- gols/memberships, não uma tabela de posts.
+create table activity_likes (
+  id uuid primary key default gen_random_uuid(),
+  activity_id text not null,
+  player_id uuid not null references players (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (activity_id, player_id)
+);
+
 create table ratings (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
@@ -388,6 +399,7 @@ alter table goals enable row level security;
 alter table player_fatigue enable row level security;
 alter table waiting_players enable row level security;
 alter table friendships enable row level security;
+alter table activity_likes enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -538,6 +550,12 @@ create policy "friendships_update_involved" on friendships for update using (
 create policy "friendships_delete_involved" on friendships for delete using (
   exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+
+-- curtidas do feed: qualquer jogador autenticado pode ler, mas só curte/descurte em nome próprio.
+create policy "activity_likes_select_all" on activity_likes for select using (auth.uid() is not null);
+create policy "activity_likes_write_self" on activity_likes for all using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
 -- ratings: qualquer membro pode ler (cartas são públicas dentro da pelada);

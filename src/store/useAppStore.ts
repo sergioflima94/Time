@@ -32,6 +32,7 @@ import { addPremiumPeriod } from '@/lib/premium';
 import { buildPunishment } from '@/lib/punishment';
 import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
 import type {
+  ActivityLike,
   Attendance,
   AttendanceStatus,
   AvailabilitySlot,
@@ -118,6 +119,7 @@ interface AppState {
   waitingPlayers: WaitingPlayer[];
   playerFatigue: PlayerFatigue[];
   friendships: Friendship[];
+  activityLikes: ActivityLike[];
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
@@ -231,6 +233,8 @@ interface AppState {
   respondFriendRequest: (friendshipId: string, accept: boolean) => void;
   /** Cancela um pedido enviado (ainda pendente) ou desfaz uma amizade já aceita. */
   removeFriendship: (friendshipId: string) => void;
+  /** Curte/descurte um item do feed de atividades. */
+  toggleActivityLike: (activityId: string, playerId: string) => void;
 
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
@@ -306,6 +310,7 @@ export const useAppStore = create<AppState>()(
       waitingPlayers: [],
       playerFatigue: [],
       friendships: MOCK_FRIENDSHIPS,
+      activityLikes: [],
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
@@ -1002,6 +1007,18 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ friendships: state.friendships.filter((f) => f.id !== friendshipId) }));
       },
 
+      toggleActivityLike: (activityId, playerId) => {
+        set((state) => {
+          const existing = state.activityLikes.find((l) => l.activityId === activityId && l.playerId === playerId);
+          if (existing) {
+            return { activityLikes: state.activityLikes.filter((l) => l.id !== existing.id) };
+          }
+          return {
+            activityLikes: [...state.activityLikes, { id: uid(), activityId, playerId, createdAt: nowIso() } satisfies ActivityLike],
+          };
+        });
+      },
+
       updateCurrentPlayerProfile: (input) => {
         set((state) => ({
           players: state.players.map((p) => (p.id === state.currentPlayerId ? { ...p, ...input } : p)),
@@ -1165,6 +1182,7 @@ export const useAppStore = create<AppState>()(
         waitingPlayers: state.waitingPlayers,
         playerFatigue: state.playerFatigue,
         friendships: state.friendships,
+        activityLikes: state.activityLikes,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,

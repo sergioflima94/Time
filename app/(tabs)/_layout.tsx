@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { AmigosTabIcon } from '@/components/AmigosTabIcon';
 import { colors } from '@/constants/theme';
 
 export default function TabsLayout() {
@@ -29,7 +30,7 @@ export default function TabsLayout() {
         options={{
           title: 'Amigos',
           tabBarActiveTintColor: colors.secondary,
-          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AmigosTabIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen

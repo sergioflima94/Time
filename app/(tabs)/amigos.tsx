@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { AdBanner } from '@/components/AdBanner';
 import { PlayerCard } from '@/components/PlayerCard';
@@ -169,24 +170,35 @@ function FriendRequestRow({ request }: { request: FriendRequest }) {
 }
 
 function ActivityRow({ item, player, isMe }: { item: ActivityItem; player?: Player; isMe: boolean }) {
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const likes = useAppStore(useShallow((s) => s.activityLikes.filter((l) => l.activityId === item.id)));
+  const toggleActivityLike = useAppStore((s) => s.toggleActivityLike);
+  const likedByMe = likes.some((l) => l.playerId === currentPlayerId);
+
   if (!player) return null;
   const sport = getSport(item.sportId);
   const who = isMe ? 'Você' : player.nickname || player.name;
 
   return (
-    <Pressable style={styles.activityRow} onPress={() => (isMe ? null : router.push(`/jogador/${player.id}`))}>
-      <Avatar name={player.name} photoUrl={player.avatarUrl} size={32} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.activityText}>
-          <Text style={styles.activityWho}>{who}</Text>
-          {item.type === 'goal'
-            ? ` marcou ${item.goalCount} ${sport.scorePlural} em ${item.peladaName}`
-            : ` entrou na pelada ${item.peladaName}`}
-        </Text>
-        <Text style={styles.activityDate}>{formatGameDateShort(item.createdAt)}</Text>
-      </View>
-      <Text style={styles.activityIcon}>{item.type === 'goal' ? sport.icon : '🎉'}</Text>
-    </Pressable>
+    <View style={styles.activityRow}>
+      <Pressable style={styles.activityMain} onPress={() => (isMe ? null : router.push(`/jogador/${player.id}`))}>
+        <Avatar name={player.name} photoUrl={player.avatarUrl} size={32} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.activityText}>
+            <Text style={styles.activityWho}>{who}</Text>
+            {item.type === 'goal'
+              ? ` marcou ${item.goalCount} ${sport.scorePlural} em ${item.peladaName}`
+              : ` entrou na pelada ${item.peladaName}`}
+          </Text>
+          <Text style={styles.activityDate}>{formatGameDateShort(item.createdAt)}</Text>
+        </View>
+        <Text style={styles.activityIcon}>{item.type === 'goal' ? sport.icon : '🎉'}</Text>
+      </Pressable>
+      <Pressable style={styles.likeRow} onPress={() => toggleActivityLike(item.id, currentPlayerId)} hitSlop={8}>
+        <Ionicons name={likedByMe ? 'heart' : 'heart-outline'} size={16} color={likedByMe ? colors.danger : colors.textFaint} />
+        {likes.length > 0 && <Text style={styles.likeCount}>{likes.length}</Text>}
+      </Pressable>
+    </View>
   );
 }
 
@@ -264,12 +276,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
+  },
+  activityMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  likeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+    marginLeft: 32 + spacing.sm,
+  },
+  likeCount: {
+    color: colors.textFaint,
+    fontSize: 11,
+    fontWeight: '600',
   },
   activityText: {
     color: colors.textMuted,

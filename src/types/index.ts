@@ -317,6 +317,14 @@ export interface Friendship {
   respondedAt: string | null;
 }
 
+/** Curtida num item do feed de atividades (`computeActivityFeed`). activityId é a chave estável do item (ex.: "goal:playerId:gameId"). */
+export interface ActivityLike {
+  id: UUID;
+  activityId: string;
+  playerId: UUID;
+  createdAt: string;
+}
+
 export type PunishmentType = 'no_show' | 'late_cancel';
 
 export interface Punishment {

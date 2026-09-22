@@ -161,7 +161,12 @@ supabase/schema.sql          schema completo + Row Level Security
   entrou (`src/lib/activity.ts`, `computeActivityFeed`) — e por fim o grid de cartas
   dos amigos (era o grid de "Jogadores da pelada" antes), cada uma levando pro
   perfil (`app/jogador/[id].tsx`). O botão de adicionar/aceitar amizade também
-  aparece direto no perfil do jogador, não só na busca.
+  aparece direto no perfil do jogador, não só na busca. Cada item do feed pode ser
+  **curtido** (`ActivityLike`, ação `toggleActivityLike`), e a aba ganha uma bolinha
+  vermelha no ícone (`src/components/AmigosTabIcon.tsx`) quando há pedido de amizade
+  pendente esperando resposta.
+  > Próximos passos que ficaram só de sugestão (não implementados): comentários no
+  > feed e uma central de notificações separada da aba Amigos.
 - **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
   **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
   retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,
