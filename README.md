@@ -143,9 +143,16 @@ supabase/schema.sql          schema completo + Row Level Security
   de admin de antes (renomear time, trocar cor, reordenar a fila). De lá também dá pra
   ir direto pra Agenda ou pro Admin daquela pelada específica (troca a pelada ativa e
   navega).
-  > Agenda, Elenco e Admin (as outras abas) continuam mostrando só a pelada **ativa no
+  > Elenco e Admin (as outras abas) continuam mostrando só a pelada **ativa no
   > momento** (`currentPeladaId`), trocada pelo seletor no topo da Agenda ou por aqui —
   > ainda não são multi-time "de verdade" como a aba Times.
+- **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
+  **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
+  retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,
+  `computeOverallTrend`) que compara a média das últimas 5 avaliações recebidas com as
+  5 anteriores para indicar se o jogador está subindo, caindo ou estável — e um carrossel
+  de **atalhos dos seus times** (todas as peladas que participa, com "+ Novo time"),
+  cada um levando direto pra `app/time/[id].tsx`.
 - **Punição** (`src/lib/punishment.ts`): confirmou presença e não foi = falta. A 1ª
   falta é só um aviso; a 2ª deixa o jogador de fora do próximo jogo; da 3ª em diante,
   fora dos 2 próximos jogos. O admin marca a falta na tela do jogo, depois de encerrado.
