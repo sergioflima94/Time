@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
-import { PeladaSwitcher } from '@/components/PeladaSwitcher';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -11,14 +11,14 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
-import { colors, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { colors, radius, spacing } from '@/constants/theme';
+import { getSport, SPORTS } from '@/constants/sports';
 import { useCurrentPelada, useMyPeladas } from '@/hooks/useCurrentPelada';
 import { drawMethodLabel, formatGameDateShort, recurrenceLabel, WEEKDAY_LABELS } from '@/lib/format';
 import { formatBRL } from '@/lib/payments';
 import { computeNextOccurrence } from '@/lib/schedule';
 import { useAppStore } from '@/store/useAppStore';
-import type { DrawMethod, RecurrenceType } from '@/types';
+import type { DrawMethod, Pelada, RecurrenceType } from '@/types';
 
 export default function AdminScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
@@ -26,29 +26,31 @@ export default function AdminScreen() {
   const myPeladas = useMyPeladas();
   const isAdmin = useAppStore((s) => s.isAdmin(currentPlayerId, pelada.id));
   const memberships = useAppStore((s) => s.memberships);
-  const adminPeladaCount = myPeladas.filter((p) =>
+  const adminPeladas = myPeladas.filter((p) =>
     memberships.some((m) => m.peladaId === p.id && m.playerId === currentPlayerId && m.role === 'admin' && m.active),
-  ).length;
+  );
+
+  if (adminPeladas.length === 0) {
+    return (
+      <Screen>
+        <Text style={styles.title}>Administração</Text>
+        <View style={styles.notAdmin}>
+          <Ionicons name="shield-outline" size={32} color={colors.textFaint} />
+          <Text style={styles.notAdminText}>Você não é administrador de nenhum time ainda.</Text>
+          <Button label="Criar um time novo" small onPress={() => router.push('/criar-pelada')} />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <Text style={styles.title}>Administração</Text>
-      {adminPeladaCount > 1 && (
-        <View style={styles.switcherWrap}>
-          <PeladaSwitcher />
-        </View>
-      )}
+      {adminPeladas.length > 1 && <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />}
 
-      {!isAdmin ? (
-        <View style={styles.notAdmin}>
-          <Ionicons name="lock-closed" size={32} color={colors.textFaint} />
-          <Text style={styles.notAdminText}>
-            Você não é administrador de "{pelada.name}".
-            {adminPeladaCount > 0 ? ' Troque de time acima pra administrar outro.' : ''}
-          </Text>
-        </View>
-      ) : (
+      {isAdmin ? (
         <>
+          <OverviewSection />
           <PeladaInfoSection />
           <InviteSection />
           <AdminsSection />
@@ -56,8 +58,74 @@ export default function AdminScreen() {
           <SchedulesSection />
           <PunishmentsSection />
         </>
+      ) : (
+        <View style={styles.notAdmin}>
+          <Ionicons name="swap-horizontal" size={32} color={colors.textFaint} />
+          <Text style={styles.notAdminText}>Escolha acima um dos times que você administra.</Text>
+        </View>
       )}
     </Screen>
+  );
+}
+
+/** Só lista as peladas em que o jogador é admin — trocar aqui nunca leva a um beco sem saída. */
+function AdminPeladaPicker({ adminPeladas, currentId }: { adminPeladas: Pelada[]; currentId: string }) {
+  const setCurrentPelada = useAppStore((s) => s.setCurrentPelada);
+  return (
+    <View style={styles.pickerRow}>
+      {adminPeladas.map((p) => {
+        const sport = getSport(p.sportId);
+        const active = p.id === currentId;
+        return (
+          <Pressable
+            key={p.id}
+            onPress={() => setCurrentPelada(p.id)}
+            style={[styles.pickerChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+          >
+            <Text style={styles.pickerChipText}>
+              {sport.icon} {p.name}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function OverviewSection() {
+  const pelada = useCurrentPelada();
+  const memberCount = useAppStore(
+    (s) => s.memberships.filter((m) => m.peladaId === pelada.id && m.active).length,
+  );
+  const games = useAppStore(useShallow((s) => s.games.filter((g) => g.peladaId === pelada.id)));
+  const punishments = useAppStore(useShallow((s) => s.punishments.filter((p) => p.peladaId === pelada.id)));
+
+  const now = Date.now();
+  const nextGame = games
+    .filter((g) => new Date(g.scheduledAt).getTime() >= now && g.status !== 'cancelled')
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+  const activePunishments = punishments.filter((p) => p.suspendedUntilGameCount > 0).length;
+
+  return (
+    <Card style={styles.section}>
+      <Text style={styles.sectionTitle}>Visão geral</Text>
+      <View style={styles.overviewRow}>
+        <OverviewStat label="Membros" value={String(memberCount)} />
+        <OverviewStat label="Próximo jogo" value={nextGame ? formatGameDateShort(nextGame.scheduledAt) : '—'} small />
+        <OverviewStat label="Suspensos" value={String(activePunishments)} />
+      </View>
+    </Card>
+  );
+}
+
+function OverviewStat({ label, value, small }: { label: string; value: string; small?: boolean }) {
+  return (
+    <View style={styles.overviewStat}>
+      <Text style={[styles.overviewValue, small && styles.overviewValueSmall]} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.overviewLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -466,8 +534,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
   },
-  switcherWrap: {
+  pickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  pickerChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  pickerChipText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
   },
   notAdmin: {
     alignItems: 'center',
@@ -478,6 +562,28 @@ const styles = StyleSheet.create({
   notAdminText: {
     color: colors.textMuted,
     fontSize: 14,
+    textAlign: 'center',
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  overviewStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  overviewValue: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  overviewValueSmall: {
+    fontSize: 13,
+  },
+  overviewLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
     textAlign: 'center',
   },
   section: {

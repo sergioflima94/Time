@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AdBanner } from '@/components/AdBanner';
 import { PlayerCard } from '@/components/PlayerCard';
@@ -106,15 +106,9 @@ export default function AmigosScreen() {
           <Text style={styles.emptyText}>Você ainda não tem amigos. Busque acima pra adicionar.</Text>
         </View>
       ) : (
-        <FlatList
-          data={sortedFriends}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.list}
-          scrollEnabled={false}
-          renderItem={({ item }) => (
-            <Pressable style={styles.cardWrap} onPress={() => router.push(`/jogador/${item.id}`)}>
+        <View style={styles.grid}>
+          {sortedFriends.map((item) => (
+            <Pressable key={item.id} style={styles.cardWrap} onPress={() => router.push(`/jogador/${item.id}`)}>
               <PlayerCard
                 name={item.name}
                 nickname={item.nickname}
@@ -127,8 +121,8 @@ export default function AmigosScreen() {
                 width={150}
               />
             </Pressable>
-          )}
-        />
+          ))}
+        </View>
       )}
     </Screen>
   );
@@ -304,14 +298,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  list: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingBottom: spacing.xxl,
   },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
   cardWrap: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
 });
