@@ -1,4 +1,5 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -49,7 +50,7 @@ export default function JogadoresScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={!adFree ? <AdBanner /> : null}
         renderItem={({ item }) => (
-          <View style={styles.cardWrap}>
+          <Pressable style={styles.cardWrap} onPress={() => router.push(`/jogador/${item.id}`)}>
             <PlayerCard
               name={item.name}
               nickname={item.nickname}
@@ -61,7 +62,7 @@ export default function JogadoresScreen() {
               goalStats={goalStats[item.id]}
               width={150}
             />
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

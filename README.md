@@ -132,11 +132,20 @@ supabase/schema.sql          schema completo + Row Level Security
   pelo resto do jogo, até o admin reverter em "Jogadores de fora" → "voltar a jogar").
   Esse status (`PlayerFatigue` em `src/types/index.ts`) é por jogo, não é punição nem
   falta — não afeta o histórico de faltas do jogador.
-- **Aba Times** (`app/(tabs)/times.tsx`): mostra os times do jogo mais próximo já
-  sorteado da pelada atual — quem tá jogando agora, quem tá esperando (ou a fila de
-  espera individual, no modo de rodízio individual), e o elenco de cada time. Pro admin,
-  tem funções extras direto ali: renomear time, trocar a cor, e reordenar quem entra
-  antes na fila (só afeta quem ainda não está jogando).
+- **Aba Times** (`app/(tabs)/times.tsx`): lista **todos os times (peladas) que você
+  participa**, separados em "você é dono" (admin) e "você participa" (membro comum) —
+  é o hub multi-time do app, já que um jogador pode ser dono/membro de vários ao mesmo
+  tempo (ver "Criar uma pelada nova" acima). Tocar num time abre os detalhes
+  (`app/time/[id].tsx`): descrição, elenco (tocar num jogador abre o perfil dele,
+  `app/jogador/[id].tsx`, com a carta dele girando — `RotatingCard`, feito com
+  `react-native-reanimated`), e — se aquela pelada tem um jogo com times já sorteados —
+  quem tá jogando agora, quem tá esperando (ou a fila individual), com as mesmas funções
+  de admin de antes (renomear time, trocar cor, reordenar a fila). De lá também dá pra
+  ir direto pra Agenda ou pro Admin daquela pelada específica (troca a pelada ativa e
+  navega).
+  > Agenda, Elenco e Admin (as outras abas) continuam mostrando só a pelada **ativa no
+  > momento** (`currentPeladaId`), trocada pelo seletor no topo da Agenda ou por aqui —
+  > ainda não são multi-time "de verdade" como a aba Times.
 - **Punição** (`src/lib/punishment.ts`): confirmou presença e não foi = falta. A 1ª
   falta é só um aviso; a 2ª deixa o jogador de fora do próximo jogo; da 3ª em diante,
   fora dos 2 próximos jogos. O admin marca a falta na tela do jogo, depois de encerrado.
