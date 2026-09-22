@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PlayerCard } from '@/components/PlayerCard';
+import { PLAYER_CARD_ASPECT, PlayerCard } from '@/components/PlayerCard';
+import { PlayerCardBack } from '@/components/PlayerCardBack';
 import { RotatingCard } from '@/components/RotatingCard';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
@@ -42,19 +43,33 @@ export default function JogadorPerfilScreen() {
       </View>
 
       <View style={styles.cardWrap}>
-        <RotatingCard>
-          <PlayerCard
-            name={player.name}
-            nickname={player.nickname}
-            photoUrl={player.avatarUrl}
-            cardBackgroundUrl={player.cardBackgroundUrl}
-            position={player.preferredPosition}
-            sportId={player.favoriteSports[0]}
-            overall={overall}
-            goalStats={goalStats}
-            width={200}
-          />
-        </RotatingCard>
+        <RotatingCard
+          width={200}
+          height={200 * PLAYER_CARD_ASPECT}
+          front={
+            <PlayerCard
+              name={player.name}
+              nickname={player.nickname}
+              photoUrl={player.avatarUrl}
+              cardBackgroundUrl={player.cardBackgroundUrl}
+              position={player.preferredPosition}
+              sportId={player.favoriteSports[0]}
+              overall={overall}
+              goalStats={goalStats}
+              width={200}
+            />
+          }
+          back={
+            <PlayerCardBack
+              playerId={player.id}
+              overall={overall.overall}
+              sportId={player.favoriteSports[0]}
+              ratingsCount={overall.ratingsCount}
+              width={200}
+              height={200 * PLAYER_CARD_ASPECT}
+            />
+          }
+        />
       </View>
 
       <Text style={styles.name}>{player.name}</Text>

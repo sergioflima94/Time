@@ -10,6 +10,8 @@ import type { PlayerGoalStats } from '@/lib/goals';
 import { overallTier } from '@/lib/ratings';
 import type { PlayerOverall } from '@/types';
 
+export const PLAYER_CARD_ASPECT = 1.35;
+
 interface PlayerCardProps {
   name: string;
   nickname?: string | null;
@@ -38,7 +40,7 @@ export function PlayerCard({
   const sport = getSport(sportId);
   const tier = overallTier(overall.overall);
   const borderColor = tier.color;
-  const height = width * 1.35;
+  const height = width * PLAYER_CARD_ASPECT;
   const [photoFailed, setPhotoFailed] = useState(false);
   const showPhoto = !!photoUrl && !photoFailed;
   const [bgFailed, setBgFailed] = useState(false);
