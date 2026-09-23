@@ -598,6 +598,14 @@ create policy "field_bookings_write_owner" on field_bookings for all using (
     )
   )
 );
+-- página pública do estabelecimento (app/estabelecimento/publico/[id].tsx): qualquer
+-- jogador autenticado marca um jogo avulso em nome próprio, sem precisar ser o dono
+-- nem pertencer a uma pelada vinculada — só não edita/cancela a reserva de outra pessoa
+-- (isso continua exclusivo do dono, via field_bookings_write_owner acima).
+create policy "field_bookings_insert_self" on field_bookings for insert with check (
+  pelada_id is null
+  and exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
 
 -- establishments: qualquer autenticado pode ler (precisa achar pelo access_code pra
 -- vincular um campo), mas só o dono edita o próprio estabelecimento.

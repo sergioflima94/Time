@@ -392,7 +392,16 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   time já está lá). Bloqueia conflito: não dá pra reservar o mesmo campo com horário
   sobreposto a uma reserva existente, single ou fixa (`findBookingConflicts`, considera
   fixo x fixo, fixo x avulsa no mesmo dia da semana, e avulsa x avulsa só na mesma data).
-  Ainda não é um marketplace — só o dono cadastra, peladas não reservam sozinhas.
+- ✅ **Página pública do estabelecimento** (`app/estabelecimento/publico/[id].tsx`): link
+  compartilhável (card "Página pública" no painel do dono, `[id]/index.tsx`) que qualquer
+  pessoa abre sem estar logada nem fazer parte de nenhuma pelada — vê os campos e marca um
+  jogo avulso (reaproveita `addFieldBooking`/`findBookingConflicts`, mesmo bloqueio de
+  conflito de horário do fluxo interno). Se quem está marcando ainda não tem conta no
+  device, o próprio formulário pede nome + telefone e já cria o perfil de jogador e loga
+  (`updateCurrentPlayerProfile` + `useAuthStore.login`) antes de confirmar a reserva — não
+  precisa passar pela tela de cadastro separada. RLS: `field_bookings_insert_self` deixa
+  qualquer jogador autenticado criar uma reserva avulsa em nome próprio; editar/cancelar
+  continua exclusivo do dono do estabelecimento.
 - ✅ **Relatório financeiro** (`src/lib/establishmentFinance.ts`, `[id]/financeiro.tsx`):
   soma o que já é rastreado no app — rateio de jogo pago (`payments` com status "paid",
   valor = custo da quadra ÷ confirmados no momento) e taxas de inscrição de campeonato
