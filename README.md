@@ -323,10 +323,18 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
 (2) agendamento multi-campo ✅, (3) e-commerce (loja única do app pra começar).
 
 - ✅ **Estabelecimento e conta pra receber** (`Establishment` em `src/types/index.ts`,
-  ações em `useAppStore.ts`, tela `app/estabelecimento.tsx` — acessível em Perfil →
-  "🏟️ Sou dono de um campo"): qualquer jogador pode cadastrar um estabelecimento
-  independente de pelada, escolhendo receber via **Pix** (chave cadastrada) ou
-  **combinar na hora**. Gera um `accessCode` único pra compartilhar.
+  ações em `useAppStore.ts` — acessível em Perfil → "🏟️ Sou dono de um campo"): qualquer
+  jogador pode cadastrar um estabelecimento independente de pelada, escolhendo receber
+  via **Pix** (chave cadastrada) ou **combinar na hora**. Gera um `accessCode` único pra
+  compartilhar.
+- ✅ **Um dono pode ter vários estabelecimentos, cada um com suas próprias telas**
+  (`app/estabelecimento/`): `/estabelecimento` lista todos os estabelecimentos do dono
+  e cadastra um novo; cada um abre em `/estabelecimento/[id]` — um painel próprio (modo
+  "dono de campo", cor de destaque roxa pra se diferenciar do modo jogador) com
+  `EstablishmentSwitcher` pra trocar rápido entre eles, estatísticas rápidas e links pra
+  páginas dedicadas: **Campos** (`[id]/campos.tsx`), **Agendamento**
+  (`[id]/agendamento.tsx`), **Campeonatos** (`[id]/campeonatos.tsx`) e **Financeiro**
+  (`[id]/financeiro.tsx`) — antes tudo isso vivia empilhado numa página só.
 - ✅ **Campo vinculado ao estabelecimento**: em Admin → Campos, o admin da pelada cola o
   código do estabelecimento (`useAppStore.linkFieldToEstablishment`) pra vincular aquele
   campo ao dono real — sem isso, o campo funciona exatamente como antes (rateio
@@ -349,22 +357,28 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
 - ✅ **Emblema do time** (`src/lib/teamLogo.ts`, na inscrição do time): escolhe uma foto da
   galeria ou gera por IA a partir de uma descrição (ex.: "leão dourado com bola de
   futebol"). Ver "Configurar geração de emblema por IA" abaixo.
-- ✅ **Campos próprios do estabelecimento, um por esporte** (`app/estabelecimento.tsx` →
-  "Meus campos"): além de vincular campos que já pertencem a uma pelada (fluxo antigo),
-  o dono agora cadastra campos direto no próprio estabelecimento — sem depender de
-  nenhuma pelada (`Field.peladaId` agora é opcional) — escolhendo o esporte de cada um
-  (`Field.sportId`). Assim um único estabelecimento cobre vários esportes (ex.: quadra de
-  society, quadra de vôlei, quadra de basquete, arena de areia pro futevôlei). Na hora de
-  criar um campeonato, o campo é escolhido automaticamente pelo esporte do campeonato.
+- ✅ **Campos próprios do estabelecimento, um por esporte** (`[id]/campos.tsx`): além de
+  vincular campos que já pertencem a uma pelada (fluxo antigo, também listados aqui como
+  "Campos vinculados de peladas"), o dono cadastra campos direto no próprio
+  estabelecimento — sem depender de nenhuma pelada (`Field.peladaId` é opcional) —
+  escolhendo o esporte de cada um (`Field.sportId`). Assim um único estabelecimento cobre
+  vários esportes (ex.: quadra de society, quadra de vôlei, quadra de basquete, arena de
+  areia pro futevôlei). Na hora de criar um campeonato, o campo é escolhido
+  automaticamente pelo esporte do campeonato.
 - ✅ **Agendamento de campo** (`FieldBooking` em `src/types/index.ts`,
-  `src/lib/fieldBooking.ts`, `app/estabelecimento.tsx` → "Agendamento"): o dono reserva
-  um campo pra um time cadastrado (uma pelada existente) ou avulso (só o nome), de uma
-  vez só ("Só uma vez" + data) ou **fixo** ("Fixo (toda semana)" + dia da semana — ex.:
-  toda quinta 20h aquele time já está lá). Bloqueia conflito: não dá pra reservar o
-  mesmo campo com horário sobreposto a uma reserva existente, single ou fixa
-  (`findBookingConflicts`, considera fixo x fixo, fixo x avulsa no mesmo dia da semana,
-  e avulsa x avulsa só na mesma data). Ainda não é um marketplace — só o dono cadastra,
-  peladas não reservam sozinhas.
+  `src/lib/fieldBooking.ts`, `[id]/agendamento.tsx`): o dono reserva um campo pra um time
+  cadastrado (uma pelada existente) ou avulso (só o nome), de uma vez só ("Só uma vez" +
+  data) ou **fixo** ("Fixo (toda semana)" + dia da semana — ex.: toda quinta 20h aquele
+  time já está lá). Bloqueia conflito: não dá pra reservar o mesmo campo com horário
+  sobreposto a uma reserva existente, single ou fixa (`findBookingConflicts`, considera
+  fixo x fixo, fixo x avulsa no mesmo dia da semana, e avulsa x avulsa só na mesma data).
+  Ainda não é um marketplace — só o dono cadastra, peladas não reservam sozinhas.
+- ✅ **Relatório financeiro** (`src/lib/establishmentFinance.ts`, `[id]/financeiro.tsx`):
+  soma o que já é rastreado no app — rateio de jogo pago (`payments` com status "paid",
+  valor = custo da quadra ÷ confirmados no momento) e taxas de inscrição de campeonato
+  (times confirmados × `entryFee`) — sem inventar nenhuma fonte de receita nova. Mostra
+  total recebido (filtro "todo o período" ou "este mês"), quebra por campo e lista de
+  transações recentes.
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
@@ -404,8 +418,8 @@ suportados — Futebol, Vôlei, Basquete, Handebol e Futevôlei — cada um com 
   destaque do esporte aparece no nome da pelada (`PeladaSwitcher`) e como faixa lateral
   nos cards de jogo (`GameCard`).
 - **Campeonato**: o dono do estabelecimento escolhe o esporte ao criar
-  (`app/estabelecimento.tsx`), independente do esporte das peladas donas dos times
-  inscritos — um campeonato de vôlei pode aceitar um time avulso mesmo que a pelada de
+  (`app/estabelecimento/[id]/campeonatos.tsx`), independente do esporte das peladas donas
+  dos times inscritos — um campeonato de vôlei pode aceitar um time avulso mesmo que a pelada de
   origem de algum jogador seja de futebol.
 - **Terminologia gol/ponto**: `scoreLabel(sportId, count)` decide "gol/gols" (futebol,
   handebol) vs. "ponto/pontos" (vôlei, basquete, futevôlei) — usado no placar ao vivo
