@@ -438,7 +438,10 @@ export type ChampionshipStatus = 'registration' | 'in_progress' | 'finished';
 
 export interface Championship {
   id: UUID;
-  establishmentId: UUID;
+  /** Estabelecimento que organiza (dono de campo) — null quando é uma pelada organizando direto (ver organizerPeladaId). Exatamente um dos dois é preenchido. */
+  establishmentId: UUID | null;
+  /** Pelada que organiza o campeonato, sem depender de estabelecimento/dono de campo — o admin dessa pelada administra (gera tabela, toca cronômetro/placar). */
+  organizerPeladaId: UUID | null;
   name: string;
   /** Esporte do campeonato (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto), cor e se as partidas usam goleiro. */
   sportId: string;

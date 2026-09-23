@@ -254,6 +254,7 @@ export const MOCK_CHAMPIONSHIPS: Championship[] = [
   {
     id: 'champ1',
     establishmentId: 'est1',
+    organizerPeladaId: null,
     name: 'Copa Arena Society Central',
     sportId: 'futebol',
     format: 'round_robin',

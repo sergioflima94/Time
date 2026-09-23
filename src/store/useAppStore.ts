@@ -308,9 +308,9 @@ interface AppState {
   ) => { booking: FieldBooking | null; conflicts: FieldBooking[] };
   removeFieldBooking: (bookingId: string) => void;
 
-  // campeonatos — organizados pelo dono do estabelecimento
+  // campeonatos — organizados pelo dono do estabelecimento OU direto por uma pelada (sem dono de campo)
   createChampionship: (
-    establishmentId: string,
+    organizer: { establishmentId: string; organizerPeladaId: null } | { establishmentId: null; organizerPeladaId: string },
     createdBy: string,
     input: { name: string; sportId: string; format: ChampionshipFormat; fieldId: string | null; maxTeams: number | null; entryFee: number | null; matchMinutes: number },
   ) => Championship;
@@ -854,10 +854,11 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      createChampionship: (establishmentId, createdBy, input) => {
+      createChampionship: (organizer, createdBy, input) => {
         const championship: Championship = {
           id: uid(),
-          establishmentId,
+          establishmentId: organizer.establishmentId,
+          organizerPeladaId: organizer.organizerPeladaId,
           name: input.name,
           sportId: input.sportId,
           format: input.format,

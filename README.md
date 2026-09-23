@@ -369,7 +369,11 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   pontos corridos monta todos os confrontos (método do círculo); mata-mata monta o
   chaveamento com byes e avança o vencedor de fase em fase automaticamente. Cada
   confronto tem cronômetro/placar próprios, com pênaltis pra desempate no mata-mata.
-  Classificação e artilharia são calculadas ao vivo.
+  Classificação e artilharia são calculadas ao vivo. **Não depende de dono de campo**: um
+  admin de pelada também pode criar um campeonato direto (`app/time/[id].tsx`, seção
+  "Campeonatos" — `Championship.organizerPeladaId`), sem estabelecimento por trás — mesmo
+  motor (tabela, cronômetro, classificação), só sem taxa de inscrição (não tem pix
+  cadastrado pra receber) e sem entrar no relatório financeiro do estabelecimento.
 - ✅ **Emblema do time** (`src/lib/teamLogo.ts`, na inscrição do time): escolhe uma foto da
   galeria ou gera por IA a partir de uma descrição (ex.: "leão dourado com bola de
   futebol"). Ver "Configurar geração de emblema por IA" abaixo.

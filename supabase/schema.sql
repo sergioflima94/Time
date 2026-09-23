@@ -339,7 +339,10 @@ create table free_agent_invites (
 -- ---------------------------------------------------------------------
 create table championships (
   id uuid primary key default gen_random_uuid(),
-  establishment_id uuid not null references establishments (id) on delete cascade,
+  -- exatamente um dos dois é preenchido: um estabelecimento cadastrado (dono de campo) organiza,
+  -- ou uma pelada organiza direto, sem dono de campo por trás (o admin dela administra).
+  establishment_id uuid references establishments (id) on delete cascade,
+  organizer_pelada_id uuid references peladas (id) on delete cascade,
   name text not null,
   -- esporte do campeonato (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto),
   -- cor de destaque e se as partidas usam goleiro.
@@ -347,13 +350,19 @@ create table championships (
   format text not null check (format in ('round_robin', 'knockout')),
   field_id uuid references fields (id) on delete set null,
   max_teams int,
+  -- taxa de inscrição por time. Só faz sentido quando tem um estabelecimento (com pix_key) pra
+  -- receber — campeonato organizado por pelada não tem essa infra, então fica sempre null.
   entry_fee numeric(10, 2),
   registration_code text not null unique,
   registration_deadline timestamptz,
   match_minutes int not null default 10,
   status text not null default 'registration' check (status in ('registration', 'in_progress', 'finished')),
   created_by uuid not null references players (id),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  check (
+    (establishment_id is not null and organizer_pelada_id is null)
+    or (establishment_id is null and organizer_pelada_id is not null)
+  )
 );
 
 create table championship_teams (
@@ -736,22 +745,30 @@ create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
 );
 
+-- true tanto pro dono do estabelecimento quanto pro admin da pelada organizadora
+-- (campeonato self-organizado por um time, sem dono de campo).
 create function is_owner_of_championship(p_championship_id uuid) returns boolean as $$
   select exists (
     select 1 from championships c
-    join establishments e on e.id = c.establishment_id
-    join players p on p.id = e.owner_player_id
-    where c.id = p_championship_id and p.auth_user_id = auth.uid()
+    left join establishments e on e.id = c.establishment_id
+    left join players p on p.id = e.owner_player_id
+    where c.id = p_championship_id
+    and (
+      (c.establishment_id is not null and p.auth_user_id = auth.uid())
+      or (c.organizer_pelada_id is not null and is_admin_of_pelada(c.organizer_pelada_id))
+    )
   );
 $$ language sql security definer stable;
 
 -- championships: público pra leitura (precisa achar pelo registration_code pra inscrever
--- um time), mas só o dono do estabelecimento organiza/edita.
+-- um time), mas só quem organiza (dono do estabelecimento, ou admin da pelada quando
+-- self-organizado) edita.
 create policy "championships_select_all" on championships for select using (true);
 create policy "championships_write_owner" on championships for all using (
-  exists (select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
+  (establishment_id is not null and exists (select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
     select id from players where auth_user_id = auth.uid()
-  ))
+  )))
+  or (organizer_pelada_id is not null and is_admin_of_pelada(organizer_pelada_id))
 );
 
 -- championship_teams: leitura pública; o dono do campeonato ou quem inscreveu o time edita.

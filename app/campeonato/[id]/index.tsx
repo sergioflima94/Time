@@ -21,6 +21,7 @@ export default function ChampionshipScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const championship = useAppStore((s) => s.championships.find((c) => c.id === id));
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === championship?.establishmentId));
+  const isAdmin = useAppStore((s) => s.isAdmin);
   const teams = useAppStore(useShallow((s) => s.championshipTeams.filter((t) => t.championshipId === id && t.status === 'confirmed')));
   const teamPlayers = useAppStore(useShallow((s) => s.championshipTeamPlayers.filter((tp) => teams.some((t) => t.id === tp.championshipTeamId))));
   const matches = useAppStore(useShallow((s) => s.championshipMatches.filter((m) => m.championshipId === id)));
@@ -37,7 +38,11 @@ export default function ChampionshipScreen() {
   }
 
   const sport = getSport(championship.sportId);
-  const isOwner = establishment?.ownerPlayerId === currentPlayerId;
+  const isOrganizer = championship.establishmentId
+    ? establishment?.ownerPlayerId === currentPlayerId
+    : championship.organizerPeladaId
+      ? isAdmin(currentPlayerId, championship.organizerPeladaId)
+      : false;
   const teamName = (teamId: string | null) => teams.find((t) => t.id === teamId)?.name ?? '?';
   const teamColor = (teamId: string | null) => teams.find((t) => t.id === teamId)?.color ?? colors.textFaint;
   const rosterCount = (teamId: string) => teamPlayers.filter((tp) => tp.championshipTeamId === teamId).length;
@@ -87,13 +92,13 @@ export default function ChampionshipScreen() {
             <Text style={styles.codeText}>{championship.registrationCode}</Text>
           </View>
           <View style={styles.rowGap}>
-            {isOwner && <Button label="Compartilhar código" variant="secondary" small onPress={handleShare} />}
+            {isOrganizer && <Button label="Compartilhar código" variant="secondary" small onPress={handleShare} />}
             <Button label="Inscrever um time" small onPress={() => router.push(`/campeonato/${championship.id}/inscrever-time`)} />
           </View>
-          {isOwner && teams.length >= 2 && (
+          {isOrganizer && teams.length >= 2 && (
             <Button label={`Gerar tabela de jogos (${teams.length} times)`} onPress={() => generateChampionshipFixtures(championship.id)} />
           )}
-          {isOwner && teams.length < 2 && (
+          {isOrganizer && teams.length < 2 && (
             <Text style={styles.hint}>Precisa de pelo menos 2 times inscritos pra gerar os jogos.</Text>
           )}
         </Card>

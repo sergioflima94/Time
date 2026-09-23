@@ -25,6 +25,7 @@ export default function ChampionshipMatchScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const championship = useAppStore((s) => s.championships.find((c) => c.id === id));
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === championship?.establishmentId));
+  const isAdmin = useAppStore((s) => s.isAdmin);
   const match = useAppStore((s) => s.championshipMatches.find((m) => m.id === matchId));
   const teams = useAppStore(useShallow((s) => s.championshipTeams.filter((t) => t.championshipId === id)));
   const rosterRows = useAppStore(useShallow((s) => s.championshipTeamPlayers.filter((tp) => tp.championshipTeamId === match?.teamAId || tp.championshipTeamId === match?.teamBId)));
@@ -37,7 +38,11 @@ export default function ChampionshipMatchScreen() {
 
   const sport = getSport(championship?.sportId);
   const scoreWord = sport.scoreSingular.charAt(0).toUpperCase() + sport.scoreSingular.slice(1);
-  const isOwner = establishment?.ownerPlayerId === currentPlayerId;
+  const isOrganizer = championship?.establishmentId
+    ? establishment?.ownerPlayerId === currentPlayerId
+    : championship?.organizerPeladaId
+      ? isAdmin(currentPlayerId, championship.organizerPeladaId)
+      : false;
   const matchSeconds = (championship?.matchMinutes ?? 10) * 60;
   const [remaining, setRemaining] = useState(matchSeconds);
   const [running, setRunning] = useState(false);
@@ -116,7 +121,7 @@ export default function ChampionshipMatchScreen() {
         <Card style={styles.timerCard}>
           <Text style={styles.timerLabel}>Tempo da partida</Text>
           <Text style={styles.timer}>{formatTime(remaining)}</Text>
-          {isOwner && (
+          {isOrganizer && (
             <View style={styles.timerControls}>
               <Button
                 label={running ? 'Pausar' : 'Iniciar'}
@@ -152,14 +157,14 @@ export default function ChampionshipMatchScreen() {
           />
         )}
 
-        {isOwner && !isFinished && (
+        {isOrganizer && !isFinished && (
           <View style={styles.goalButtonsRow}>
             <Button label={`${sport.icon} ${scoreWord} ${teamA?.name ?? 'A'}`} small variant="secondary" onPress={() => setPickingGoalTeam('A')} />
             <Button label={`${sport.icon} ${scoreWord} ${teamB?.name ?? 'B'}`} small variant="secondary" onPress={() => setPickingGoalTeam('B')} />
           </View>
         )}
 
-        {isOwner && pickingGoalTeam && (
+        {isOrganizer && pickingGoalTeam && (
           <View style={styles.scorerPicker}>
             <Text style={styles.scorerPickerTitle}>Quem fez o {sport.scoreSingular}?</Text>
             {rosterOf(pickingGoalTeam === 'A' ? match.teamAId ?? undefined : match.teamBId ?? undefined).map((r) => (
@@ -185,7 +190,7 @@ export default function ChampionshipMatchScreen() {
                 {g.teamId === match.teamAId ? teamA?.name : teamB?.name})
               </Text>
             ))}
-            {isOwner && !isFinished && (
+            {isOrganizer && !isFinished && (
               <Pressable onPress={() => undoLastChampionshipGoal(match.id)}>
                 <Text style={styles.undoLink}>Desfazer último {sport.scoreSingular}</Text>
               </Pressable>
@@ -194,7 +199,7 @@ export default function ChampionshipMatchScreen() {
         )}
       </Card>
 
-      {isOwner && !isFinished && !showPenalties && (
+      {isOrganizer && !isFinished && !showPenalties && (
         <Button label="Encerrar partida" variant="danger" onPress={handleEnd} style={{ marginTop: spacing.lg }} />
       )}
 

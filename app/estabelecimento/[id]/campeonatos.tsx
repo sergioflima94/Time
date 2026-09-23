@@ -36,7 +36,7 @@ export default function EstablishmentChampionshipsScreen() {
   function handleCreate() {
     if (!name.trim()) return;
     const matchingField = fields.find((f) => f.sportId === sportId) ?? fields[0];
-    const championship = createChampionship(establishmentId, currentPlayerId, {
+    const championship = createChampionship({ establishmentId, organizerPeladaId: null }, currentPlayerId, {
       name: name.trim(),
       sportId,
       format,

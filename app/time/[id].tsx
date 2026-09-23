@@ -10,14 +10,16 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
+import { formatChampionshipStatus } from '@/lib/championship';
 import { formatGameDateShort } from '@/lib/format';
 import { computeAllOveralls } from '@/lib/ratings';
 import { TEAM_COLORS } from '@/lib/teamDraft';
 import { useAppStore } from '@/store/useAppStore';
-import type { ChallengeStatus } from '@/types';
+import type { ChallengeStatus, ChampionshipFormat } from '@/types';
 
 const CHALLENGE_STATUS_LABEL: Record<ChallengeStatus, string> = {
   pending: 'Pendente',
@@ -74,6 +76,11 @@ export default function TimeDetailScreen() {
   const respondTeamChallenge = useAppStore((s) => s.respondTeamChallenge);
   const cancelTeamChallenge = useAppStore((s) => s.cancelTeamChallenge);
 
+  const ownChampionships = useAppStore(
+    useShallow((s) => (pelada ? s.championships.filter((c) => c.organizerPeladaId === pelada.id) : [])),
+  );
+  const createChampionship = useAppStore((s) => s.createChampionship);
+
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [pickingColorFor, setPickingColorFor] = useState<string | null>(null);
@@ -84,6 +91,13 @@ export default function TimeDetailScreen() {
   const [challengeTime, setChallengeTime] = useState('');
   const [challengeFieldId, setChallengeFieldId] = useState<string | null>(null);
   const [challengeMessage, setChallengeMessage] = useState('');
+
+  const [showChampionshipForm, setShowChampionshipForm] = useState(false);
+  const [champName, setChampName] = useState('');
+  const [champFormat, setChampFormat] = useState<ChampionshipFormat>('round_robin');
+  const [champMaxTeams, setChampMaxTeams] = useState('8');
+  const [champMatchMinutes, setChampMatchMinutes] = useState('10');
+  const [champFieldId, setChampFieldId] = useState<string | null>(null);
 
   if (!pelada) {
     return (
@@ -140,6 +154,23 @@ export default function TimeDetailScreen() {
     setChallengeTime('');
     setChallengeFieldId(null);
     setChallengeMessage('');
+  }
+
+  function handleCreateChampionship() {
+    if (!pelada || !champName.trim() || !currentPlayerId) return;
+    const championship = createChampionship({ establishmentId: null, organizerPeladaId: pelada.id }, currentPlayerId, {
+      name: champName.trim(),
+      sportId: pelada.sportId,
+      format: champFormat,
+      fieldId: champFieldId,
+      maxTeams: champMaxTeams.trim() ? Number(champMaxTeams) : null,
+      entryFee: null,
+      matchMinutes: Number(champMatchMinutes) || 10,
+    });
+    setShowChampionshipForm(false);
+    setChampName('');
+    setChampFieldId(null);
+    router.push(`/campeonato/${championship.id}`);
   }
 
   const sortedWaitingPlayers = [...waitingPlayers].sort(
@@ -414,6 +445,75 @@ export default function TimeDetailScreen() {
       </Card>
 
       <Card style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Campeonatos</Text>
+          {isAdmin && (
+            <Pressable onPress={() => setShowChampionshipForm((v) => !v)}>
+              <Text style={styles.adminLink}>{showChampionshipForm ? 'Cancelar' : '+ Criar campeonato'}</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {showChampionshipForm && (
+          <View style={styles.challengeForm}>
+            <TextField label="Nome do campeonato" value={champName} onChangeText={setChampName} placeholder={`Copa ${pelada.name}`} />
+            <SegmentedControl<ChampionshipFormat>
+              label="Formato"
+              options={[
+                { value: 'round_robin', label: 'Pontos corridos' },
+                { value: 'knockout', label: 'Mata-mata' },
+              ]}
+              value={champFormat}
+              onChange={setChampFormat}
+            />
+            <View style={styles.row3}>
+              <View style={styles.thirdInput}>
+                <TextField label="Máx. times" value={champMaxTeams} onChangeText={setChampMaxTeams} keyboardType="number-pad" />
+              </View>
+              <View style={styles.thirdInput}>
+                <TextField label="Duração (min)" value={champMatchMinutes} onChangeText={setChampMatchMinutes} keyboardType="number-pad" />
+              </View>
+            </View>
+
+            {ownFields.length > 0 && (
+              <>
+                <Text style={styles.formLabel}>Campo (opcional)</Text>
+                <View style={styles.opponentList}>
+                  {ownFields.map((f) => (
+                    <Pressable
+                      key={f.id}
+                      style={[styles.opponentChip, champFieldId === f.id && styles.opponentChipActive]}
+                      onPress={() => setChampFieldId(champFieldId === f.id ? null : f.id)}
+                    >
+                      <Text style={[styles.opponentChipText, champFieldId === f.id && styles.opponentChipTextActive]} numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.hint}>Outros times (do mesmo esporte ou avulsos) se inscrevem com o código gerado, sem precisar de dono de campo.</Text>
+            <Button label="Criar campeonato" onPress={handleCreateChampionship} disabled={!champName.trim()} />
+          </View>
+        )}
+
+        {ownChampionships.length === 0 && !showChampionshipForm && <Text style={styles.hint}>Nenhum campeonato criado ainda.</Text>}
+
+        {ownChampionships.map((c) => (
+          <Pressable key={c.id} style={styles.challengeRow} onPress={() => router.push(`/campeonato/${c.id}`)}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rosterName}>🏆 {c.name}</Text>
+              <Text style={styles.hint}>{c.format === 'round_robin' ? 'Pontos corridos' : 'Mata-mata'}</Text>
+            </View>
+            <Badge label={formatChampionshipStatus(c.status)} color={c.status === 'registration' ? colors.secondary : colors.primary} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+          </Pressable>
+        ))}
+      </Card>
+
+      <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Elenco ({roster.length})</Text>
         {roster.map((p) => (
           <Pressable key={p.id} style={styles.rosterRow} onPress={() => router.push(`/jogador/${p.id}`)}>
@@ -542,6 +642,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: 4,
+  },
+  row3: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  thirdInput: {
+    flex: 1,
   },
   teamBlock: {
     gap: 4,
