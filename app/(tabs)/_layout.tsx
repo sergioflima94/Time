@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { AmigosTabIcon } from '@/components/AmigosTabIcon';
 import { colors } from '@/constants/theme';
 
 export default function TabsLayout() {
@@ -25,11 +26,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="jogadores"
+        name="amigos"
         options={{
-          title: 'Jogadores',
+          title: 'Amigos',
           tabBarActiveTintColor: colors.secondary,
-          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AmigosTabIcon color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="times"
+        options={{
+          title: 'Times',
+          tabBarActiveTintColor: colors.warning,
+          tabBarIcon: ({ color, size }) => <Ionicons name="shirt" color={color} size={size} />,
         }}
       />
       <Tabs.Screen

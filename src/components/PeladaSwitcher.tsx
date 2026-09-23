@@ -59,6 +59,16 @@ export function PeladaSwitcher() {
             <Ionicons name="add" size={14} color={colors.primary} />
             <Text style={styles.optionLink}>Entrar em outra pelada</Text>
           </Pressable>
+          <Pressable
+            style={styles.option}
+            onPress={() => {
+              setOpen(false);
+              router.push('/criar-pelada');
+            }}
+          >
+            <Ionicons name="add-circle" size={14} color={colors.primary} />
+            <Text style={styles.optionLink}>Criar uma pelada nova</Text>
+          </Pressable>
         </View>
       )}
     </View>

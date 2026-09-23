@@ -154,6 +154,10 @@ create table games (
   players_per_team int not null default 6,
   match_minutes int not null default 10,
   draw_method text not null default 'rating' check (draw_method in ('arrival', 'random', 'rating')),
+  -- "teams": sorteia todos os times de uma vez e eles se revezam em bloco (fila de rodízio
+  -- normal). "players": sorteia só o 1º confronto; o resto vira bolsa de jogadores avulsos
+  -- (ver waiting_players) e cada desafiante novo é remontado por prioridade individual.
+  rotation_mode text not null default 'teams' check (rotation_mode in ('teams', 'players')),
   status text not null default 'open' check (status in ('open', 'full', 'teams_drawn', 'in_progress', 'finished', 'cancelled')),
   field_cost numeric(10, 2),
   match_goal_limit int,
@@ -220,6 +224,57 @@ create table player_fatigue (
   matches_remaining int,
   created_at timestamptz not null default now(),
   unique (game_id, player_id)
+);
+
+-- jogador aguardando entrar num time no rodízio individual (games.rotation_mode =
+-- 'players') — fica fora de team_players até ser sorteado pra um novo time. Ver
+-- "Rodízio individual" no README.
+create table waiting_players (
+  game_id uuid not null references games (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  -- rodadas seguidas que já ficou de fora desde a última vez que jogou (ou desde o
+  -- sorteio inicial) — prioridade de entrada: maior primeiro.
+  rounds_waited int not null default 0,
+  -- desempate quando rounds_waited empata: ordem do método de sorteio escolhido na
+  -- primeira vez (nota, chegada, ou posição sorteada uma vez no aleatório).
+  tiebreak_rank int not null default 0,
+  is_goalkeeper boolean not null default false,
+  primary key (game_id, player_id)
+);
+
+-- amizade entre dois jogadores, independente de pelada (aba Amigos / rede social).
+create table friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references players (id) on delete cascade,
+  addressee_id uuid not null references players (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  check (requester_id <> addressee_id),
+  unique (requester_id, addressee_id)
+);
+
+-- curtida num item do feed de atividades. activity_id é a chave estável calculada no
+-- app (ex.: "goal:<player_id>:<game_id>"), não uma FK — o feed em si é derivado de
+-- gols/memberships, não uma tabela de posts.
+create table activity_likes (
+  id uuid primary key default gen_random_uuid(),
+  activity_id text not null,
+  player_id uuid not null references players (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (activity_id, player_id)
+);
+
+-- comentário num item do feed. Mesma chave activity_id (não é FK) do activity_likes.
+-- Notificações (pedido de amizade, aceite, curtida, comentário) são computadas em
+-- src/lib/notifications.ts a partir destas tabelas + friendships — não existe uma
+-- tabela "notifications" separada.
+create table activity_comments (
+  id uuid primary key default gen_random_uuid(),
+  activity_id text not null,
+  player_id uuid not null references players (id) on delete cascade,
+  text text not null,
+  created_at timestamptz not null default now()
 );
 
 create table ratings (
@@ -385,6 +440,10 @@ alter table team_players enable row level security;
 alter table match_turns enable row level security;
 alter table goals enable row level security;
 alter table player_fatigue enable row level security;
+alter table waiting_players enable row level security;
+alter table friendships enable row level security;
+alter table activity_likes enable row level security;
+alter table activity_comments enable row level security;
 alter table ratings enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
@@ -522,6 +581,44 @@ create policy "player_fatigue_select_members" on player_fatigue for select using
 );
 create policy "player_fatigue_write_admins" on player_fatigue for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "waiting_players_select_members" on waiting_players for select using (
+  exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
+);
+create policy "waiting_players_write_admins" on waiting_players for all using (
+  exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+-- amizade só é visível/editável pelos dois jogadores envolvidos (pedido, aceite ou recusa).
+create policy "friendships_select_involved" on friendships for select using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_insert_requester" on friendships for insert with check (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_update_involved" on friendships for update using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+create policy "friendships_delete_involved" on friendships for delete using (
+  exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
+);
+
+-- curtidas do feed: qualquer jogador autenticado pode ler, mas só curte/descurte em nome próprio.
+create policy "activity_likes_select_all" on activity_likes for select using (auth.uid() is not null);
+create policy "activity_likes_write_self" on activity_likes for all using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "activity_comments_select_all" on activity_comments for select using (auth.uid() is not null);
+create policy "activity_comments_insert_self" on activity_comments for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "activity_comments_delete_self" on activity_comments for delete using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
 -- ratings: qualquer membro pode ler (cartas são públicas dentro da pelada);

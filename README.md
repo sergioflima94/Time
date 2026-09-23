@@ -86,7 +86,7 @@ telas normalmente — é tudo local, não afeta ninguém além do seu próprio a
 ```
 app/                        rotas (Expo Router)
   (auth)/                    login, cadastro
-  (tabs)/                    agenda, jogadores, perfil, admin
+  (tabs)/                    agenda, jogadores, times, perfil, admin
   jogo/[id]/                 detalhe do jogo, sorteio, cronômetro, avaliar
 
 src/
@@ -113,6 +113,15 @@ supabase/schema.sql          schema completo + Row Level Security
 - **Fila de rodízio**: os dois primeiros times da fila jogam; os demais ficam
   "de próximo". Quem vence fica esperando o próximo desafiante, quem perde vai para o
   fim da fila (empate: os dois saem e os dois próximos entram).
+- **Rodízio individual** (opção no sorteio, `app/jogo/[id]/sorteio.tsx` →
+  "Como formar os times"): em vez de montar todos os times fixos de uma vez, sorteia só
+  o 1º confronto e joga o resto numa bolsa de jogadores avulsos (`WaitingPlayer` em
+  `src/types/index.ts`) — sem time fixo pros próximos jogos. A cada rodada encerrada, o
+  próximo desafiante é remontado do zero puxando da bolsa por prioridade: quem já ficou
+  mais rodadas esperando entra primeiro; empate é resolvido pela ordem do método de
+  sorteio escolhido na primeira vez (nota, chegada ou aleatório —
+  `src/lib/teamDraft.ts#pickNextChallenger`). Jogador marcado cansado/encerrado (ver
+  item acima) fica de fora do sorteio da bolsa mesmo esperando, até o admin liberar.
 - **Troca de jogador em campo** (tela do cronômetro, `app/jogo/[id]/cronometro.tsx`):
   o admin toca em qualquer jogador dos dois times que estão jogando pra substituí-lo
   por alguém disponível — inclusive jogadores de times que estão "de próximo" na fila,
@@ -123,6 +132,54 @@ supabase/schema.sql          schema completo + Row Level Security
   pelo resto do jogo, até o admin reverter em "Jogadores de fora" → "voltar a jogar").
   Esse status (`PlayerFatigue` em `src/types/index.ts`) é por jogo, não é punição nem
   falta — não afeta o histórico de faltas do jogador.
+- **Aba Times** (`app/(tabs)/times.tsx`): lista **todos os times (peladas) que você
+  participa**, separados em "você é dono" (admin) e "você participa" (membro comum) —
+  é o hub multi-time do app, já que um jogador pode ser dono/membro de vários ao mesmo
+  tempo (ver "Criar uma pelada nova" acima). Tocar num time abre os detalhes
+  (`app/time/[id].tsx`): descrição, elenco (tocar num jogador abre o perfil dele,
+  `app/jogador/[id].tsx`, com a carta dele girando — `RotatingCard`, feito com
+  `react-native-reanimated`), e — se aquela pelada tem um jogo com times já sorteados —
+  quem tá jogando agora, quem tá esperando (ou a fila individual), com as mesmas funções
+  de admin de antes (renomear time, trocar cor, reordenar a fila). De lá também dá pra
+  ir direto pra Agenda ou pro Admin daquela pelada específica (troca a pelada ativa e
+  navega).
+  > Elenco continua mostrando só a pelada **ativa no momento** (`currentPeladaId`),
+  > trocada pelo seletor no topo da Agenda ou por aqui — ainda não é multi-time "de
+  > verdade" como a aba Times. O Admin agora tem um seletor de pelada próprio (ver
+  > abaixo) pra quem administra mais de um time.
+- **Admin multi-time** (`app/(tabs)/admin.tsx`): quando o jogador é admin de mais de
+  uma pelada, aparece o mesmo seletor de pelada do topo da Agenda (`PeladaSwitcher`)
+  no alto da tela de Admin, pra trocar qual time está administrando sem precisar ir
+  até a Agenda primeiro. Se a pelada selecionada não for uma em que ele é admin,
+  mostra o aviso de acesso negado com a dica de trocar ali mesmo.
+- **Aba Amigos** (`app/(tabs)/amigos.tsx`, antiga "Jogadores"): rede social do app.
+  Busca qualquer jogador (não só da pelada atual) por nome/apelido pra enviar pedido
+  de amizade (`Friendship` em `src/types/index.ts`, ações `sendFriendRequest` /
+  `respondFriendRequest` / `removeFriendship` em `useAppStore`), lista solicitações
+  recebidas com aceitar/recusar, um **feed de atividades** dos amigos (e de você
+  mesmo) gerado a partir de dados que já existem — gols marcados e peladas que
+  entrou (`src/lib/activity.ts`, `computeActivityFeed`) — e por fim o grid de cartas
+  dos amigos (era o grid de "Jogadores da pelada" antes), cada uma levando pro
+  perfil (`app/jogador/[id].tsx`). O botão de adicionar/aceitar amizade também
+  aparece direto no perfil do jogador, não só na busca. Cada item do feed pode ser
+  **curtido** (`ActivityLike`, ação `toggleActivityLike`), e a aba ganha uma bolinha
+  vermelha no ícone (`src/components/AmigosTabIcon.tsx`) quando há notificação não
+  lida. Cada item do feed também aceita **comentários** (`ActivityComment`, ação
+  `addActivityComment`) — toca no ícone de balão pra abrir/fechar a lista e escrever.
+- **Central de notificações** (`app/notificacoes.tsx`, acessível pelo sino no topo da
+  aba Amigos): lista pedido de amizade recebido (com aceitar/recusar direto ali),
+  pedido que você mandou foi aceito, curtida e comentário em algo seu no feed — tudo
+  calculado a partir dos dados que já existem (`src/lib/notifications.ts`,
+  `computeNotifications`), sem uma tabela de "notificações" separada. Abrir a tela
+  marca tudo como lido (`notificationsSeenAt` em `useAppStore`), o que zera a bolinha
+  vermelha da aba Amigos (`useUnreadNotificationsCount`).
+- **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
+  **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
+  retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,
+  `computeOverallTrend`) que compara a média das últimas 5 avaliações recebidas com as
+  5 anteriores para indicar se o jogador está subindo, caindo ou estável — e um carrossel
+  de **atalhos dos seus times** (todas as peladas que participa, com "+ Novo time"),
+  cada um levando direto pra `app/time/[id].tsx`.
 - **Punição** (`src/lib/punishment.ts`): confirmou presença e não foi = falta. A 1ª
   falta é só um aviso; a 2ª deixa o jogador de fora do próximo jogo; da 3ª em diante,
   fora dos 2 próximos jogos. O admin marca a falta na tela do jogo, depois de encerrado.
@@ -196,6 +253,11 @@ hoje, como tudo é local/mock, isso ainda não existe.
   + `src/hooks/useCurrentPelada.ts`); a Agenda mostra um seletor de pelada quando o
   jogador está em mais de uma. Gols na carta mostram o total geral, e o Perfil lista o
   detalhe por grupo (`computePlayerGoalStatsByGroup`, em `src/lib/goals.ts`).
+- **Criar uma pelada nova** (`app/criar-pelada.tsx`, `useAppStore.createPelada`):
+  qualquer jogador pode fundar uma pelada — vira admin dela na hora, com um
+  `inviteCode` gerado automaticamente. Não tem limite: o mesmo jogador pode ser
+  dono/admin de quantas peladas quiser, além de continuar membro comum de outras.
+  Acessível pelo seletor de pelada (Agenda → trocar pelada → "Criar uma pelada nova").
 - **Convite**: cada pelada tem um `inviteCode` único. No Admin, "Convidar jogadores"
   mostra o código e compartilha (via `Share.share`, que inclui WhatsApp entre as
   opções) uma mensagem pronta. Quem recebe usa a tela `/entrar-pelada` pra virar

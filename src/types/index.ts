@@ -215,6 +215,15 @@ export type GameStatus =
 
 export type DrawMethod = 'arrival' | 'random' | 'rating';
 
+/**
+ * Como a fila de rodízio funciona depois do sorteio:
+ * - "teams": monta todos os times de uma vez (fixos) e eles se revezam em bloco.
+ * - "players": monta só o 1º confronto; o resto vira uma bolsa de jogadores
+ *   avulsos, e cada novo desafiante é puxado dali por prioridade individual
+ *   (ver "Troca de jogador em campo" / rodízio individual no README).
+ */
+export type RotationMode = 'teams' | 'players';
+
 export interface Game {
   id: UUID;
   peladaId: UUID;
@@ -225,6 +234,7 @@ export interface Game {
   playersPerTeam: number; // ex.: 5 linha + 1 goleiro = 6
   matchMinutes: number; // duração de cada "rodada" antes da troca
   drawMethod: DrawMethod;
+  rotationMode: RotationMode;
   status: GameStatus;
   /** Custo total da quadra nesse jogo. null = sem rateio (cada um resolve por fora). */
   fieldCost: number | null;
@@ -232,6 +242,20 @@ export interface Game {
   matchGoalLimit: number | null;
   createdBy: UUID;
   createdAt: string;
+}
+
+/**
+ * Jogador aguardando entrar num time, no rodízio individual (rotationMode "players").
+ * Fica fora do array `teamPlayers` até ser sorteado pra um novo time.
+ */
+export interface WaitingPlayer {
+  gameId: UUID;
+  playerId: UUID;
+  /** Rodadas seguidas que já ficou de fora desde a última vez que jogou (ou desde o sorteio inicial). Prioridade de entrada: maior primeiro. */
+  roundsWaited: number;
+  /** Desempate quando roundsWaited empata — ordem do método de sorteio escolhido na primeira vez (nota, chegada, ou posição sorteada uma vez no aleatório). Menor valor = prioridade. */
+  tiebreakRank: number;
+  isGoalkeeper: boolean;
 }
 
 export type AttendanceStatus = 'confirmed' | 'declined' | 'waitlist' | 'pending';
@@ -315,6 +339,35 @@ export interface Rating {
   defense: number; // 1-5
   pace: number; // 1-5
   overall: number; // 1-5, média das três acima
+  createdAt: string;
+}
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'declined';
+
+/** Pedido/relação de amizade entre dois jogadores, independente de pelada. */
+export interface Friendship {
+  id: UUID;
+  requesterId: UUID;
+  addresseeId: UUID;
+  status: FriendshipStatus;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+/** Curtida num item do feed de atividades (`computeActivityFeed`). activityId é a chave estável do item (ex.: "goal:playerId:gameId"). */
+export interface ActivityLike {
+  id: UUID;
+  activityId: string;
+  playerId: UUID;
+  createdAt: string;
+}
+
+/** Comentário num item do feed de atividades. Mesma chave `activityId` das curtidas. */
+export interface ActivityComment {
+  id: UUID;
+  activityId: string;
+  playerId: UUID;
+  text: string;
   createdAt: string;
 }
 

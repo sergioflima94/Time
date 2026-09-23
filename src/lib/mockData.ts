@@ -8,6 +8,7 @@ import type {
   Establishment,
   Field,
   FieldBooking,
+  Friendship,
   Game,
   Goal,
   MatchTurn,
@@ -198,6 +199,7 @@ export const MOCK_GAMES: Game[] = [
     playersPerTeam: 6,
     matchMinutes: 10,
     drawMethod: 'rating',
+    rotationMode: 'teams',
     status: 'open',
     fieldCost: 240,
     matchGoalLimit: 2,
@@ -306,6 +308,16 @@ export const MOCK_RATINGS: Rating[] = [
   { id: 'r3', gameId: 'g0', raterPlayerId: 'p4', ratedPlayerId: 'p1', attack: 3, defense: 3, pace: 4, overall: 3.33, createdAt: iso(now) },
   { id: 'r4', gameId: 'g0', raterPlayerId: 'p1', ratedPlayerId: 'p2', attack: 4, defense: 4, pace: 3, overall: 3.67, createdAt: iso(now) },
   { id: 'r5', gameId: 'g0', raterPlayerId: 'p3', ratedPlayerId: 'p8', attack: 2, defense: 5, pace: 3, overall: 3.33, createdAt: iso(now) },
+];
+
+export const MOCK_FRIENDSHIPS: Friendship[] = [
+  { id: 'fr1', requesterId: 'p1', addresseeId: 'p2', status: 'accepted', createdAt: iso(now), respondedAt: iso(now) },
+  { id: 'fr2', requesterId: 'p3', addresseeId: 'p1', status: 'accepted', createdAt: iso(now), respondedAt: iso(now) },
+  { id: 'fr3', requesterId: 'p1', addresseeId: 'p7', status: 'accepted', createdAt: iso(now), respondedAt: iso(now) },
+  // pedido pendente recebido por "Você" — pra demonstrar a tela de solicitações.
+  { id: 'fr4', requesterId: 'p10', addresseeId: 'p1', status: 'pending', createdAt: iso(now), respondedAt: null },
+  // pedido pendente enviado por "Você", ainda sem resposta.
+  { id: 'fr5', requesterId: 'p1', addresseeId: 'p4', status: 'pending', createdAt: iso(now), respondedAt: null },
 ];
 
 export const MOCK_PUNISHMENTS: Punishment[] = [

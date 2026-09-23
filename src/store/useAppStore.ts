@@ -13,6 +13,7 @@ import {
   MOCK_ESTABLISHMENTS,
   MOCK_FIELD_BOOKINGS,
   MOCK_FIELDS,
+  MOCK_FRIENDSHIPS,
   MOCK_GAMES,
   MOCK_GOALS,
   MOCK_MATCH_TURNS,
@@ -31,7 +32,10 @@ import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures } f
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { buildPunishment } from '@/lib/punishment';
+import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
 import type {
+  ActivityComment,
+  ActivityLike,
   Attendance,
   AttendanceStatus,
   AvailabilitySlot,
@@ -47,6 +51,7 @@ import type {
   Field,
   FieldBooking,
   FieldBookingRecurrence,
+  Friendship,
   FreeAgentInvite,
   Game,
   GameStatus,
@@ -68,6 +73,7 @@ import type {
   Schedule,
   Team,
   TeamPlayer,
+  WaitingPlayer,
 } from '@/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -116,7 +122,13 @@ interface AppState {
   matchTurns: MatchTurn[];
   goals: Goal[];
   matchQueue: Record<string, string[]>; // gameId -> ordered team ids
+  waitingPlayers: WaitingPlayer[];
   playerFatigue: PlayerFatigue[];
+  friendships: Friendship[];
+  activityLikes: ActivityLike[];
+  activityComments: ActivityComment[];
+  /** Timestamp da última vez que o jogador abriu a central de notificações — define o que é "não lido". */
+  notificationsSeenAt: string | null;
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
@@ -143,6 +155,32 @@ interface AppState {
   setGameTeams: (gameId: string, teams: Team[], teamPlayers: TeamPlayer[]) => void;
   setGameStatus: (gameId: string, status: Game['status']) => void;
   setMatchQueue: (gameId: string, queue: string[]) => void;
+  /** Admin renomeia e/ou muda a cor de um time já sorteado. */
+  updateTeam: (teamId: string, input: { name?: string; color?: string }) => void;
+  /** Move um time "de próximo" pra cima/baixo na fila (não mexe em quem já está jogando agora). */
+  moveTeamInQueue: (gameId: string, teamId: string, direction: 'up' | 'down') => void;
+  /**
+   * Sorteio "rodízio individual": monta só o 1º confronto (teamA x teamB) e joga
+   * todo mundo que sobrou numa bolsa de espera (`waitingPlayers`) — sem times fixos
+   * pros próximos jogos. Cada novo desafiante é puxado da bolsa depois, por
+   * prioridade (ver `resolveIndividualRound`).
+   */
+  setGameTeamsIndividual: (
+    gameId: string,
+    teamA: Team,
+    teamB: Team,
+    teamAPlayers: TeamPlayer[],
+    teamBPlayers: TeamPlayer[],
+    waiting: WaitingPlayer[],
+  ) => void;
+  /**
+   * Encerra a rodada no modo "rodízio individual": quem perdeu (ou os dois, em
+   * empate) volta pra bolsa de espera zerando o contador de rodadas fora; quem
+   * ficou esperando soma +1 rodada; e o(s) próximo(s) desafiante(s) são puxados
+   * da bolsa por prioridade (mais rodadas de fora primeiro, desempate pelo
+   * método de sorteio original). Cria o(s) time(s) novo(s) e atualiza a fila.
+   */
+  resolveIndividualRound: (gameId: string, result: MatchResult, teamSize: number) => void;
 
   // placar ao vivo / gols
   startMatchTurn: (gameId: string, teamAId: string, teamBId: string) => MatchTurn;
@@ -199,6 +237,19 @@ interface AppState {
 
   isAdmin: (playerId: string, peladaId: string) => boolean;
 
+  // amigos (rede social)
+  /** Envia um pedido de amizade. Não faz nada se já existir pedido/amizade entre os dois (em qualquer direção). */
+  sendFriendRequest: (requesterId: string, addresseeId: string) => void;
+  respondFriendRequest: (friendshipId: string, accept: boolean) => void;
+  /** Cancela um pedido enviado (ainda pendente) ou desfaz uma amizade já aceita. */
+  removeFriendship: (friendshipId: string) => void;
+  /** Curte/descurte um item do feed de atividades. */
+  toggleActivityLike: (activityId: string, playerId: string) => void;
+  addActivityComment: (activityId: string, playerId: string, text: string) => void;
+  removeActivityComment: (commentId: string) => void;
+  /** Marca a central de notificações como vista agora (zera o contador de não lidas). */
+  markNotificationsSeen: () => void;
+
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
@@ -207,6 +258,11 @@ interface AppState {
   setCurrentPelada: (peladaId: string) => void;
   /** Entra numa pelada usando o código de convite. Retorna a pelada encontrada, ou null se o código não existir. */
   joinPeladaByCode: (code: string, playerId: string) => Pelada | null;
+  /** Cria uma pelada nova e o jogador vira admin dela automaticamente — um jogador pode ser dono/admin de quantas peladas quiser. */
+  createPelada: (
+    ownerPlayerId: string,
+    input: { name: string; description: string | null; sportId: string; footballVariant: 'society' | 'futsal' | 'campo' },
+  ) => Pelada;
 
   // premium: assinatura mensal simulada (em produção, gerenciada pela App Store/Google Play)
   renewPremium: (playerId: string) => void;
@@ -284,7 +340,12 @@ export const useAppStore = create<AppState>()(
       matchTurns: MOCK_MATCH_TURNS,
       goals: MOCK_GOALS,
       matchQueue: {},
+      waitingPlayers: [],
       playerFatigue: [],
+      friendships: MOCK_FRIENDSHIPS,
+      activityLikes: [],
+      activityComments: [],
+      notificationsSeenAt: null,
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
@@ -402,8 +463,9 @@ export const useAppStore = create<AppState>()(
             ...state.teamPlayers.filter((tp) => !state.teams.some((t) => t.gameId === gameId && t.id === tp.teamId)),
             ...teamPlayers,
           ],
-          games: state.games.map((g) => (g.id === gameId ? { ...g, status: 'teams_drawn' } : g)),
+          games: state.games.map((g) => (g.id === gameId ? { ...g, status: 'teams_drawn', rotationMode: 'teams' } : g)),
           matchQueue: { ...state.matchQueue, [gameId]: teams.map((t) => t.id) },
+          waitingPlayers: state.waitingPlayers.filter((w) => w.gameId !== gameId),
         }));
       },
 
@@ -413,6 +475,114 @@ export const useAppStore = create<AppState>()(
 
       setMatchQueue: (gameId, queue) => {
         set((state) => ({ matchQueue: { ...state.matchQueue, [gameId]: queue } }));
+      },
+
+      updateTeam: (teamId, input) => {
+        set((state) => ({
+          teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...input } : t)),
+        }));
+      },
+
+      moveTeamInQueue: (gameId, teamId, direction) => {
+        set((state) => {
+          const queue = state.matchQueue[gameId] ?? [];
+          // os índices 0 e 1 já estão jogando — só reordena a partir do índice 2 (fila de espera).
+          const idx = queue.indexOf(teamId);
+          if (idx < 2) return {};
+          const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+          if (swapWith < 2 || swapWith >= queue.length) return {};
+          const nextQueue = [...queue];
+          [nextQueue[idx], nextQueue[swapWith]] = [nextQueue[swapWith], nextQueue[idx]];
+          return { matchQueue: { ...state.matchQueue, [gameId]: nextQueue } };
+        });
+      },
+
+      setGameTeamsIndividual: (gameId, teamA, teamB, teamAPlayers, teamBPlayers, waiting) => {
+        set((state) => ({
+          teams: [...state.teams.filter((t) => t.gameId !== gameId), teamA, teamB],
+          teamPlayers: [
+            ...state.teamPlayers.filter((tp) => !state.teams.some((t) => t.gameId === gameId && t.id === tp.teamId)),
+            ...teamAPlayers,
+            ...teamBPlayers,
+          ],
+          games: state.games.map((g) => (g.id === gameId ? { ...g, status: 'teams_drawn', rotationMode: 'players' } : g)),
+          matchQueue: { ...state.matchQueue, [gameId]: [teamA.id, teamB.id] },
+          waitingPlayers: [...state.waitingPlayers.filter((w) => w.gameId !== gameId), ...waiting],
+        }));
+      },
+
+      resolveIndividualRound: (gameId, result, teamSize) => {
+        set((state) => {
+          const queue = state.matchQueue[gameId] ?? [];
+          const [currentAId, currentBId] = queue;
+          if (!currentAId || !currentBId) return {};
+
+          const survivorId = result === 'draw' ? null : result === 'teamA' ? currentAId : currentBId;
+          const disbandedIds = result === 'draw' ? [currentAId, currentBId] : [result === 'teamA' ? currentBId : currentAId];
+
+          const disbandedPlayers = state.teamPlayers.filter((tp) => disbandedIds.includes(tp.teamId));
+          const returning: WaitingEntry[] = disbandedPlayers.map((tp) => {
+            const previous = state.waitingPlayers.find((w) => w.gameId === gameId && w.playerId === tp.playerId);
+            return {
+              playerId: tp.playerId,
+              roundsWaited: 0,
+              tiebreakRank: previous?.tiebreakRank ?? 999,
+              isGoalkeeper: tp.isGoalkeeper,
+            };
+          });
+
+          const stillWaiting: WaitingEntry[] = state.waitingPlayers
+            .filter((w) => w.gameId === gameId)
+            .map((w) => ({ ...w, roundsWaited: w.roundsWaited + 1 }));
+
+          const fullPool = [...stillWaiting, ...returning];
+          // quem tá cansado/encerrou por hoje (ver PlayerFatigue) segue de fora do sorteio
+          // do próximo desafiante, mesmo esperando — mas continua contando rodadas de fora,
+          // pra ter prioridade assim que o admin liberar ele de volta.
+          const fatiguedIds = new Set(
+            state.playerFatigue
+              .filter(
+                (f) =>
+                  f.gameId === gameId &&
+                  (f.status === 'done_for_today' || (f.status === 'resting' && (f.matchesRemaining ?? 0) > 0)),
+              )
+              .map((f) => f.playerId),
+          );
+          let pickablePool = fullPool.filter((p) => !fatiguedIds.has(p.playerId));
+          const sidelinedPool = fullPool.filter((p) => fatiguedIds.has(p.playerId));
+
+          const newTeams: Team[] = [];
+          const newTeamPlayers: TeamPlayer[] = [];
+          const existingTeamCount = state.teams.filter((t) => t.gameId === gameId).length;
+
+          const slotsToFill = survivorId ? 1 : 2;
+          for (let i = 0; i < slotsToFill; i++) {
+            const { chosen, remaining } = pickNextChallenger(pickablePool, teamSize);
+            pickablePool = remaining;
+            const idx = existingTeamCount + newTeams.length;
+            const team: Team = { id: uid(), gameId, name: teamName(idx), color: teamColor(idx), queueOrder: idx };
+            newTeams.push(team);
+            newTeamPlayers.push(
+              ...chosen.map((c) => ({ teamId: team.id, playerId: c.playerId, isGoalkeeper: c.isGoalkeeper })),
+            );
+          }
+
+          const pool = [...pickablePool, ...sidelinedPool];
+          const nextQueue = survivorId ? [survivorId, newTeams[0].id] : [newTeams[0].id, newTeams[1].id];
+
+          return {
+            teams: [...state.teams, ...newTeams],
+            teamPlayers: [
+              ...state.teamPlayers.filter((tp) => !disbandedIds.includes(tp.teamId)),
+              ...newTeamPlayers,
+            ],
+            matchQueue: { ...state.matchQueue, [gameId]: nextQueue },
+            waitingPlayers: [
+              ...state.waitingPlayers.filter((w) => w.gameId !== gameId),
+              ...pool.map((p) => ({ gameId, playerId: p.playerId, roundsWaited: p.roundsWaited, tiebreakRank: p.tiebreakRank, isGoalkeeper: p.isGoalkeeper })),
+            ],
+          };
+        });
       },
 
       startMatchTurn: (gameId, teamAId, teamBId) => {
@@ -473,6 +643,7 @@ export const useAppStore = create<AppState>()(
 
       substitutePlayer: (gameId, teamId, outPlayerId, inPlayerId, reason) => {
         set((state) => {
+          const game = state.games.find((g) => g.id === gameId);
           const outEntry = state.teamPlayers.find((tp) => tp.teamId === teamId && tp.playerId === outPlayerId);
           const teamPlayers = [
             ...state.teamPlayers.filter((tp) => !(tp.teamId === teamId && tp.playerId === outPlayerId)),
@@ -495,7 +666,18 @@ export const useAppStore = create<AppState>()(
             ];
           }
 
-          return { teamPlayers, playerFatigue };
+          // rodízio individual: quem entra sai da bolsa de espera; quem sai volta pra ela
+          // (zerando o contador — vale a mesma prioridade de quem acabou de jogar).
+          let waitingPlayers = state.waitingPlayers;
+          if (game?.rotationMode === 'players') {
+            const previous = state.waitingPlayers.find((w) => w.gameId === gameId && w.playerId === outPlayerId);
+            waitingPlayers = [
+              ...state.waitingPlayers.filter((w) => !(w.gameId === gameId && (w.playerId === outPlayerId || w.playerId === inPlayerId))),
+              { gameId, playerId: outPlayerId, roundsWaited: 0, tiebreakRank: previous?.tiebreakRank ?? 999, isGoalkeeper: outEntry?.isGoalkeeper ?? false },
+            ];
+          }
+
+          return { teamPlayers, playerFatigue, waitingPlayers };
         });
       },
 
@@ -813,6 +995,7 @@ export const useAppStore = create<AppState>()(
           playersPerTeam: 6,
           matchMinutes: schedule.matchMinutes,
           drawMethod: schedule.drawMethod,
+          rotationMode: 'teams',
           status: 'open',
           fieldCost: schedule.defaultFieldCost,
           matchGoalLimit: schedule.matchGoalLimit,
@@ -861,6 +1044,68 @@ export const useAppStore = create<AppState>()(
 
       isAdmin: (playerId, peladaId) => {
         return get().memberships.some((m) => m.peladaId === peladaId && m.playerId === playerId && m.role === 'admin' && m.active);
+      },
+
+      sendFriendRequest: (requesterId, addresseeId) => {
+        if (requesterId === addresseeId) return;
+        set((state) => {
+          const already = state.friendships.some(
+            (f) =>
+              f.status !== 'declined' &&
+              ((f.requesterId === requesterId && f.addresseeId === addresseeId) ||
+                (f.requesterId === addresseeId && f.addresseeId === requesterId)),
+          );
+          if (already) return {};
+          return {
+            friendships: [
+              ...state.friendships,
+              { id: uid(), requesterId, addresseeId, status: 'pending', createdAt: nowIso(), respondedAt: null } satisfies Friendship,
+            ],
+          };
+        });
+      },
+
+      respondFriendRequest: (friendshipId, accept) => {
+        set((state) => ({
+          friendships: state.friendships.map((f) =>
+            f.id === friendshipId ? { ...f, status: accept ? 'accepted' : 'declined', respondedAt: nowIso() } : f,
+          ),
+        }));
+      },
+
+      removeFriendship: (friendshipId) => {
+        set((state) => ({ friendships: state.friendships.filter((f) => f.id !== friendshipId) }));
+      },
+
+      toggleActivityLike: (activityId, playerId) => {
+        set((state) => {
+          const existing = state.activityLikes.find((l) => l.activityId === activityId && l.playerId === playerId);
+          if (existing) {
+            return { activityLikes: state.activityLikes.filter((l) => l.id !== existing.id) };
+          }
+          return {
+            activityLikes: [...state.activityLikes, { id: uid(), activityId, playerId, createdAt: nowIso() } satisfies ActivityLike],
+          };
+        });
+      },
+
+      addActivityComment: (activityId, playerId, text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        set((state) => ({
+          activityComments: [
+            ...state.activityComments,
+            { id: uid(), activityId, playerId, text: trimmed, createdAt: nowIso() } satisfies ActivityComment,
+          ],
+        }));
+      },
+
+      removeActivityComment: (commentId) => {
+        set((state) => ({ activityComments: state.activityComments.filter((c) => c.id !== commentId) }));
+      },
+
+      markNotificationsSeen: () => {
+        set({ notificationsSeenAt: nowIso() });
       },
 
       updateCurrentPlayerProfile: (input) => {
@@ -912,6 +1157,35 @@ export const useAppStore = create<AppState>()(
           }));
         }
         set({ currentPeladaId: pelada.id });
+        return pelada;
+      },
+
+      createPelada: (ownerPlayerId, input) => {
+        const pelada: Pelada = {
+          id: uid(),
+          name: input.name,
+          description: input.description,
+          sportId: input.sportId,
+          footballVariant: input.footballVariant,
+          defaultMaxPlayers: 16,
+          defaultMatchMinutes: 10,
+          inviteCode: uid().toUpperCase(),
+          memberInvitePermissions: { canInviteFreeAgents: false, canInviteNewMembers: false },
+          createdBy: ownerPlayerId,
+          createdAt: nowIso(),
+        };
+        const membership: PeladaMembership = {
+          peladaId: pelada.id,
+          playerId: ownerPlayerId,
+          role: 'admin',
+          active: true,
+          joinedAt: nowIso(),
+        };
+        set((state) => ({
+          peladas: [...state.peladas, pelada],
+          memberships: [...state.memberships, membership],
+          currentPeladaId: pelada.id,
+        }));
         return pelada;
       },
 
@@ -1001,7 +1275,12 @@ export const useAppStore = create<AppState>()(
         matchTurns: state.matchTurns,
         goals: state.goals,
         matchQueue: state.matchQueue,
+        waitingPlayers: state.waitingPlayers,
         playerFatigue: state.playerFatigue,
+        friendships: state.friendships,
+        activityLikes: state.activityLikes,
+        activityComments: state.activityComments,
+        notificationsSeenAt: state.notificationsSeenAt,
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,
