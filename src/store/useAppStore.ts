@@ -22,6 +22,7 @@ import {
   MOCK_PELADA,
   MOCK_PELADAS,
   MOCK_PLAYERS,
+  MOCK_PLAYER_DUELS,
   MOCK_PUNISHMENTS,
   MOCK_RATINGS,
   MOCK_SCHEDULES,
@@ -53,6 +54,8 @@ import type {
   FieldBookingRecurrence,
   Friendship,
   FreeAgentInvite,
+  FriendlyMatch,
+  FriendlyMatchGoal,
   Game,
   GameStatus,
   GeoPoint,
@@ -65,6 +68,7 @@ import type {
   PeladaMemberInvitePermissions,
   PeladaMembership,
   Player,
+  PlayerDuel,
   PlayerFatigue,
   Punishment,
   PunishmentType,
@@ -72,6 +76,7 @@ import type {
   RecurrenceType,
   Schedule,
   Team,
+  TeamChallenge,
   TeamPlayer,
   WaitingPlayer,
 } from '@/types';
@@ -137,6 +142,10 @@ interface AppState {
   championshipMatches: ChampionshipMatch[];
   championshipGoals: ChampionshipGoal[];
   fieldBookings: FieldBooking[];
+  teamChallenges: TeamChallenge[];
+  friendlyMatches: FriendlyMatch[];
+  friendlyMatchGoals: FriendlyMatchGoal[];
+  playerDuels: PlayerDuel[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
@@ -318,6 +327,27 @@ interface AppState {
   undoLastChampionshipGoal: (matchId: string) => void;
   /** Encerra a partida. Em mata-mata empatado, penaltyScoreA/B definem o vencedor. */
   endChampionshipMatch: (matchId: string, penaltyScoreA?: number, penaltyScoreB?: number) => void;
+
+  // desafio time x time — partida avulsa entre duas peladas, sem campeonato/estabelecimento
+  sendTeamChallenge: (
+    challengerPeladaId: string,
+    challengedPeladaId: string,
+    createdBy: string,
+    input: { proposedDate: string; proposedTime: string; fieldId: string | null; message: string | null },
+  ) => TeamChallenge;
+  /** Aceitar gera a FriendlyMatch e preenche challenge.matchId. */
+  respondTeamChallenge: (challengeId: string, accept: boolean) => void;
+  cancelTeamChallenge: (challengeId: string) => void;
+  startFriendlyMatch: (matchId: string) => void;
+  registerFriendlyGoal: (matchId: string, peladaId: string, scorerPlayerId: string | null) => void;
+  undoLastFriendlyGoal: (matchId: string) => void;
+  endFriendlyMatch: (matchId: string, winnerPeladaId: string | null) => void;
+
+  // desafio jogador x jogador — confronto direto, independente de pelada
+  sendPlayerDuel: (challengerId: string, challengedId: string, message: string | null) => PlayerDuel;
+  respondPlayerDuel: (duelId: string, accept: boolean) => void;
+  /** winnerId null = empate. Qualquer um dos dois envolvidos pode registrar o resultado. */
+  recordPlayerDuelResult: (duelId: string, winnerId: string | null, resultNote: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -354,6 +384,10 @@ export const useAppStore = create<AppState>()(
       championshipMatches: MOCK_CHAMPIONSHIP_MATCHES,
       championshipGoals: MOCK_CHAMPIONSHIP_GOALS,
       fieldBookings: MOCK_FIELD_BOOKINGS,
+      teamChallenges: [],
+      friendlyMatches: [],
+      friendlyMatchGoals: [],
+      playerDuels: MOCK_PLAYER_DUELS,
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -960,6 +994,140 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      sendTeamChallenge: (challengerPeladaId, challengedPeladaId, createdBy, input) => {
+        const challenge: TeamChallenge = {
+          id: uid(),
+          challengerPeladaId,
+          challengedPeladaId,
+          proposedDate: input.proposedDate,
+          proposedTime: input.proposedTime,
+          fieldId: input.fieldId,
+          message: input.message,
+          status: 'pending',
+          matchId: null,
+          createdBy,
+          createdAt: nowIso(),
+          respondedAt: null,
+        };
+        set((state) => ({ teamChallenges: [...state.teamChallenges, challenge] }));
+        return challenge;
+      },
+
+      respondTeamChallenge: (challengeId, accept) => {
+        const challenge = get().teamChallenges.find((c) => c.id === challengeId);
+        if (!challenge || challenge.status !== 'pending') return;
+
+        if (!accept) {
+          set((state) => ({
+            teamChallenges: state.teamChallenges.map((c) =>
+              c.id === challengeId ? { ...c, status: 'declined', respondedAt: nowIso() } : c,
+            ),
+          }));
+          return;
+        }
+
+        const challengerPelada = get().peladas.find((p) => p.id === challenge.challengerPeladaId);
+        const match: FriendlyMatch = {
+          id: uid(),
+          challengeId,
+          peladaAId: challenge.challengerPeladaId,
+          peladaBId: challenge.challengedPeladaId,
+          fieldId: challenge.fieldId,
+          scheduledAt: `${challenge.proposedDate}T${challenge.proposedTime}:00`,
+          matchMinutes: challengerPelada?.defaultMatchMinutes ?? 10,
+          sportId: challengerPelada?.sportId ?? 'futebol',
+          startedAt: null,
+          endedAt: null,
+          status: 'scheduled',
+          winnerPeladaId: null,
+        };
+
+        set((state) => ({
+          teamChallenges: state.teamChallenges.map((c) =>
+            c.id === challengeId ? { ...c, status: 'accepted', respondedAt: nowIso(), matchId: match.id } : c,
+          ),
+          friendlyMatches: [...state.friendlyMatches, match],
+        }));
+      },
+
+      cancelTeamChallenge: (challengeId) => {
+        set((state) => ({
+          teamChallenges: state.teamChallenges.map((c) =>
+            c.id === challengeId && c.status === 'pending' ? { ...c, status: 'cancelled', respondedAt: nowIso() } : c,
+          ),
+        }));
+      },
+
+      startFriendlyMatch: (matchId) => {
+        set((state) => ({
+          friendlyMatches: state.friendlyMatches.map((m) =>
+            m.id === matchId ? { ...m, status: 'in_progress', startedAt: m.startedAt ?? nowIso() } : m,
+          ),
+        }));
+      },
+
+      registerFriendlyGoal: (matchId, peladaId, scorerPlayerId) => {
+        set((state) => ({
+          friendlyMatchGoals: [
+            ...state.friendlyMatchGoals,
+            { id: uid(), matchId, peladaId, scorerPlayerId, scoredAt: nowIso() } satisfies FriendlyMatchGoal,
+          ],
+        }));
+      },
+
+      undoLastFriendlyGoal: (matchId) => {
+        set((state) => {
+          const matchGoals = state.friendlyMatchGoals.filter((g) => g.matchId === matchId);
+          const last = matchGoals[matchGoals.length - 1];
+          if (!last) return state;
+          return { friendlyMatchGoals: state.friendlyMatchGoals.filter((g) => g.id !== last.id) };
+        });
+      },
+
+      endFriendlyMatch: (matchId, winnerPeladaId) => {
+        set((state) => ({
+          friendlyMatches: state.friendlyMatches.map((m) =>
+            m.id === matchId ? { ...m, status: 'finished', endedAt: nowIso(), winnerPeladaId } : m,
+          ),
+        }));
+      },
+
+      sendPlayerDuel: (challengerId, challengedId, message) => {
+        const duel: PlayerDuel = {
+          id: uid(),
+          challengerId,
+          challengedId,
+          message,
+          status: 'pending',
+          winnerId: null,
+          resultNote: null,
+          createdBy: challengerId,
+          createdAt: nowIso(),
+          respondedAt: null,
+          resultRecordedAt: null,
+        };
+        set((state) => ({ playerDuels: [...state.playerDuels, duel] }));
+        return duel;
+      },
+
+      respondPlayerDuel: (duelId, accept) => {
+        set((state) => ({
+          playerDuels: state.playerDuels.map((d) =>
+            d.id === duelId && d.status === 'pending'
+              ? { ...d, status: accept ? 'accepted' : 'declined', respondedAt: nowIso() }
+              : d,
+          ),
+        }));
+      },
+
+      recordPlayerDuelResult: (duelId, winnerId, resultNote) => {
+        set((state) => ({
+          playerDuels: state.playerDuels.map((d) =>
+            d.id === duelId ? { ...d, winnerId, resultNote, resultRecordedAt: nowIso() } : d,
+          ),
+        }));
+      },
+
       addSchedule: (input) => {
         const schedule: Schedule = {
           id: uid(),
@@ -1289,6 +1457,10 @@ export const useAppStore = create<AppState>()(
         championshipMatches: state.championshipMatches,
         championshipGoals: state.championshipGoals,
         fieldBookings: state.fieldBookings,
+        teamChallenges: state.teamChallenges,
+        friendlyMatches: state.friendlyMatches,
+        friendlyMatchGoals: state.friendlyMatchGoals,
+        playerDuels: state.playerDuels,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

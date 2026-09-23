@@ -16,6 +16,7 @@ import type {
   Pelada,
   PeladaMembership,
   Player,
+  PlayerDuel,
   Punishment,
   Rating,
   Schedule,
@@ -318,6 +319,24 @@ export const MOCK_FRIENDSHIPS: Friendship[] = [
   { id: 'fr4', requesterId: 'p10', addresseeId: 'p1', status: 'pending', createdAt: iso(now), respondedAt: null },
   // pedido pendente enviado por "Você", ainda sem resposta.
   { id: 'fr5', requesterId: 'p1', addresseeId: 'p4', status: 'pending', createdAt: iso(now), respondedAt: null },
+];
+
+// Confronto direto de exemplo entre "Você" (p1) e o Cadu (p3) — já com resultado registrado,
+// pra mostrar o retrospecto na tela de perfil sem precisar desafiar ninguém na mão.
+export const MOCK_PLAYER_DUELS: PlayerDuel[] = [
+  {
+    id: 'pd1',
+    challengerId: 'p1',
+    challengedId: 'p3',
+    message: 'Bora ver quem é melhor de bico?',
+    status: 'accepted',
+    winnerId: 'p1',
+    resultNote: null,
+    createdBy: 'p1',
+    createdAt: iso(now),
+    respondedAt: iso(now),
+    resultRecordedAt: iso(now),
+  },
 ];
 
 export const MOCK_PUNISHMENTS: Punishment[] = [

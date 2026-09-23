@@ -173,6 +173,22 @@ supabase/schema.sql          schema completo + Row Level Security
   `computeNotifications`), sem uma tabela de "notificações" separada. Abrir a tela
   marca tudo como lido (`notificationsSeenAt` em `useAppStore`), o que zera a bolinha
   vermelha da aba Amigos (`useUnreadNotificationsCount`).
+- **Desafios — time x time e jogador x jogador** (`src/types/index.ts`,
+  `useAppStore`): dois jeitos de disputar sem depender de campeonato/estabelecimento.
+  Na tela do time (`app/time/[id].tsx`), um admin pode **desafiar outro time** do
+  mesmo esporte propondo dia/horário (e opcionalmente um campo próprio e uma
+  mensagem) — vira um `TeamChallenge` pendente, visível pros dois lados. Um admin do
+  time desafiado aceita ou recusa (`respondTeamChallenge`); aceitando, vira uma
+  `FriendlyMatch` de verdade — uma partida amistosa avulsa que reaproveita o elenco
+  inteiro de cada pelada como "o time" (sem etapa de inscrição de time, diferente de
+  campeonato), com cronômetro e placar ao vivo próprios em `app/desafio/[matchId].tsx`
+  (`startFriendlyMatch`/`registerFriendlyGoal`/`undoLastFriendlyGoal`/`endFriendlyMatch`),
+  aceitando empate como resultado válido. No perfil de outro jogador
+  (`app/jogador/[id].tsx`), dá pra mandar um **confronto direto** (`PlayerDuel`,
+  botão "⚔️ Desafiar") — o outro aceita/recusa e, uma vez aceito, qualquer um dos
+  dois registra quem venceu (ou empate). O resultado fica gravado como retrospecto
+  (placar de vitórias de cada um + empates) exibido ali mesmo no perfil, sem precisar
+  de uma pelada em comum.
 - **Home/Agenda** (`app/(tabs)/index.tsx`): além dos jogos, mostra um card de
   **"Seu desempenho"** — nota geral, jogos disputados, vitórias, gols/pontos, o
   retrospecto (V/E/D) e o saldo, mais uma seta de tendência (`src/lib/performance.ts`,

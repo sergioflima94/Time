@@ -10,12 +10,28 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
 import { formatGameDateShort } from '@/lib/format';
 import { computeAllOveralls } from '@/lib/ratings';
 import { TEAM_COLORS } from '@/lib/teamDraft';
 import { useAppStore } from '@/store/useAppStore';
+import type { ChallengeStatus } from '@/types';
+
+const CHALLENGE_STATUS_LABEL: Record<ChallengeStatus, string> = {
+  pending: 'Pendente',
+  accepted: 'Aceito',
+  declined: 'Recusado',
+  cancelled: 'Cancelado',
+};
+
+const CHALLENGE_STATUS_COLOR: Record<ChallengeStatus, string> = {
+  pending: colors.warning,
+  accepted: colors.primary,
+  declined: colors.danger,
+  cancelled: colors.textFaint,
+};
 
 export default function TimeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,9 +62,28 @@ export default function TimeDetailScreen() {
   const updateTeam = useAppStore((s) => s.updateTeam);
   const moveTeamInQueue = useAppStore((s) => s.moveTeamInQueue);
 
+  const allPeladas = useAppStore((s) => s.peladas);
+  const ownFields = useAppStore(useShallow((s) => (pelada ? s.fields.filter((f) => f.peladaId === pelada.id) : [])));
+  const teamChallenges = useAppStore(
+    useShallow((s) => (pelada ? s.teamChallenges.filter((c) => c.challengerPeladaId === pelada.id || c.challengedPeladaId === pelada.id) : [])),
+  );
+  const friendlyMatches = useAppStore(
+    useShallow((s) => (pelada ? s.friendlyMatches.filter((m) => m.peladaAId === pelada.id || m.peladaBId === pelada.id) : [])),
+  );
+  const sendTeamChallenge = useAppStore((s) => s.sendTeamChallenge);
+  const respondTeamChallenge = useAppStore((s) => s.respondTeamChallenge);
+  const cancelTeamChallenge = useAppStore((s) => s.cancelTeamChallenge);
+
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [pickingColorFor, setPickingColorFor] = useState<string | null>(null);
+
+  const [showChallengeForm, setShowChallengeForm] = useState(false);
+  const [opponentId, setOpponentId] = useState<string | null>(null);
+  const [challengeDate, setChallengeDate] = useState('');
+  const [challengeTime, setChallengeTime] = useState('');
+  const [challengeFieldId, setChallengeFieldId] = useState<string | null>(null);
+  const [challengeMessage, setChallengeMessage] = useState('');
 
   if (!pelada) {
     return (
@@ -89,6 +124,22 @@ export default function TimeDetailScreen() {
   function handleSaveName(teamId: string) {
     if (nameDraft.trim()) updateTeam(teamId, { name: nameDraft.trim() });
     setEditingTeamId(null);
+  }
+
+  function handleSendChallenge() {
+    if (!pelada || !opponentId || !challengeDate.trim() || !challengeTime.trim() || !currentPlayerId) return;
+    sendTeamChallenge(pelada.id, opponentId, currentPlayerId, {
+      proposedDate: challengeDate.trim(),
+      proposedTime: challengeTime.trim(),
+      fieldId: challengeFieldId,
+      message: challengeMessage.trim() || null,
+    });
+    setShowChallengeForm(false);
+    setOpponentId(null);
+    setChallengeDate('');
+    setChallengeTime('');
+    setChallengeFieldId(null);
+    setChallengeMessage('');
   }
 
   const sortedWaitingPlayers = [...waitingPlayers].sort(
@@ -234,6 +285,134 @@ export default function TimeDetailScreen() {
 
       {(isAdmin || pelada.memberInvitePermissions.canInviteNewMembers) && <InvitePeladaSection pelada={pelada} />}
 
+      {friendlyMatches.length > 0 && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Partidas de desafio</Text>
+          {friendlyMatches
+            .slice()
+            .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+            .map((m) => {
+              const opponentPeladaId = m.peladaAId === pelada.id ? m.peladaBId : m.peladaAId;
+              const opponent = allPeladas.find((p) => p.id === opponentPeladaId);
+              return (
+                <Pressable key={m.id} style={styles.challengeRow} onPress={() => router.push(`/desafio/${m.id}`)}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rosterName}>vs {opponent?.name ?? '—'}</Text>
+                    <Text style={styles.hint}>{formatGameDateShort(m.scheduledAt)}</Text>
+                  </View>
+                  <Badge
+                    label={m.status === 'finished' ? 'Encerrada' : m.status === 'in_progress' ? 'Ao vivo' : 'Agendada'}
+                    color={m.status === 'finished' ? colors.textFaint : m.status === 'in_progress' ? colors.danger : colors.primary}
+                  />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+                </Pressable>
+              );
+            })}
+        </Card>
+      )}
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Desafios</Text>
+          {isAdmin && (
+            <Pressable onPress={() => setShowChallengeForm((v) => !v)}>
+              <Text style={styles.adminLink}>{showChallengeForm ? 'Cancelar' : '+ Desafiar outro time'}</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {showChallengeForm && (
+          <View style={styles.challengeForm}>
+            <Text style={styles.formLabel}>Adversário</Text>
+            <View style={styles.opponentList}>
+              {allPeladas
+                .filter((p) => p.id !== pelada.id && p.sportId === pelada.sportId)
+                .map((p) => (
+                  <Pressable
+                    key={p.id}
+                    style={[styles.opponentChip, opponentId === p.id && styles.opponentChipActive]}
+                    onPress={() => setOpponentId(p.id)}
+                  >
+                    <Text style={[styles.opponentChipText, opponentId === p.id && styles.opponentChipTextActive]} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              {allPeladas.filter((p) => p.id !== pelada.id && p.sportId === pelada.sportId).length === 0 && (
+                <Text style={styles.hint}>Nenhum outro time de {sport.label.toLowerCase()} cadastrado ainda.</Text>
+              )}
+            </View>
+
+            <TextField label="Data (AAAA-MM-DD)" value={challengeDate} onChangeText={setChallengeDate} placeholder="2026-10-05" />
+            <TextField label="Horário (HH:mm)" value={challengeTime} onChangeText={setChallengeTime} placeholder="19:00" />
+
+            {ownFields.length > 0 && (
+              <>
+                <Text style={styles.formLabel}>Campo (opcional)</Text>
+                <View style={styles.opponentList}>
+                  {ownFields.map((f) => (
+                    <Pressable
+                      key={f.id}
+                      style={[styles.opponentChip, challengeFieldId === f.id && styles.opponentChipActive]}
+                      onPress={() => setChallengeFieldId(challengeFieldId === f.id ? null : f.id)}
+                    >
+                      <Text style={[styles.opponentChipText, challengeFieldId === f.id && styles.opponentChipTextActive]} numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <TextField label="Mensagem (opcional)" value={challengeMessage} onChangeText={setChallengeMessage} placeholder="Bora jogar sábado?" />
+
+            <Button
+              label="Enviar desafio"
+              onPress={handleSendChallenge}
+              disabled={!opponentId || !challengeDate.trim() || !challengeTime.trim()}
+            />
+          </View>
+        )}
+
+        {teamChallenges.length === 0 && !showChallengeForm && <Text style={styles.hint}>Nenhum desafio ainda.</Text>}
+
+        {teamChallenges
+          .slice()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .map((c) => {
+            const isReceived = c.challengedPeladaId === pelada.id;
+            const otherPeladaId = isReceived ? c.challengerPeladaId : c.challengedPeladaId;
+            const other = allPeladas.find((p) => p.id === otherPeladaId);
+            return (
+              <View key={c.id} style={styles.challengeCard}>
+                <View style={styles.challengeCardHeader}>
+                  <Text style={styles.rosterName}>
+                    {isReceived ? `${other?.name ?? '—'} desafiou vocês` : `Vocês desafiaram ${other?.name ?? '—'}`}
+                  </Text>
+                  <Badge label={CHALLENGE_STATUS_LABEL[c.status]} color={CHALLENGE_STATUS_COLOR[c.status]} />
+                </View>
+                <Text style={styles.hint}>
+                  {c.proposedDate} às {c.proposedTime}
+                  {c.fieldId ? ' · campo definido' : ''}
+                </Text>
+                {c.message && <Text style={styles.hint}>"{c.message}"</Text>}
+                {isAdmin && c.status === 'pending' && isReceived && (
+                  <View style={styles.challengeActionsRow}>
+                    <Button label="Aceitar" small onPress={() => respondTeamChallenge(c.id, true)} />
+                    <Button label="Recusar" small variant="outline" onPress={() => respondTeamChallenge(c.id, false)} />
+                  </View>
+                )}
+                {isAdmin && c.status === 'pending' && !isReceived && (
+                  <Pressable onPress={() => cancelTeamChallenge(c.id)}>
+                    <Text style={styles.adminLinkMuted}>Cancelar desafio</Text>
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+      </Card>
+
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Elenco ({roster.length})</Text>
         {roster.map((p) => (
@@ -295,6 +474,74 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  challengeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  challengeForm: {
+    gap: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+    marginBottom: spacing.xs,
+  },
+  formLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginTop: spacing.xs,
+  },
+  opponentList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  opponentChip: {
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    maxWidth: 180,
+  },
+  opponentChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '22',
+  },
+  opponentChipText: {
+    color: colors.textMuted,
+    fontSize: 13,
+  },
+  opponentChipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  challengeCard: {
+    gap: 4,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  challengeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  challengeActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: 4,
   },
   teamBlock: {
     gap: 4,

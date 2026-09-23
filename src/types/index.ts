@@ -515,3 +515,84 @@ export interface ChampionshipGoal {
   scorerPlayerId: UUID | null;
   scoredAt: string;
 }
+
+export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+
+/**
+ * Convite de uma pelada pra outra jogarem uma partida avulsa — sem campeonato nem
+ * estabelecimento organizando. Só entre peladas do mesmo esporte. Quando aceito, gera
+ * um FriendlyMatch e preenche `matchId`.
+ */
+export interface TeamChallenge {
+  id: UUID;
+  challengerPeladaId: UUID;
+  challengedPeladaId: UUID;
+  /** Data no formato YYYY-MM-DD. */
+  proposedDate: string;
+  /** Horário no formato HH:mm. */
+  proposedTime: string;
+  /** Campo sugerido pelo desafiante (opcional) — geralmente um campo da própria pelada dele. */
+  fieldId: UUID | null;
+  message: string | null;
+  status: ChallengeStatus;
+  /** Preenchido quando aceito. */
+  matchId: UUID | null;
+  createdBy: UUID;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+export type FriendlyMatchStatus = 'scheduled' | 'in_progress' | 'finished';
+
+/**
+ * Partida avulsa entre duas peladas inteiras (não só times formados dentro de uma
+ * pelada), gerada a partir de um TeamChallenge aceito. Quem marca o gol/ponto é
+ * escolhido direto do elenco de cada pelada — não precisa inscrever um "time" separado.
+ */
+export interface FriendlyMatch {
+  id: UUID;
+  challengeId: UUID;
+  peladaAId: UUID;
+  peladaBId: UUID;
+  fieldId: UUID | null;
+  scheduledAt: string;
+  matchMinutes: number;
+  /** Esporte da partida — as duas peladas precisam ter o mesmo pra se desafiarem. */
+  sportId: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  status: FriendlyMatchStatus;
+  /** null = empate ou partida ainda não terminou. */
+  winnerPeladaId: UUID | null;
+}
+
+/** Gol/ponto marcado numa partida avulsa entre peladas. */
+export interface FriendlyMatchGoal {
+  id: UUID;
+  matchId: UUID;
+  peladaId: UUID;
+  scorerPlayerId: UUID | null;
+  scoredAt: string;
+}
+
+export type PlayerDuelStatus = 'pending' | 'accepted' | 'declined';
+
+/**
+ * Desafio direto entre dois jogadores (independente de pelada/time) — registra um
+ * confronto: quando o resultado é preenchido, fica no retrospecto de ambos.
+ */
+export interface PlayerDuel {
+  id: UUID;
+  challengerId: UUID;
+  challengedId: UUID;
+  message: string | null;
+  status: PlayerDuelStatus;
+  /** Preenchido depois que os dois combinaram e jogaram de verdade — quem levou a melhor. */
+  winnerId: UUID | null;
+  /** null enquanto não tem resultado — pode ficar "aceito" por um tempo até alguém registrar. */
+  resultNote: string | null;
+  createdBy: UUID;
+  createdAt: string;
+  respondedAt: string | null;
+  resultRecordedAt: string | null;
+}

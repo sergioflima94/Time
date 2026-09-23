@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { PLAYER_CARD_ASPECT, PlayerCard } from '@/components/PlayerCard';
 import { PlayerCardBack } from '@/components/PlayerCardBack';
 import { RotatingCard } from '@/components/RotatingCard';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
@@ -28,6 +30,19 @@ export default function JogadorPerfilScreen() {
   const removeFriendship = useAppStore((s) => s.removeFriendship);
   const friendship = useFriendshipWith(id ?? '');
 
+  const duelsBetween = useAppStore(
+    useShallow((s) =>
+      s.playerDuels.filter(
+        (d) =>
+          (d.challengerId === currentPlayerId && d.challengedId === id) ||
+          (d.challengerId === id && d.challengedId === currentPlayerId),
+      ),
+    ),
+  );
+  const sendPlayerDuel = useAppStore((s) => s.sendPlayerDuel);
+  const respondPlayerDuel = useAppStore((s) => s.respondPlayerDuel);
+  const recordPlayerDuelResult = useAppStore((s) => s.recordPlayerDuelResult);
+
   if (!player) {
     return (
       <Screen>
@@ -40,6 +55,17 @@ export default function JogadorPerfilScreen() {
   const goalStats = computePlayerGoalStats(player.id, teamPlayers, matchTurns, goals);
   const primarySport = getSport(player.favoriteSports[0]);
   const isMe = player.id === currentPlayerId;
+
+  const pendingDuel = duelsBetween.find((d) => d.status === 'pending');
+  const activeDuel = duelsBetween.find((d) => d.status === 'accepted' && !d.resultRecordedAt);
+  const recordedDuels = duelsBetween.filter((d) => d.resultRecordedAt).sort((a, b) => new Date(b.resultRecordedAt!).getTime() - new Date(a.resultRecordedAt!).getTime());
+  const myWins = recordedDuels.filter((d) => d.winnerId === currentPlayerId).length;
+  const theirWins = recordedDuels.filter((d) => d.winnerId === player.id).length;
+  const draws = recordedDuels.filter((d) => d.winnerId === null).length;
+
+  function handleSendDuel() {
+    sendPlayerDuel(currentPlayerId, player!.id, null);
+  }
 
   return (
     <Screen>
@@ -109,6 +135,46 @@ export default function JogadorPerfilScreen() {
             </View>
           )}
         </View>
+      )}
+
+      {!isMe && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Confronto direto</Text>
+
+          {recordedDuels.length > 0 && (
+            <Text style={styles.duelRecord}>
+              Você {myWins} x {theirWins} {player.nickname || player.name}
+              {draws > 0 ? ` (${draws} empate${draws > 1 ? 's' : ''})` : ''}
+            </Text>
+          )}
+
+          {activeDuel ? (
+            <View style={styles.duelResultRow}>
+              <Text style={styles.hint}>Confronto em aberto — quem venceu?</Text>
+              <View style={styles.duelResultButtons}>
+                <Button label="Eu venci" small onPress={() => recordPlayerDuelResult(activeDuel.id, currentPlayerId, null)} />
+                <Button
+                  label={`${player.nickname || player.name} venceu`}
+                  small
+                  variant="secondary"
+                  onPress={() => recordPlayerDuelResult(activeDuel.id, player!.id, null)}
+                />
+                <Button label="Empate" small variant="outline" onPress={() => recordPlayerDuelResult(activeDuel.id, null, null)} />
+              </View>
+            </View>
+          ) : pendingDuel ? (
+            pendingDuel.challengedId === currentPlayerId ? (
+              <View style={styles.friendRequestRow}>
+                <Button label="Aceitar desafio" onPress={() => respondPlayerDuel(pendingDuel.id, true)} style={{ flex: 1 }} />
+                <Button label="Recusar" variant="secondary" onPress={() => respondPlayerDuel(pendingDuel.id, false)} style={{ flex: 1 }} />
+              </View>
+            ) : (
+              <Badge label="Desafio enviado, aguardando resposta" color={colors.warning} />
+            )
+          ) : (
+            <Button label="⚔️ Desafiar" variant="outline" onPress={handleSendDuel} />
+          )}
+        </Card>
       )}
 
       {player.favoriteSports.length > 0 && (
@@ -202,6 +268,23 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 13,
     fontWeight: '700',
+  },
+  duelRecord: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  duelResultRow: {
+    gap: spacing.sm,
+  },
+  duelResultButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  hint: {
+    color: colors.textFaint,
+    fontSize: 12,
   },
   section: {
     marginTop: spacing.md,

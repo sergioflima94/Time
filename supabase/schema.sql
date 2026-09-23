@@ -410,6 +410,76 @@ create table championship_goals (
 );
 
 -- ---------------------------------------------------------------------
+-- Desafios: partida amistosa entre duas peladas (sem campeonato/estabelecimento)
+-- e confronto direto entre dois jogadores — ver src/store/useAppStore.ts
+-- (sendTeamChallenge/respondTeamChallenge, sendPlayerDuel/respondPlayerDuel).
+-- ---------------------------------------------------------------------
+create table team_challenges (
+  id uuid primary key default gen_random_uuid(),
+  challenger_pelada_id uuid not null references peladas (id) on delete cascade,
+  challenged_pelada_id uuid not null references peladas (id) on delete cascade,
+  proposed_date date not null,
+  proposed_time text not null,
+  field_id uuid references fields (id) on delete set null,
+  message text,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'cancelled')),
+  -- preenchido quando aceito (a fk pra friendly_matches é adicionada abaixo, depois da tabela existir).
+  match_id uuid,
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  check (challenger_pelada_id <> challenged_pelada_id)
+);
+
+-- partida amistosa gerada quando um desafio é aceito — reaproveita o elenco (membros
+-- ativos) inteiro de cada pelada como "o time", sem seleção avulsa como em campeonato.
+create table friendly_matches (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references team_challenges (id) on delete cascade,
+  pelada_a_id uuid not null references peladas (id) on delete cascade,
+  pelada_b_id uuid not null references peladas (id) on delete cascade,
+  field_id uuid references fields (id) on delete set null,
+  scheduled_at timestamptz not null,
+  match_minutes int not null default 10,
+  sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  started_at timestamptz,
+  ended_at timestamptz,
+  status text not null default 'scheduled' check (status in ('scheduled', 'in_progress', 'finished')),
+  -- null = empate ou ainda não terminou
+  winner_pelada_id uuid references peladas (id)
+);
+
+alter table team_challenges add constraint team_challenges_match_id_fkey
+  foreign key (match_id) references friendly_matches (id) on delete set null;
+
+-- gol/ponto marcado numa partida amistosa — separado de goals (jogo de pelada) e
+-- championship_goals (campeonato).
+create table friendly_match_goals (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references friendly_matches (id) on delete cascade,
+  pelada_id uuid not null references peladas (id),
+  scorer_player_id uuid references players (id),
+  scored_at timestamptz not null default now()
+);
+
+-- confronto direto entre dois jogadores, independente de pelada — resultado (quando
+-- registrado) aparece como retrospecto no perfil de cada um.
+create table player_duels (
+  id uuid primary key default gen_random_uuid(),
+  challenger_id uuid not null references players (id) on delete cascade,
+  challenged_id uuid not null references players (id) on delete cascade,
+  message text,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  winner_id uuid references players (id),
+  result_note text,
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  result_recorded_at timestamptz,
+  check (challenger_id <> challenged_id)
+);
+
+-- ---------------------------------------------------------------------
 -- View: nota geral do jogador estilo "carta de FIFA" (0-99)
 -- ---------------------------------------------------------------------
 create view player_overalls as
@@ -453,6 +523,10 @@ alter table championship_teams enable row level security;
 alter table championship_team_players enable row level security;
 alter table championship_matches enable row level security;
 alter table championship_goals enable row level security;
+alter table team_challenges enable row level security;
+alter table friendly_matches enable row level security;
+alter table friendly_match_goals enable row level security;
+alter table player_duels enable row level security;
 
 create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
@@ -709,4 +783,53 @@ create policy "championship_matches_write_owner" on championship_matches for all
 create policy "championship_goals_select_all" on championship_goals for select using (true);
 create policy "championship_goals_write_owner" on championship_goals for all using (
   exists (select 1 from championship_matches m where m.id = match_id and is_owner_of_championship(m.championship_id))
+);
+
+-- team_challenges: visível pra membros de qualquer uma das duas peladas envolvidas;
+-- só admin propõe (em nome da própria pelada) e só admin de uma das duas responde/cancela.
+create policy "team_challenges_select_involved" on team_challenges for select using (
+  is_member_of_pelada(challenger_pelada_id) or is_member_of_pelada(challenged_pelada_id)
+);
+create policy "team_challenges_insert_admin" on team_challenges for insert with check (
+  is_admin_of_pelada(challenger_pelada_id)
+  and exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "team_challenges_update_admin_involved" on team_challenges for update using (
+  is_admin_of_pelada(challenger_pelada_id) or is_admin_of_pelada(challenged_pelada_id)
+);
+
+-- friendly_matches/friendly_match_goals: visível pra membros de qualquer uma das duas
+-- peladas; só admin de uma das duas opera o cronômetro/placar (mesma regra de time_challenges).
+create policy "friendly_matches_select_involved" on friendly_matches for select using (
+  is_member_of_pelada(pelada_a_id) or is_member_of_pelada(pelada_b_id)
+);
+create policy "friendly_matches_write_admin_involved" on friendly_matches for all using (
+  is_admin_of_pelada(pelada_a_id) or is_admin_of_pelada(pelada_b_id)
+);
+
+create policy "friendly_match_goals_select_involved" on friendly_match_goals for select using (
+  exists (
+    select 1 from friendly_matches m where m.id = match_id
+    and (is_member_of_pelada(m.pelada_a_id) or is_member_of_pelada(m.pelada_b_id))
+  )
+);
+create policy "friendly_match_goals_write_admin_involved" on friendly_match_goals for all using (
+  exists (
+    select 1 from friendly_matches m where m.id = match_id
+    and (is_admin_of_pelada(m.pelada_a_id) or is_admin_of_pelada(m.pelada_b_id))
+  )
+);
+
+-- player_duels: só os dois jogadores envolvidos veem/editam (propor, aceitar/recusar,
+-- registrar resultado — qualquer um dos dois pode registrar o resultado final).
+create policy "player_duels_select_involved" on player_duels for select using (
+  exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = challenged_id and p.auth_user_id = auth.uid())
+);
+create policy "player_duels_insert_challenger" on player_duels for insert with check (
+  exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
+);
+create policy "player_duels_update_involved" on player_duels for update using (
+  exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from players p where p.id = challenged_id and p.auth_user_id = auth.uid())
 );
