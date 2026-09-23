@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { useRef } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -13,6 +14,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
 import { computeStandings, computeTopScorers, formatChampionshipStatus } from '@/lib/championship';
 import { formatBRL } from '@/lib/payments';
+import { shareViewAsImage } from '@/lib/shareImage';
 import { useAppStore } from '@/store/useAppStore';
 import type { ChampionshipMatch } from '@/types';
 
@@ -28,6 +30,8 @@ export default function ChampionshipScreen() {
   const goals = useAppStore(useShallow((s) => s.championshipGoals.filter((g) => matches.some((m) => m.id === g.matchId))));
   const players = useAppStore((s) => s.players);
   const generateChampionshipFixtures = useAppStore((s) => s.generateChampionshipFixtures);
+
+  const standingsRef = useRef<View>(null);
 
   if (!championship) {
     return (
@@ -66,6 +70,10 @@ export default function ChampionshipScreen() {
     const goalsA = goals.filter((g) => g.matchId === match.id && g.teamId === match.teamAId).length;
     const goalsB = goals.filter((g) => g.matchId === match.id && g.teamId === match.teamBId).length;
     return `${goalsA} x ${goalsB}`;
+  }
+
+  function handleShareStandings() {
+    shareViewAsImage(standingsRef, `classificacao-${championship!.name}`);
   }
 
   return (
@@ -123,29 +131,39 @@ export default function ChampionshipScreen() {
 
       {standings.length > 0 && (
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Classificação</Text>
-          <View style={styles.standingsHeader}>
-            <Text style={[styles.standingsCell, styles.standingsTeamCol]}>Time</Text>
-            <Text style={styles.standingsCell}>P</Text>
-            <Text style={styles.standingsCell}>J</Text>
-            <Text style={styles.standingsCell}>V</Text>
-            <Text style={styles.standingsCell}>E</Text>
-            <Text style={styles.standingsCell}>D</Text>
-            <Text style={styles.standingsCell}>{sport.hasGoalkeeper ? 'SG' : 'SP'}</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Classificação</Text>
+            <Pressable onPress={handleShareStandings} hitSlop={8}>
+              <Ionicons name="share-social-outline" size={18} color={colors.textMuted} />
+            </Pressable>
           </View>
-          {standings.map((row, idx) => (
-            <View key={row.team.id} style={styles.standingsRow}>
-              <Text style={[styles.standingsCell, styles.standingsTeamCol, styles.standingsTeamName]} numberOfLines={1}>
-                {idx + 1}. {row.team.name}
-              </Text>
-              <Text style={[styles.standingsCell, styles.standingsPoints]}>{row.points}</Text>
-              <Text style={styles.standingsCell}>{row.played}</Text>
-              <Text style={styles.standingsCell}>{row.wins}</Text>
-              <Text style={styles.standingsCell}>{row.draws}</Text>
-              <Text style={styles.standingsCell}>{row.losses}</Text>
-              <Text style={styles.standingsCell}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</Text>
+          <View ref={standingsRef} collapsable={false} style={styles.shareCapture}>
+            <Text style={styles.shareCaptureTitle}>
+              {sport.icon} {championship.name}
+            </Text>
+            <View style={styles.standingsHeader}>
+              <Text style={[styles.standingsCell, styles.standingsTeamCol]}>Time</Text>
+              <Text style={styles.standingsCell}>P</Text>
+              <Text style={styles.standingsCell}>J</Text>
+              <Text style={styles.standingsCell}>V</Text>
+              <Text style={styles.standingsCell}>E</Text>
+              <Text style={styles.standingsCell}>D</Text>
+              <Text style={styles.standingsCell}>{sport.hasGoalkeeper ? 'SG' : 'SP'}</Text>
             </View>
-          ))}
+            {standings.map((row, idx) => (
+              <View key={row.team.id} style={styles.standingsRow}>
+                <Text style={[styles.standingsCell, styles.standingsTeamCol, styles.standingsTeamName]} numberOfLines={1}>
+                  {idx + 1}. {row.team.name}
+                </Text>
+                <Text style={[styles.standingsCell, styles.standingsPoints]}>{row.points}</Text>
+                <Text style={styles.standingsCell}>{row.played}</Text>
+                <Text style={styles.standingsCell}>{row.wins}</Text>
+                <Text style={styles.standingsCell}>{row.draws}</Text>
+                <Text style={styles.standingsCell}>{row.losses}</Text>
+                <Text style={styles.standingsCell}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</Text>
+              </View>
+            ))}
+          </View>
         </Card>
       )}
 
@@ -234,6 +252,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shareCapture: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  shareCaptureTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
   },
   hint: {
     color: colors.textFaint,

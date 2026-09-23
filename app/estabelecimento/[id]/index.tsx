@@ -87,16 +87,6 @@ export default function EstablishmentDashboardScreen() {
     }
   }
 
-  async function handleSharePublicPage() {
-    try {
-      await Share.share({
-        message: `Marque um jogo na "${establishment!.name}" direto por aqui, sem precisar já ter conta: pelada://estabelecimento/publico/${establishment!.id}`,
-      });
-    } catch {
-      /* usuário cancelou */
-    }
-  }
-
   return (
     <Screen>
       <View style={styles.headerRow}>
@@ -120,6 +110,7 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="calendar" label="Agendamento" sub={`${bookings.length} reservas`} onPress={() => router.push(`/estabelecimento/${establishment.id}/agendamento`)} />
         <NavCard icon="trophy" label="Campeonatos" sub={`${championships.length} criados`} onPress={() => router.push(`/estabelecimento/${establishment.id}/campeonatos`)} />
         <NavCard icon="stats-chart" label="Financeiro" sub={formatBRL(summary.total)} onPress={() => router.push(`/estabelecimento/${establishment.id}/financeiro`)} />
+        <NavCard icon="link" label="Página pública" sub="Marcar jogo sem conta" onPress={() => router.push(`/estabelecimento/${establishment.id}/publico`)} />
       </View>
 
       <Card style={styles.section}>
@@ -157,24 +148,6 @@ export default function EstablishmentDashboardScreen() {
             <Badge label={`Recebe via Pix · ${establishment.pixKey}`} color={colors.primary} />
           )
         )}
-      </Card>
-
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Página pública</Text>
-        <Text style={styles.hint}>
-          Qualquer pessoa com o link marca um jogo direto num dos seus campos — sem precisar já
-          ter conta no app nem fazer parte de nenhuma pelada. O próprio formulário já cria o
-          perfil dela.
-        </Text>
-        <View style={styles.editActions}>
-          <Button
-            label="Abrir página pública"
-            small
-            variant="secondary"
-            onPress={() => router.push(`/estabelecimento/publico/${establishment.id}`)}
-          />
-          <Button label="Compartilhar link" small onPress={handleSharePublicPage} />
-        </View>
       </Card>
 
       <Card style={styles.section}>

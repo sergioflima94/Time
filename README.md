@@ -393,15 +393,23 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   sobreposto a uma reserva existente, single ou fixa (`findBookingConflicts`, considera
   fixo x fixo, fixo x avulsa no mesmo dia da semana, e avulsa x avulsa só na mesma data).
 - ✅ **Página pública do estabelecimento** (`app/estabelecimento/publico/[id].tsx`): link
-  compartilhável (card "Página pública" no painel do dono, `[id]/index.tsx`) que qualquer
-  pessoa abre sem estar logada nem fazer parte de nenhuma pelada — vê os campos e marca um
-  jogo avulso (reaproveita `addFieldBooking`/`findBookingConflicts`, mesmo bloqueio de
-  conflito de horário do fluxo interno). Se quem está marcando ainda não tem conta no
-  device, o próprio formulário pede nome + telefone e já cria o perfil de jogador e loga
-  (`updateCurrentPlayerProfile` + `useAuthStore.login`) antes de confirmar a reserva — não
-  precisa passar pela tela de cadastro separada. RLS: `field_bookings_insert_self` deixa
-  qualquer jogador autenticado criar uma reserva avulsa em nome próprio; editar/cancelar
-  continua exclusivo do dono do estabelecimento.
+  compartilhável — gerenciado numa página própria do dono, `[id]/publico.tsx` (acessível
+  pelo card "Página pública" do grid de navegação em `[id]/index.tsx`, junto com
+  Campos/Agendamento/Campeonatos/Financeiro), que também lista as reservas que já vieram
+  por ali — que qualquer pessoa abre sem estar logada nem fazer parte de nenhuma pelada —
+  vê os campos e marca um jogo avulso (reaproveita `addFieldBooking`/`findBookingConflicts`,
+  mesmo bloqueio de conflito de horário do fluxo interno). Se quem está marcando ainda não
+  tem conta no device, o próprio formulário pede nome + telefone e já cria o perfil de
+  jogador e loga (`updateCurrentPlayerProfile` + `useAuthStore.login`) antes de confirmar a
+  reserva — não precisa passar pela tela de cadastro separada. RLS:
+  `field_bookings_insert_self` deixa qualquer jogador autenticado criar uma reserva avulsa
+  em nome próprio; editar/cancelar continua exclusivo do dono do estabelecimento.
+- ✅ **Compartilhar a tabela do campeonato como imagem** (`src/lib/shareImage.ts`, botão de
+  compartilhar no card "Classificação" em `app/campeonato/[id]/index.tsx`): gera um PNG só
+  com o nome do campeonato + a tabela de classificação (sem o resto da tela) e abre a folha
+  de compartilhamento nativa do aparelho (`react-native-view-shot` + `expo-sharing`); na
+  web, como não dá pra compartilhar arquivo local direto, baixa a imagem pro dispositivo em
+  vez disso (`dom-to-image`, ver `Platform.OS === 'web'` em `shareViewAsImage`).
 - ✅ **Relatório financeiro** (`src/lib/establishmentFinance.ts`, `[id]/financeiro.tsx`):
   soma o que já é rastreado no app — rateio de jogo pago (`payments` com status "paid",
   valor = custo da quadra ÷ confirmados no momento) e taxas de inscrição de campeonato

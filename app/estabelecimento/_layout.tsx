@@ -16,6 +16,7 @@ export default function EstabelecimentoLayout() {
       <Stack.Screen name="[id]/agendamento" />
       <Stack.Screen name="[id]/campeonatos" />
       <Stack.Screen name="[id]/financeiro" />
+      <Stack.Screen name="[id]/publico" />
       <Stack.Screen name="publico/[id]" />
     </Stack>
   );
