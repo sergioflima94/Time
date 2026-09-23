@@ -52,6 +52,9 @@ create table peladas (
   default_max_players int not null default 16,
   default_match_minutes int not null default 10,
   invite_code text not null unique,
+  -- por padrão só admin convida gente; o admin libera cada permissão pra qualquer membro.
+  member_can_invite_free_agents boolean not null default false,
+  member_can_invite_new_members boolean not null default false,
   created_by uuid not null references players (id),
   created_at timestamptz not null default now()
 );
@@ -94,6 +97,33 @@ create table fields (
   sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
   created_by uuid not null references players (id),
   check (pelada_id is not null or establishment_id is not null)
+);
+
+-- reserva de um campo do estabelecimento, cadastrada pelo próprio dono — time cadastrado
+-- (peladaId setado) ou avulso (só o nome). "weekly" é o horário fixo: toda semana, naquele
+-- dia + horário, aquele time já está lá. O bloqueio de conflito de horário (mesmo campo +
+-- dia + faixa de horário sobreposta) é feito na store (src/lib/fieldBooking.ts), não aqui.
+create table field_bookings (
+  id uuid primary key default gen_random_uuid(),
+  field_id uuid not null references fields (id) on delete cascade,
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  -- time cadastrado (de uma pelada existente) — null quando o time é avulso.
+  pelada_id uuid references peladas (id) on delete set null,
+  team_name text not null,
+  recurrence text not null check (recurrence in ('single', 'weekly')),
+  -- 0 (domingo) a 6 (sábado) — obrigatório quando recurrence = 'weekly'.
+  day_of_week int check (day_of_week between 0 and 6),
+  -- obrigatório quando recurrence = 'single'.
+  date date,
+  time text not null,
+  duration_minutes int not null default 60,
+  notes text,
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  check (
+    (recurrence = 'weekly' and day_of_week is not null and date is null)
+    or (recurrence = 'single' and date is not null and day_of_week is null)
+  )
 );
 
 create table schedules (
@@ -346,6 +376,7 @@ alter table peladas enable row level security;
 alter table pelada_memberships enable row level security;
 alter table establishments enable row level security;
 alter table fields enable row level security;
+alter table field_bookings enable row level security;
 alter table schedules enable row level security;
 alter table games enable row level security;
 alter table attendances enable row level security;
@@ -413,6 +444,17 @@ create policy "fields_write_admins_or_owner" on fields for all using (
       select id from players where auth_user_id = auth.uid()
     )
   ))
+);
+
+-- field_bookings: leitura pública (admin de pelada precisa ver se um horário já está
+-- ocupado antes de agendar um jogo ali); só o dono do estabelecimento cadastra/edita/remove.
+create policy "field_bookings_select_all" on field_bookings for select using (true);
+create policy "field_bookings_write_owner" on field_bookings for all using (
+  exists (
+    select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
+      select id from players where auth_user_id = auth.uid()
+    )
+  )
 );
 
 -- establishments: qualquer autenticado pode ler (precisa achar pelo access_code pra
@@ -511,7 +553,13 @@ create policy "free_agent_invites_select_involved" on free_agent_invites for sel
   is_admin_of_pelada(pelada_id)
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
 );
-create policy "free_agent_invites_write_admin" on free_agent_invites for insert with check (is_admin_of_pelada(pelada_id));
+create policy "free_agent_invites_write_admin_or_permitted_member" on free_agent_invites for insert with check (
+  is_admin_of_pelada(pelada_id)
+  or (
+    is_member_of_pelada(pelada_id)
+    and exists (select 1 from peladas p where p.id = pelada_id and p.member_can_invite_free_agents)
+  )
+);
 create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites for update using (
   is_admin_of_pelada(pelada_id)
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())

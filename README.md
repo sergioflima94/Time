@@ -212,6 +212,13 @@ hoje, como tudo é local/mock, isso ainda não existe.
   batendo) e manda convite pra esse jogo específico, mesmo sem a pessoa ser membro da
   pelada. Quem recebe aceita/recusa no Perfil ("Convites pra jogar"); aceitar confirma
   presença normalmente.
+- **Permissões dos membros** (`Pelada.memberInvitePermissions`, Admin → "Permissões dos
+  membros"): por padrão só admin convida gente — só admin busca/convida jogador livre
+  pra um jogo, e só admin vê o código de convite da pelada. O admin liga cada
+  permissão separadamente: "convidar jogador livre pro próximo jogo" libera a busca de
+  jogador livre (`NearbyFreeAgentsSection`) pra qualquer membro dentro da tela do jogo;
+  "convidar gente pra entrar na pelada" faz o código de convite (`InvitePeladaSection`)
+  aparecer também na aba Jogadores pra qualquer membro, não só no Admin.
 
 ## Próximos passos sugeridos
 
@@ -251,7 +258,7 @@ plano Figma; o que já foi decidido abaixo já está implementado direto no cód
 ## Dono de campo/quadra + e-commerce (escopo grande, em fases)
 
 Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra receber ✅,
-(2) agendamento multi-campo, (3) e-commerce (loja única do app pra começar).
+(2) agendamento multi-campo ✅, (3) e-commerce (loja única do app pra começar).
 
 - ✅ **Estabelecimento e conta pra receber** (`Establishment` em `src/types/index.ts`,
   ações em `useAppStore.ts`, tela `app/estabelecimento.tsx` — acessível em Perfil →
@@ -287,9 +294,15 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   (`Field.sportId`). Assim um único estabelecimento cobre vários esportes (ex.: quadra de
   society, quadra de vôlei, quadra de basquete, arena de areia pro futevôlei). Na hora de
   criar um campeonato, o campo é escolhido automaticamente pelo esporte do campeonato.
-- **Agenda de horários** (próxima fase): os campos do estabelecimento ainda não têm uma
-  grade de horários pra reserva — hoje servem só pra vincular jogos/campeonatos, sem
-  marketplace de reserva entre peladas ainda.
+- ✅ **Agendamento de campo** (`FieldBooking` em `src/types/index.ts`,
+  `src/lib/fieldBooking.ts`, `app/estabelecimento.tsx` → "Agendamento"): o dono reserva
+  um campo pra um time cadastrado (uma pelada existente) ou avulso (só o nome), de uma
+  vez só ("Só uma vez" + data) ou **fixo** ("Fixo (toda semana)" + dia da semana — ex.:
+  toda quinta 20h aquele time já está lá). Bloqueia conflito: não dá pra reservar o
+  mesmo campo com horário sobreposto a uma reserva existente, single ou fixa
+  (`findBookingConflicts`, considera fixo x fixo, fixo x avulsa no mesmo dia da semana,
+  e avulsa x avulsa só na mesma data). Ainda não é um marketplace — só o dono cadastra,
+  peladas não reservam sozinhas.
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,

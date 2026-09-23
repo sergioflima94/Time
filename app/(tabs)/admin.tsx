@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
+import { InvitePeladaSection } from '@/components/InvitePeladaSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -40,6 +41,7 @@ export default function AdminScreen() {
       <Text style={styles.title}>Administração</Text>
       <PeladaInfoSection />
       <InviteSection />
+      <MemberPermissionsSection />
       <AdminsSection />
       <FieldsSection />
       <SchedulesSection />
@@ -97,27 +99,48 @@ function PeladaInfoSection() {
 
 function InviteSection() {
   const pelada = useCurrentPelada();
+  return <InvitePeladaSection pelada={pelada} />;
+}
 
-  async function handleShare() {
-    try {
-      await Share.share({
-        message: `Bora jogar? Entra na pelada "${pelada.name}" comigo!\n\nBaixe o app Pelada, toque em "Entrar em uma pelada" e use o código: ${pelada.inviteCode}`,
-      });
-    } catch {
-      // usuário cancelou o compartilhamento, nada a fazer
-    }
+function MemberPermissionsSection() {
+  const pelada = useCurrentPelada();
+  const updatePeladaInvitePermissions = useAppStore((s) => s.updatePeladaInvitePermissions);
+  const perms = pelada.memberInvitePermissions;
+
+  function toggle(key: keyof typeof perms, value: boolean) {
+    updatePeladaInvitePermissions(pelada.id, { ...perms, [key]: value });
   }
 
   return (
     <Card style={styles.section}>
-      <Text style={styles.sectionTitle}>Convidar jogadores</Text>
-      <Text style={styles.rowSub}>
-        Compartilhe o código abaixo com quem você quer chamar pra pelada — inclusive quem ainda não tem o app.
-      </Text>
-      <View style={styles.inviteCodeBox}>
-        <Text style={styles.inviteCodeText}>{pelada.inviteCode}</Text>
+      <Text style={styles.sectionTitle}>Permissões dos membros</Text>
+      <Text style={styles.rowSub}>Por padrão, só admin convida gente. Libere pra qualquer membro se quiser.</Text>
+
+      <View style={styles.permissionRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.permissionLabel}>Convidar jogador livre pro próximo jogo</Text>
+          <Text style={styles.rowSub}>Qualquer membro (não só admin) pode chamar alguém de fora pra completar o jogo.</Text>
+        </View>
+        <Switch
+          value={perms.canInviteFreeAgents}
+          onValueChange={(v) => toggle('canInviteFreeAgents', v)}
+          trackColor={{ false: colors.cardBorder, true: colors.primary }}
+          thumbColor={colors.white}
+        />
       </View>
-      <Button label="Compartilhar convite" onPress={handleShare} />
+
+      <View style={styles.permissionRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.permissionLabel}>Convidar gente pra entrar na pelada</Text>
+          <Text style={styles.rowSub}>Qualquer membro vê e compartilha o código de convite, não só admin.</Text>
+        </View>
+        <Switch
+          value={perms.canInviteNewMembers}
+          onValueChange={(v) => toggle('canInviteNewMembers', v)}
+          trackColor={{ false: colors.cardBorder, true: colors.primary }}
+          thumbColor={colors.white}
+        />
+      </View>
     </Card>
   );
 }
@@ -530,6 +553,20 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  permissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  permissionLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   rowActions: {
     flexDirection: 'row',

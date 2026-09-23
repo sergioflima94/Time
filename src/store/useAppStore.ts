@@ -11,6 +11,7 @@ import {
   MOCK_CHAMPIONSHIP_TEAMS,
   MOCK_CHAMPIONSHIPS,
   MOCK_ESTABLISHMENTS,
+  MOCK_FIELD_BOOKINGS,
   MOCK_FIELDS,
   MOCK_GAMES,
   MOCK_GOALS,
@@ -27,6 +28,7 @@ import {
   MOCK_TEAM_PLAYERS,
 } from '@/lib/mockData';
 import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures } from '@/lib/championship';
+import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { buildPunishment } from '@/lib/punishment';
 import type {
@@ -43,6 +45,8 @@ import type {
   Establishment,
   EstablishmentPayoutMethod,
   Field,
+  FieldBooking,
+  FieldBookingRecurrence,
   FreeAgentInvite,
   Game,
   GameStatus,
@@ -53,6 +57,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   Pelada,
+  PeladaMemberInvitePermissions,
   PeladaMembership,
   Player,
   PlayerFatigue,
@@ -119,6 +124,7 @@ interface AppState {
   championshipTeamPlayers: ChampionshipTeamPlayer[];
   championshipMatches: ChampionshipMatch[];
   championshipGoals: ChampionshipGoal[];
+  fieldBookings: FieldBooking[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
@@ -197,6 +203,7 @@ interface AppState {
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
   updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null; sportId: string }) => void;
+  updatePeladaInvitePermissions: (peladaId: string, input: PeladaMemberInvitePermissions) => void;
   setCurrentPelada: (peladaId: string) => void;
   /** Entra numa pelada usando o código de convite. Retorna a pelada encontrada, ou null se o código não existir. */
   joinPeladaByCode: (code: string, playerId: string) => Pelada | null;
@@ -217,6 +224,24 @@ interface AppState {
   // dono de campo/quadra — estabelecimento e conta pra receber o rateio
   createEstablishment: (ownerPlayerId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => Establishment;
   updateEstablishment: (establishmentId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => void;
+
+  // agendamento de campo do estabelecimento — time cadastrado (pelada) ou avulso, avulso (single) ou fixo (weekly)
+  addFieldBooking: (
+    establishmentId: string,
+    createdBy: string,
+    input: {
+      fieldId: string;
+      peladaId: string | null;
+      teamName: string;
+      recurrence: FieldBookingRecurrence;
+      dayOfWeek: number | null;
+      date: string | null;
+      time: string;
+      durationMinutes: number;
+      notes: string | null;
+    },
+  ) => { booking: FieldBooking | null; conflicts: FieldBooking[] };
+  removeFieldBooking: (bookingId: string) => void;
 
   // campeonatos — organizados pelo dono do estabelecimento
   createChampionship: (
@@ -267,6 +292,7 @@ export const useAppStore = create<AppState>()(
       championshipTeamPlayers: MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
       championshipMatches: MOCK_CHAMPIONSHIP_MATCHES,
       championshipGoals: MOCK_CHAMPIONSHIP_GOALS,
+      fieldBookings: MOCK_FIELD_BOOKINGS,
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -536,6 +562,40 @@ export const useAppStore = create<AppState>()(
 
       removeEstablishmentField: (fieldId) => {
         set((state) => ({ fields: state.fields.filter((f) => f.id !== fieldId) }));
+      },
+
+      addFieldBooking: (establishmentId, createdBy, input) => {
+        const conflicts = findBookingConflicts(get().fieldBookings, {
+          fieldId: input.fieldId,
+          recurrence: input.recurrence,
+          dayOfWeek: input.dayOfWeek,
+          date: input.date,
+          time: input.time,
+          durationMinutes: input.durationMinutes,
+        });
+        if (conflicts.length > 0) return { booking: null, conflicts };
+
+        const booking: FieldBooking = {
+          id: uid(),
+          establishmentId,
+          fieldId: input.fieldId,
+          peladaId: input.peladaId,
+          teamName: input.teamName,
+          recurrence: input.recurrence,
+          dayOfWeek: input.dayOfWeek,
+          date: input.date,
+          time: input.time,
+          durationMinutes: input.durationMinutes,
+          notes: input.notes,
+          createdBy,
+          createdAt: nowIso(),
+        };
+        set((state) => ({ fieldBookings: [...state.fieldBookings, booking] }));
+        return { booking, conflicts: [] };
+      },
+
+      removeFieldBooking: (bookingId) => {
+        set((state) => ({ fieldBookings: state.fieldBookings.filter((b) => b.id !== bookingId) }));
       },
 
       linkFieldToEstablishment: (fieldId, accessCode) => {
@@ -827,6 +887,12 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      updatePeladaInvitePermissions: (peladaId, input) => {
+        set((state) => ({
+          peladas: state.peladas.map((p) => (p.id === peladaId ? { ...p, memberInvitePermissions: input } : p)),
+        }));
+      },
+
       setCurrentPelada: (peladaId) => {
         set({ currentPeladaId: peladaId });
       },
@@ -943,6 +1009,7 @@ export const useAppStore = create<AppState>()(
         championshipTeamPlayers: state.championshipTeamPlayers,
         championshipMatches: state.championshipMatches,
         championshipGoals: state.championshipGoals,
+        fieldBookings: state.fieldBookings,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

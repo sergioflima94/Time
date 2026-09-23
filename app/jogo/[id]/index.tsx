@@ -24,6 +24,7 @@ export default function GameDetailScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const players = useAppStore((s) => s.players);
   const game = useAppStore((s) => s.games.find((g) => g.id === id));
+  const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game?.peladaId));
   const field = useAppStore((s) => s.fields.find((f) => f.id === game?.fieldId));
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === field?.establishmentId));
   const attendances = useAppStore(useShallow((s) => s.attendances.filter((a) => a.gameId === id)));
@@ -200,7 +201,7 @@ export default function GameDetailScreen() {
           </View>
         )}
 
-        {isAdmin && (
+        {(isAdmin || pelada?.memberInvitePermissions.canInviteFreeAgents) && (
           <NearbyFreeAgentsSection
             game={game}
             currentPlayerId={currentPlayerId}

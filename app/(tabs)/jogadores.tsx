@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { AdBanner } from '@/components/AdBanner';
+import { InvitePeladaSection } from '@/components/InvitePeladaSection';
 import { PlayerCard } from '@/components/PlayerCard';
 import { colors, spacing } from '@/constants/theme';
 import { useCurrentPelada } from '@/hooks/useCurrentPelada';
@@ -13,6 +14,9 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function JogadoresScreen() {
   const pelada = useCurrentPelada();
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const isAdmin = useAppStore((s) => s.isAdmin(currentPlayerId, pelada.id));
+  const canInvite = isAdmin || pelada.memberInvitePermissions.canInviteNewMembers;
   const players = useAppStore((s) => s.players);
   const memberIds = useAppStore(
     useShallow((s) => new Set(s.memberships.filter((m) => m.peladaId === pelada.id && m.active).map((m) => m.playerId))),
@@ -47,7 +51,14 @@ export default function JogadoresScreen() {
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={!adFree ? <AdBanner /> : null}
+        ListHeaderComponent={
+          !adFree || canInvite ? (
+            <View>
+              {!adFree && <AdBanner />}
+              {canInvite && <InvitePeladaSection pelada={pelada} />}
+            </View>
+          ) : null
+        }
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
             <PlayerCard

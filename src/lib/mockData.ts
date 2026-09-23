@@ -7,6 +7,7 @@ import type {
   ChampionshipTeamPlayer,
   Establishment,
   Field,
+  FieldBooking,
   Game,
   Goal,
   MatchTurn,
@@ -77,6 +78,7 @@ export const MOCK_PELADA: Pelada = {
   defaultMaxPlayers: 16,
   defaultMatchMinutes: 10,
   inviteCode: 'AMIGOS-QUI',
+  memberInvitePermissions: { canInviteFreeAgents: false, canInviteNewMembers: false },
   createdBy: 'p1',
   createdAt: iso(now),
 };
@@ -91,6 +93,9 @@ export const MOCK_PELADA_2: Pelada = {
   defaultMaxPlayers: 12,
   defaultMatchMinutes: 8,
   inviteCode: 'EMPRESA-SAB',
+  // aqui qualquer membro (não só admin) já pode convidar jogador livre e gente nova — pra
+  // testar o fluxo de permissão liberada sem precisar mexer no toggle primeiro.
+  memberInvitePermissions: { canInviteFreeAgents: true, canInviteNewMembers: true },
   createdBy: 'p2',
   createdAt: iso(now),
 };
@@ -138,6 +143,26 @@ export const MOCK_FIELDS: Field[] = [
   { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', createdBy: 'p1' },
   { id: 'f4', peladaId: null, name: 'Quadra 3 - Basquete', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'basquete', createdBy: 'p1' },
   { id: 'f5', peladaId: null, name: 'Arena de Areia - Futevôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futvolei', createdBy: 'p1' },
+];
+
+// Horário fixo de exemplo: toda semana, sábado 08h, o time da "Vôlei da Empresa" já
+// está reservado na Quadra 2 do Complexo Esportivo Vila Nova.
+export const MOCK_FIELD_BOOKINGS: FieldBooking[] = [
+  {
+    id: 'fb1',
+    fieldId: 'f3',
+    establishmentId: 'est2',
+    peladaId: 'pel2',
+    teamName: 'Vôlei da Empresa - Sábados',
+    recurrence: 'weekly',
+    dayOfWeek: 6,
+    date: null,
+    time: '08:00',
+    durationMinutes: 90,
+    notes: 'Mensalista — já pago o mês todo',
+    createdBy: 'p1',
+    createdAt: iso(now),
+  },
 ];
 
 export const MOCK_SCHEDULES: Schedule[] = [

@@ -13,8 +13,9 @@ import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { SPORTS } from '@/constants/sports';
 import { formatChampionshipStatus } from '@/lib/championship';
+import { WEEKDAY_LABELS } from '@/lib/format';
 import { useAppStore } from '@/store/useAppStore';
-import type { ChampionshipFormat, EstablishmentPayoutMethod } from '@/types';
+import type { ChampionshipFormat, EstablishmentPayoutMethod, FieldBookingRecurrence } from '@/types';
 
 export default function EstablishmentScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
@@ -106,6 +107,7 @@ export default function EstablishmentScreen() {
       )}
 
       {establishment && <MyFieldsSection establishmentId={establishment.id} />}
+      {establishment && <BookingsSection establishmentId={establishment.id} />}
       {establishment && <ChampionshipsSection establishmentId={establishment.id} />}
     </Screen>
   );
@@ -181,6 +183,206 @@ function MyFieldsSection({ establishmentId }: { establishmentId: string }) {
             })}
           </View>
           <Button label="Adicionar campo" onPress={handleAdd} disabled={!name.trim()} />
+        </View>
+      )}
+    </Card>
+  );
+}
+
+function BookingsSection({ establishmentId }: { establishmentId: string }) {
+  const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.establishmentId === establishmentId)));
+  const bookings = useAppStore(useShallow((s) => s.fieldBookings.filter((b) => b.establishmentId === establishmentId)));
+  const peladas = useAppStore((s) => s.peladas);
+  const addFieldBooking = useAppStore((s) => s.addFieldBooking);
+  const removeFieldBooking = useAppStore((s) => s.removeFieldBooking);
+
+  const [open, setOpen] = useState(false);
+  const [fieldId, setFieldId] = useState(fields[0]?.id ?? '');
+  const [teamMode, setTeamMode] = useState<'pelada' | 'avulso'>('avulso');
+  const [peladaId, setPeladaId] = useState(peladas[0]?.id ?? '');
+  const [teamName, setTeamName] = useState('');
+  const [recurrence, setRecurrence] = useState<FieldBookingRecurrence>('weekly');
+  const [dayOfWeek, setDayOfWeek] = useState(6);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('19:00');
+  const [durationMinutes, setDurationMinutes] = useState('60');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const fieldOf = (id: string) => fields.find((f) => f.id === id);
+  const sportOf = (sportId: string) => SPORTS.find((s) => s.id === sportId) ?? SPORTS[0];
+
+  function handleAdd() {
+    const finalFieldId = fieldId || fields[0]?.id;
+    if (!finalFieldId) return;
+    const finalTeamName = teamMode === 'pelada' ? peladas.find((p) => p.id === peladaId)?.name ?? '' : teamName.trim();
+    if (!finalTeamName) return;
+    if (recurrence === 'single' && !date.trim()) return;
+
+    const result = addFieldBooking(establishmentId, currentPlayerId, {
+      fieldId: finalFieldId,
+      peladaId: teamMode === 'pelada' ? peladaId : null,
+      teamName: finalTeamName,
+      recurrence,
+      dayOfWeek: recurrence === 'weekly' ? dayOfWeek : null,
+      date: recurrence === 'single' ? date.trim() : null,
+      time,
+      durationMinutes: Number(durationMinutes) || 60,
+      notes: notes.trim() || null,
+    });
+
+    if (result.conflicts.length > 0) {
+      const c = result.conflicts[0];
+      setError(`Conflito de horário: "${c.teamName}" já está reservado nesse campo e horário.`);
+      return;
+    }
+    setError(null);
+    setTeamName('');
+    setNotes('');
+    setOpen(false);
+  }
+
+  return (
+    <Card style={styles.section}>
+      <View style={styles.headerRow2}>
+        <Text style={styles.sectionTitle}>Agendamento</Text>
+        <Pressable onPress={() => setOpen((v) => !v)}>
+          <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.primary} />
+        </Pressable>
+      </View>
+      <Text style={styles.hint}>
+        Reserve um campo pra um time — cadastrado (de uma pelada) ou avulso — de uma vez só ou fixo toda semana.
+      </Text>
+
+      {bookings.map((b) => {
+        const field = fieldOf(b.fieldId);
+        const fieldSport = field ? sportOf(field.sportId) : null;
+        return (
+          <View key={b.id} style={styles.champRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.champName}>
+                {fieldSport?.icon} {b.teamName}
+                {!b.peladaId && ' (avulso)'}
+              </Text>
+              <Text style={styles.hint}>
+                {field?.name ?? '?'} ·{' '}
+                {b.recurrence === 'weekly' ? `Fixo · ${WEEKDAY_LABELS[b.dayOfWeek ?? 0]}` : b.date} · {b.time} (
+                {b.durationMinutes} min)
+              </Text>
+              {b.notes && <Text style={styles.hint}>{b.notes}</Text>}
+            </View>
+            <Pressable onPress={() => removeFieldBooking(b.id)} hitSlop={8}>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            </Pressable>
+          </View>
+        );
+      })}
+      {bookings.length === 0 && !open && <Text style={styles.hint}>Nenhum agendamento ainda.</Text>}
+
+      {fields.length === 0 && open && (
+        <Text style={styles.hint}>Cadastre um campo em "Meus campos" antes de agendar.</Text>
+      )}
+
+      {open && fields.length > 0 && (
+        <View style={styles.form}>
+          <Text style={styles.hint}>Campo</Text>
+          <View style={styles.sportsGrid}>
+            {fields.map((f) => {
+              const active = fieldId === f.id;
+              const sport = sportOf(f.sportId);
+              return (
+                <Pressable
+                  key={f.id}
+                  onPress={() => setFieldId(f.id)}
+                  style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+                >
+                  <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+                  <Text style={[styles.sportChipText, active && { color: sport.color }]}>{f.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <SegmentedControl<'pelada' | 'avulso'>
+            label="Time"
+            options={[
+              { value: 'avulso', label: 'Avulso' },
+              { value: 'pelada', label: 'Cadastrado (pelada)' },
+            ]}
+            value={teamMode}
+            onChange={setTeamMode}
+          />
+          {teamMode === 'avulso' ? (
+            <TextField label="Nome do time" value={teamName} onChangeText={setTeamName} placeholder="Galera da rua" />
+          ) : (
+            <View style={styles.sportsGrid}>
+              {peladas.map((p) => {
+                const active = peladaId === p.id;
+                const sport = sportOf(p.sportId);
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setPeladaId(p.id)}
+                    style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
+                  >
+                    <Text style={styles.sportChipIcon}>{sport.icon}</Text>
+                    <Text style={[styles.sportChipText, active && { color: sport.color }]}>{p.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          <SegmentedControl<FieldBookingRecurrence>
+            label="Recorrência"
+            options={[
+              { value: 'weekly', label: 'Fixo (toda semana)' },
+              { value: 'single', label: 'Só uma vez' },
+            ]}
+            value={recurrence}
+            onChange={setRecurrence}
+          />
+
+          {recurrence === 'weekly' ? (
+            <>
+              <Text style={styles.hint}>Dia da semana</Text>
+              <View style={styles.sportsGrid}>
+                {WEEKDAY_LABELS.map((label, idx) => {
+                  const active = dayOfWeek === idx;
+                  return (
+                    <Pressable
+                      key={label}
+                      onPress={() => setDayOfWeek(idx)}
+                      style={[styles.sportChip, active && { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.15)' }]}
+                    >
+                      <Text style={[styles.sportChipText, active && { color: colors.primary }]}>{label.slice(0, 3)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <TextField label="Data" value={date} onChangeText={setDate} placeholder="2026-09-25" />
+          )}
+
+          <View style={styles.row3}>
+            <View style={styles.thirdInput}>
+              <TextField label="Horário" value={time} onChangeText={setTime} placeholder="19:00" />
+            </View>
+            <View style={styles.thirdInput}>
+              <TextField label="Duração (min)" value={durationMinutes} onChangeText={setDurationMinutes} keyboardType="number-pad" />
+            </View>
+          </View>
+          <TextField label="Observações (opcional)" value={notes} onChangeText={setNotes} placeholder="Mensalista, já pago" />
+
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          <Button
+            label="Reservar"
+            onPress={handleAdd}
+            disabled={(teamMode === 'avulso' && !teamName.trim()) || (recurrence === 'single' && !date.trim())}
+          />
         </View>
       )}
     </Card>
@@ -390,5 +592,9 @@ const styles = StyleSheet.create({
   },
   thirdInput: {
     flex: 1,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
   },
 });

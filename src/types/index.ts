@@ -98,8 +98,17 @@ export interface Pelada {
   defaultMatchMinutes: number;
   /** Código curto pra convidar gente nova pra pelada (link/compartilhamento). */
   inviteCode: string;
+  /** O que membros comuns (não-admin) podem fazer sem precisar de um admin. Default: nada, só admin. */
+  memberInvitePermissions: PeladaMemberInvitePermissions;
   createdBy: UUID;
   createdAt: string;
+}
+
+export interface PeladaMemberInvitePermissions {
+  /** Membro comum pode convidar jogador livre (de fora) pro próximo jogo, não só admin. */
+  canInviteFreeAgents: boolean;
+  /** Membro comum pode ver/compartilhar o código de convite pra trazer gente nova, não só admin. */
+  canInviteNewMembers: boolean;
 }
 
 export interface PeladaMembership {
@@ -122,6 +131,34 @@ export interface Field {
   /** Esporte jogado nesse campo (SportId de src/constants/sports.ts). Campo de pelada herda o esporte dela; campo próprio do estabelecimento escolhe o esporte na hora de cadastrar — assim um estabelecimento pode ter campos de esportes diferentes. */
   sportId: string;
   createdBy: UUID;
+}
+
+export type FieldBookingRecurrence = 'single' | 'weekly';
+
+/**
+ * Reserva de um campo do estabelecimento, cadastrada pelo próprio dono — pra um time
+ * já cadastrado (uma pelada) ou avulso (só o nome, sem conta). "weekly" é o horário
+ * fixo: toda semana, naquele dia + horário, aquele time já está lá.
+ */
+export interface FieldBooking {
+  id: UUID;
+  fieldId: UUID;
+  establishmentId: UUID;
+  /** Time cadastrado (de uma pelada existente) — null quando o time é avulso. */
+  peladaId: UUID | null;
+  /** Nome exibido do time. Preenchido com o nome da pelada quando peladaId está setado. */
+  teamName: string;
+  recurrence: FieldBookingRecurrence;
+  /** 0 (domingo) a 6 (sábado) — obrigatório quando recurrence === 'weekly'. */
+  dayOfWeek: number | null;
+  /** Data (YYYY-MM-DD) — obrigatória quando recurrence === 'single'. */
+  date: string | null;
+  /** Horário no formato HH:mm. */
+  time: string;
+  durationMinutes: number;
+  notes: string | null;
+  createdBy: UUID;
+  createdAt: string;
 }
 
 export type EstablishmentPayoutMethod = 'pix' | 'in_person';
