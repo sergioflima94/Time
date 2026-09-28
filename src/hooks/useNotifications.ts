@@ -17,9 +17,22 @@ export function useNotifications() {
   const friendships = useAppStore((s) => s.friendships);
   const activityLikes = useAppStore((s) => s.activityLikes);
   const activityComments = useAppStore((s) => s.activityComments);
+  const serviceTabs = useAppStore((s) => s.serviceTabs);
+  const serviceOrders = useAppStore((s) => s.serviceOrders);
+  const serviceOrderItems = useAppStore((s) => s.serviceOrderItems);
+  const classEnrollments = useAppStore((s) => s.classEnrollments);
+  const classSessions = useAppStore((s) => s.classSessions);
+  const classPrograms = useAppStore((s) => s.classPrograms);
   return useMemo(
-    () => computeNotifications(currentPlayerId, friendships, activityLikes, activityComments),
-    [currentPlayerId, friendships, activityLikes, activityComments],
+    () => computeNotifications(currentPlayerId, friendships, activityLikes, activityComments, {
+      serviceTabs,
+      serviceOrders,
+      serviceOrderItems,
+      classEnrollments,
+      classSessions,
+      classPrograms,
+    }),
+    [currentPlayerId, friendships, activityLikes, activityComments, serviceTabs, serviceOrders, serviceOrderItems, classEnrollments, classSessions, classPrograms],
   );
 }
 

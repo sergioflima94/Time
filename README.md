@@ -416,6 +416,24 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   (times confirmados × `entryFee`) — sem inventar nenhuma fonte de receita nova. Mostra
   total recebido (filtro "todo o período" ou "este mês"), quebra por campo e lista de
   transações recentes.
+- ✅ **Lanchonete, comandas e pedidos** (`app/operacao/**`): catálogo por categoria,
+  preço, estação de preparo e estoque simples; comanda por cliente/mesa/quadra, vários
+  participantes e vários pedidos. Cozinha e bar operam cada item em recebido → preparo →
+  pronto → entregue. Cancelamento exige motivo e preserva o histórico. A comanda aceita
+  pagamentos parciais/divididos em Pix, cartão ou dinheiro e só fecha com saldo zero.
+- ✅ **Caixa e conciliação** (`app/operacao/caixa.tsx`): abertura com fundo inicial,
+  fechamento com valor contado e diferença, e visão consolidada de quadras, alimentação
+  e aulas. As origens continuam separadas: `Payment` é rateio, `SalePayment` é consumo e
+  `ClassEnrollment` registra a cobrança da aula.
+- ✅ **Aulas em turma e particulares** (`app/operacao/aulas.tsx`,
+  `app/operacao/aula/[id].tsx` e `app/aulas.tsx`): programas por esporte, professor,
+  campo, nível, capacidade, duração e cobrança avulsa/pacote/mensal. A store e um trigger
+  transacional no Supabase bloqueiam conflito com aula, jogo ou campeonato. Há aula
+  experimental, pagamento, chamada, falta justificada com crédito de reposição, lista de
+  espera com promoção automática e cancelamento/reembolso preservando o histórico.
+- ✅ **Papéis operacionais e RLS**: `EstablishmentStaff` separa gerente, caixa, cozinha e
+  professor. Cardápio e oferta de aulas são públicos; comanda, caixa, matrícula e chamada
+  ficam restritos ao cliente envolvido ou à equipe do estabelecimento.
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
 - **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,

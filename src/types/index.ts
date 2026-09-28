@@ -179,6 +179,197 @@ export interface Establishment {
   createdAt: string;
 }
 
+// =========================================================================
+// Operação do estabelecimento — lanchonete, comandas, caixa e aulas.
+// =========================================================================
+
+export type EstablishmentRole = 'manager' | 'cashier' | 'kitchen' | 'coach';
+
+export interface EstablishmentStaff {
+  id: UUID;
+  establishmentId: UUID;
+  playerId: UUID;
+  roles: EstablishmentRole[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ProductCategory {
+  id: UUID;
+  establishmentId: UUID;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+export type PreparationStation = 'kitchen' | 'bar' | 'counter';
+
+export interface Product {
+  id: UUID;
+  establishmentId: UUID;
+  categoryId: UUID;
+  name: string;
+  description: string | null;
+  price: number;
+  station: PreparationStation;
+  active: boolean;
+  stockQuantity: number | null;
+}
+
+export type ServiceTabStatus = 'open' | 'awaiting_payment' | 'partially_paid' | 'paid' | 'closed' | 'cancelled';
+
+/** Comanda contínua: pode receber vários pedidos e pagamentos parciais. */
+export interface ServiceTab {
+  id: UUID;
+  establishmentId: UUID;
+  label: string;
+  customerPlayerId: UUID | null;
+  customerName: string;
+  tableLabel: string | null;
+  gameId: UUID | null;
+  status: ServiceTabStatus;
+  openedByPlayerId: UUID;
+  openedAt: string;
+  closedAt: string | null;
+}
+
+export interface TabParticipant {
+  id: UUID;
+  tabId: UUID;
+  playerId: UUID | null;
+  name: string;
+}
+
+export type OrderStatus = 'draft' | 'submitted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type OrderItemStatus = 'submitted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+
+export interface ServiceOrder {
+  id: UUID;
+  tabId: UUID;
+  status: OrderStatus;
+  notes: string | null;
+  createdByPlayerId: UUID;
+  createdAt: string;
+  submittedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface ServiceOrderItem {
+  id: UUID;
+  orderId: UUID;
+  productId: UUID;
+  participantId: UUID | null;
+  quantity: number;
+  unitPrice: number;
+  notes: string | null;
+  status: OrderItemStatus;
+  cancellationReason: string | null;
+}
+
+/** Pagamento exclusivo de consumo. Não reutiliza Payment, que pertence ao rateio da partida. */
+export interface SalePayment {
+  id: UUID;
+  tabId: UUID;
+  payerPlayerId: UUID | null;
+  payerName: string;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  reversedAt: string | null;
+}
+
+export type CashShiftStatus = 'open' | 'closed';
+
+export interface CashShift {
+  id: UUID;
+  establishmentId: UUID;
+  openedByPlayerId: UUID;
+  openingAmount: number;
+  closingAmount: number | null;
+  expectedAmount: number | null;
+  difference: number | null;
+  status: CashShiftStatus;
+  openedAt: string;
+  closedAt: string | null;
+}
+
+export type ClassFormat = 'group' | 'private';
+export type ClassBillingType = 'drop_in' | 'package' | 'monthly';
+
+export interface Coach {
+  id: UUID;
+  establishmentId: UUID;
+  playerId: UUID;
+  sportIds: string[];
+  bio: string | null;
+  active: boolean;
+}
+
+export interface ClassProgram {
+  id: UUID;
+  establishmentId: UUID;
+  name: string;
+  sportId: string;
+  format: ClassFormat;
+  coachId: UUID;
+  fieldId: UUID;
+  level: string;
+  capacity: number;
+  durationMinutes: number;
+  price: number;
+  billingType: ClassBillingType;
+  active: boolean;
+  createdAt: string;
+}
+
+export type ClassSessionStatus = 'scheduled' | 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface ClassSession {
+  id: UUID;
+  programId: UUID;
+  startsAt: string;
+  endsAt: string;
+  status: ClassSessionStatus;
+  cancellationReason: string | null;
+}
+
+export type EnrollmentStatus = 'confirmed' | 'waitlisted' | 'cancelled';
+export type EnrollmentPaymentStatus = 'pending' | 'paid' | 'waived' | 'refunded';
+
+export interface ClassEnrollment {
+  id: UUID;
+  sessionId: UUID;
+  playerId: UUID;
+  status: EnrollmentStatus;
+  paymentStatus: EnrollmentPaymentStatus;
+  paymentMethod: PaymentMethod | null;
+  amount: number;
+  isTrial: boolean;
+  waitlistPosition: number | null;
+  enrolledAt: string;
+  paidAt: string | null;
+}
+
+export type ClassAttendanceStatus = 'present' | 'absent' | 'excused';
+
+export interface ClassAttendance {
+  id: UUID;
+  sessionId: UUID;
+  playerId: UUID;
+  status: ClassAttendanceStatus;
+  coachNotes: string | null;
+  recordedAt: string;
+}
+
+export interface MakeupCredit {
+  id: UUID;
+  playerId: UUID;
+  programId: UUID;
+  sourceSessionId: UUID;
+  expiresAt: string;
+  usedAt: string | null;
+}
+
 export type RecurrenceType = 'single' | 'weekly' | 'biweekly';
 
 /** Configuração de agenda: gera Games automaticamente conforme a recorrência. */

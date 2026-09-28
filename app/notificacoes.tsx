@@ -18,6 +18,12 @@ export default function NotificacoesScreen() {
   const friendships = useAppStore((s) => s.friendships);
   const activityLikes = useAppStore((s) => s.activityLikes);
   const activityComments = useAppStore((s) => s.activityComments);
+  const serviceTabs = useAppStore((s) => s.serviceTabs);
+  const serviceOrders = useAppStore((s) => s.serviceOrders);
+  const serviceOrderItems = useAppStore((s) => s.serviceOrderItems);
+  const classEnrollments = useAppStore((s) => s.classEnrollments);
+  const classSessions = useAppStore((s) => s.classSessions);
+  const classPrograms = useAppStore((s) => s.classPrograms);
   const goals = useAppStore((s) => s.goals);
   const games = useAppStore((s) => s.games);
   const memberships = useAppStore((s) => s.memberships);
@@ -34,8 +40,8 @@ export default function NotificacoesScreen() {
   }, [markNotificationsSeen]);
 
   const notifications = useMemo(
-    () => computeNotifications(currentPlayerId, friendships, activityLikes, activityComments),
-    [currentPlayerId, friendships, activityLikes, activityComments],
+    () => computeNotifications(currentPlayerId, friendships, activityLikes, activityComments, { serviceTabs, serviceOrders, serviceOrderItems, classEnrollments, classSessions, classPrograms }),
+    [currentPlayerId, friendships, activityLikes, activityComments, serviceTabs, serviceOrders, serviceOrderItems, classEnrollments, classSessions, classPrograms],
   );
 
   // feed só do jogador atual, pra dar contexto ("curtiu seu gol em X") nas notificações de curtida/comentário
@@ -92,8 +98,7 @@ function NotificationRow({
   onAccept: () => void;
   onDecline: () => void;
 }) {
-  if (!actor) return null;
-  const who = actor.nickname || actor.name;
+  const who = actor ? actor.nickname || actor.name : '';
 
   function description(): string {
     switch (notification.type) {
@@ -107,15 +112,19 @@ function NotificationRow({
           : `${who} curtiu sua atividade`;
       case 'activity_comment':
         return `${who} comentou: "${notification.commentText}"`;
+      case 'order_ready':
+      case 'class_booking':
+      case 'class_payment_due':
+        return notification.body ?? notification.title ?? 'Nova atualização';
     }
   }
 
   return (
     <Pressable
       style={[styles.row, unread && styles.rowUnread]}
-      onPress={() => router.push(`/jogador/${actor.id}`)}
+      onPress={() => notification.route ? router.push(notification.route as never) : actor ? router.push(`/jogador/${actor.id}`) : undefined}
     >
-      <Avatar name={actor.name} photoUrl={actor.avatarUrl} size={36} />
+      {actor ? <Avatar name={actor.name} photoUrl={actor.avatarUrl} size={36} /> : <View style={styles.systemIcon}><Ionicons name={notification.type === 'order_ready' ? 'restaurant' : 'school'} size={20} color={colors.primary} /></View>}
       <View style={{ flex: 1 }}>
         <Text style={styles.rowText}>{description()}</Text>
         <Text style={styles.rowDate}>{formatGameDateShort(notification.createdAt)}</Text>
@@ -166,6 +175,16 @@ const styles = StyleSheet.create({
   },
   rowUnread: {
     backgroundColor: colors.bgElevated,
+  },
+  systemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   rowText: {
     color: colors.text,

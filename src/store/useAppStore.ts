@@ -10,7 +10,14 @@ import {
   MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
   MOCK_CHAMPIONSHIP_TEAMS,
   MOCK_CHAMPIONSHIPS,
+  MOCK_CASH_SHIFTS,
+  MOCK_CLASS_ATTENDANCES,
+  MOCK_CLASS_ENROLLMENTS,
+  MOCK_CLASS_PROGRAMS,
+  MOCK_CLASS_SESSIONS,
+  MOCK_COACHES,
   MOCK_ESTABLISHMENTS,
+  MOCK_ESTABLISHMENT_STAFF,
   MOCK_FIELD_BOOKINGS,
   MOCK_FIELDS,
   MOCK_FRIENDSHIPS,
@@ -23,9 +30,16 @@ import {
   MOCK_PELADAS,
   MOCK_PLAYERS,
   MOCK_PLAYER_DUELS,
+  MOCK_PRODUCT_CATEGORIES,
+  MOCK_PRODUCTS,
   MOCK_PUNISHMENTS,
   MOCK_RATINGS,
   MOCK_SCHEDULES,
+  MOCK_SALE_PAYMENTS,
+  MOCK_SERVICE_ORDER_ITEMS,
+  MOCK_SERVICE_ORDERS,
+  MOCK_SERVICE_TABS,
+  MOCK_TAB_PARTICIPANTS,
   MOCK_TEAMS,
   MOCK_TEAM_PLAYERS,
 } from '@/lib/mockData';
@@ -40,6 +54,14 @@ import type {
   Attendance,
   AttendanceStatus,
   AvailabilitySlot,
+  CashShift,
+  ClassAttendance,
+  ClassAttendanceStatus,
+  ClassEnrollment,
+  ClassFormat,
+  ClassProgram,
+  ClassSession,
+  Coach,
   Championship,
   ChampionshipFormat,
   ChampionshipGoal,
@@ -49,6 +71,7 @@ import type {
   DrawMethod,
   Establishment,
   EstablishmentPayoutMethod,
+  EstablishmentStaff,
   Field,
   FieldBooking,
   FieldBookingRecurrence,
@@ -61,6 +84,7 @@ import type {
   GeoPoint,
   Goal,
   MatchTurn,
+  MakeupCredit,
   Payment,
   PaymentMethod,
   PaymentStatus,
@@ -70,11 +94,19 @@ import type {
   Player,
   PlayerDuel,
   PlayerFatigue,
+  Product,
+  ProductCategory,
   Punishment,
   PunishmentType,
   Rating,
   RecurrenceType,
   Schedule,
+  SalePayment,
+  ServiceOrder,
+  ServiceOrderItem,
+  ServiceTab,
+  ServiceTabStatus,
+  TabParticipant,
   Team,
   TeamChallenge,
   TeamPlayer,
@@ -146,6 +178,21 @@ interface AppState {
   friendlyMatches: FriendlyMatch[];
   friendlyMatchGoals: FriendlyMatchGoal[];
   playerDuels: PlayerDuel[];
+  establishmentStaff: EstablishmentStaff[];
+  productCategories: ProductCategory[];
+  products: Product[];
+  serviceTabs: ServiceTab[];
+  tabParticipants: TabParticipant[];
+  serviceOrders: ServiceOrder[];
+  serviceOrderItems: ServiceOrderItem[];
+  salePayments: SalePayment[];
+  cashShifts: CashShift[];
+  coaches: Coach[];
+  classPrograms: ClassProgram[];
+  classSessions: ClassSession[];
+  classEnrollments: ClassEnrollment[];
+  classAttendances: ClassAttendance[];
+  makeupCredits: MakeupCredit[];
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
@@ -290,6 +337,28 @@ interface AppState {
   createEstablishment: (ownerPlayerId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => Establishment;
   updateEstablishment: (establishmentId: string, input: { name: string; payoutMethod: EstablishmentPayoutMethod; pixKey: string | null }) => void;
 
+  addProductCategory: (establishmentId: string, name: string) => ProductCategory;
+  addProduct: (establishmentId: string, input: { categoryId: string; name: string; description: string | null; price: number; station: Product['station']; stockQuantity: number | null }) => Product;
+  updateProduct: (productId: string, input: Partial<Pick<Product, 'name' | 'description' | 'price' | 'station' | 'active' | 'stockQuantity'>>) => void;
+  openServiceTab: (establishmentId: string, input: { customerPlayerId: string | null; customerName: string; tableLabel: string | null; gameId: string | null }) => ServiceTab;
+  addTabParticipant: (tabId: string, input: { playerId: string | null; name: string }) => TabParticipant;
+  createServiceOrder: (tabId: string, items: Array<{ productId: string; participantId: string | null; quantity: number; notes: string | null }>, notes?: string) => ServiceOrder | null;
+  setOrderItemStatus: (itemId: string, status: ServiceOrderItem['status'], cancellationReason?: string) => void;
+  setServiceTabStatus: (tabId: string, status: ServiceTabStatus) => void;
+  payServiceTab: (tabId: string, input: { payerPlayerId: string | null; payerName: string; amount: number; method: PaymentMethod }) => void;
+  reverseSalePayment: (paymentId: string) => void;
+  openCashShift: (establishmentId: string, openingAmount: number) => CashShift;
+  closeCashShift: (shiftId: string, closingAmount: number) => void;
+  addCoach: (establishmentId: string, playerId: string, sportIds: string[], bio: string | null) => Coach;
+  createClassProgram: (establishmentId: string, input: { name: string; sportId: string; format: ClassFormat; coachId: string; fieldId: string; level: string; capacity: number; durationMinutes: number; price: number; billingType: ClassProgram['billingType'] }) => ClassProgram;
+  createClassSession: (programId: string, startsAt: string) => ClassSession | null;
+  cancelClassSession: (sessionId: string, reason: string) => void;
+  completeClassSession: (sessionId: string) => void;
+  enrollInClass: (sessionId: string, playerId: string, isTrial?: boolean) => ClassEnrollment;
+  setClassEnrollmentPayment: (enrollmentId: string, method: PaymentMethod) => void;
+  cancelClassEnrollment: (enrollmentId: string) => void;
+  recordClassAttendance: (sessionId: string, playerId: string, status: ClassAttendanceStatus, coachNotes?: string) => void;
+
   // agendamento de campo do estabelecimento — time cadastrado (pelada) ou avulso, avulso (single) ou fixo (weekly)
   addFieldBooking: (
     establishmentId: string,
@@ -388,6 +457,21 @@ export const useAppStore = create<AppState>()(
       friendlyMatches: [],
       friendlyMatchGoals: [],
       playerDuels: MOCK_PLAYER_DUELS,
+      establishmentStaff: MOCK_ESTABLISHMENT_STAFF,
+      productCategories: MOCK_PRODUCT_CATEGORIES,
+      products: MOCK_PRODUCTS,
+      serviceTabs: MOCK_SERVICE_TABS,
+      tabParticipants: MOCK_TAB_PARTICIPANTS,
+      serviceOrders: MOCK_SERVICE_ORDERS,
+      serviceOrderItems: MOCK_SERVICE_ORDER_ITEMS,
+      salePayments: MOCK_SALE_PAYMENTS,
+      cashShifts: MOCK_CASH_SHIFTS,
+      coaches: MOCK_COACHES,
+      classPrograms: MOCK_CLASS_PROGRAMS,
+      classSessions: MOCK_CLASS_SESSIONS,
+      classEnrollments: MOCK_CLASS_ENROLLMENTS,
+      classAttendances: MOCK_CLASS_ATTENDANCES,
+      makeupCredits: [],
 
       setAttendance: (gameId, playerId, status) => {
         const game = get().games.find((g) => g.id === gameId);
@@ -853,6 +937,335 @@ export const useAppStore = create<AppState>()(
           ),
         }));
       },
+
+      addProductCategory: (establishmentId, name) => {
+        const category: ProductCategory = {
+          id: uid(),
+          establishmentId,
+          name: name.trim(),
+          sortOrder: get().productCategories.filter((c) => c.establishmentId === establishmentId).length + 1,
+          active: true,
+        };
+        set((state) => ({ productCategories: [...state.productCategories, category] }));
+        return category;
+      },
+
+      addProduct: (establishmentId, input) => {
+        const product: Product = {
+          id: uid(),
+          establishmentId,
+          categoryId: input.categoryId,
+          name: input.name.trim(),
+          description: input.description,
+          price: Math.max(0, input.price),
+          station: input.station,
+          active: true,
+          stockQuantity: input.stockQuantity,
+        };
+        set((state) => ({ products: [...state.products, product] }));
+        return product;
+      },
+
+      updateProduct: (productId, input) => {
+        set((state) => ({
+          products: state.products.map((product) => (product.id === productId ? { ...product, ...input } : product)),
+        }));
+      },
+
+      openServiceTab: (establishmentId, input) => {
+        const count = get().serviceTabs.filter((tab) => tab.establishmentId === establishmentId).length + 1;
+        const tab: ServiceTab = {
+          id: uid(),
+          establishmentId,
+          label: `Comanda ${String(count).padStart(2, '0')}`,
+          customerPlayerId: input.customerPlayerId,
+          customerName: input.customerName.trim() || 'Cliente',
+          tableLabel: input.tableLabel,
+          gameId: input.gameId,
+          status: 'open',
+          openedByPlayerId: get().currentPlayerId,
+          openedAt: nowIso(),
+          closedAt: null,
+        };
+        const participant: TabParticipant = {
+          id: uid(),
+          tabId: tab.id,
+          playerId: input.customerPlayerId,
+          name: tab.customerName,
+        };
+        set((state) => ({
+          serviceTabs: [...state.serviceTabs, tab],
+          tabParticipants: [...state.tabParticipants, participant],
+        }));
+        return tab;
+      },
+
+      addTabParticipant: (tabId, input) => {
+        const existing = get().tabParticipants.find(
+          (participant) => participant.tabId === tabId && input.playerId && participant.playerId === input.playerId,
+        );
+        if (existing) return existing;
+        const participant: TabParticipant = { id: uid(), tabId, playerId: input.playerId, name: input.name.trim() || 'Cliente' };
+        set((state) => ({ tabParticipants: [...state.tabParticipants, participant] }));
+        return participant;
+      },
+
+      createServiceOrder: (tabId, items, notes) => {
+        const tab = get().serviceTabs.find((row) => row.id === tabId);
+        if (!tab || tab.status !== 'open' || items.length === 0) return null;
+        const order: ServiceOrder = {
+          id: uid(),
+          tabId,
+          status: 'submitted',
+          notes: notes?.trim() || null,
+          createdByPlayerId: get().currentPlayerId,
+          createdAt: nowIso(),
+          submittedAt: nowIso(),
+          completedAt: null,
+        };
+        const orderItems: ServiceOrderItem[] = items.flatMap((item) => {
+          const product = get().products.find((row) => row.id === item.productId && row.active);
+          if (!product || item.quantity <= 0 || (product.stockQuantity !== null && product.stockQuantity < item.quantity)) return [];
+          return [{
+            id: uid(),
+            orderId: order.id,
+            productId: product.id,
+            participantId: item.participantId,
+            quantity: item.quantity,
+            unitPrice: product.price,
+            notes: item.notes,
+            status: 'submitted' as const,
+            cancellationReason: null,
+          }];
+        });
+        if (orderItems.length === 0) return null;
+        const purchased = new Map(orderItems.map((item) => [item.productId, item.quantity]));
+        set((state) => ({
+          serviceOrders: [...state.serviceOrders, order],
+          serviceOrderItems: [...state.serviceOrderItems, ...orderItems],
+          products: state.products.map((product) => {
+            const quantity = purchased.get(product.id);
+            return quantity && product.stockQuantity !== null
+              ? { ...product, stockQuantity: Math.max(0, product.stockQuantity - quantity) }
+              : product;
+          }),
+        }));
+        return order;
+      },
+
+      setOrderItemStatus: (itemId, status, cancellationReason) => {
+        set((state) => {
+          const target = state.serviceOrderItems.find((item) => item.id === itemId);
+          if (!target) return {};
+          const items = state.serviceOrderItems.map((item) =>
+            item.id === itemId
+              ? { ...item, status, cancellationReason: status === 'cancelled' ? cancellationReason?.trim() || 'Cancelado pelo gerente' : null }
+              : item,
+          );
+          const orderItems = items.filter((item) => item.orderId === target.orderId);
+          const active = orderItems.filter((item) => item.status !== 'cancelled');
+          let orderStatus: ServiceOrder['status'] = 'submitted';
+          if (active.length === 0) orderStatus = 'cancelled';
+          else if (active.every((item) => item.status === 'delivered')) orderStatus = 'delivered';
+          else if (active.every((item) => item.status === 'ready' || item.status === 'delivered')) orderStatus = 'ready';
+          else if (active.some((item) => item.status === 'preparing')) orderStatus = 'preparing';
+          const completed = orderStatus === 'delivered' || orderStatus === 'cancelled';
+          return {
+            serviceOrderItems: items,
+            serviceOrders: state.serviceOrders.map((order) =>
+              order.id === target.orderId ? { ...order, status: orderStatus, completedAt: completed ? nowIso() : null } : order,
+            ),
+            products: status === 'cancelled' && target.status !== 'cancelled'
+              ? state.products.map((product) => product.id === target.productId && product.stockQuantity !== null
+                ? { ...product, stockQuantity: product.stockQuantity + target.quantity }
+                : product)
+              : state.products,
+          };
+        });
+      },
+
+      setServiceTabStatus: (tabId, status) => {
+        set((state) => {
+          const orderIds = new Set(state.serviceOrders.filter((order) => order.tabId === tabId).map((order) => order.id));
+          const gross = state.serviceOrderItems
+            .filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled')
+            .reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+          const paid = state.salePayments
+            .filter((payment) => payment.tabId === tabId && !payment.reversedAt)
+            .reduce((sum, payment) => sum + payment.amount, 0);
+          if ((status === 'paid' || status === 'closed') && paid + 0.001 < gross) return {};
+          return {
+            serviceTabs: state.serviceTabs.map((tab) =>
+              tab.id === tabId ? { ...tab, status, closedAt: status === 'closed' ? nowIso() : tab.closedAt } : tab,
+            ),
+          };
+        });
+      },
+
+      payServiceTab: (tabId, input) => {
+        if (input.amount <= 0) return;
+        set((state) => {
+          const orderIds = new Set(state.serviceOrders.filter((order) => order.tabId === tabId).map((order) => order.id));
+          const gross = state.serviceOrderItems
+            .filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled')
+            .reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+          const alreadyPaid = state.salePayments
+            .filter((payment) => payment.tabId === tabId && !payment.reversedAt)
+            .reduce((sum, payment) => sum + payment.amount, 0);
+          const amount = Math.min(input.amount, Math.max(0, gross - alreadyPaid));
+          if (amount <= 0) return {};
+          const payment: SalePayment = { id: uid(), tabId, payerPlayerId: input.payerPlayerId, payerName: input.payerName.trim() || 'Cliente', amount, method: input.method, paidAt: nowIso(), reversedAt: null };
+          const nextPaid = alreadyPaid + amount;
+          const status: ServiceTabStatus = nextPaid + 0.001 >= gross ? 'paid' : 'partially_paid';
+          return {
+            salePayments: [...state.salePayments, payment],
+            serviceTabs: state.serviceTabs.map((tab) => (tab.id === tabId ? { ...tab, status } : tab)),
+          };
+        });
+      },
+
+      reverseSalePayment: (paymentId) => {
+        set((state) => {
+          const payment = state.salePayments.find((row) => row.id === paymentId && !row.reversedAt);
+          if (!payment) return {};
+          const payments = state.salePayments.map((row) => (row.id === paymentId ? { ...row, reversedAt: nowIso() } : row));
+          const orderIds = new Set(state.serviceOrders.filter((order) => order.tabId === payment.tabId).map((order) => order.id));
+          const gross = state.serviceOrderItems.filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled').reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+          const paid = payments.filter((row) => row.tabId === payment.tabId && !row.reversedAt).reduce((sum, row) => sum + row.amount, 0);
+          const status: ServiceTabStatus = paid <= 0 ? 'awaiting_payment' : paid + 0.001 >= gross ? 'paid' : 'partially_paid';
+          return { salePayments: payments, serviceTabs: state.serviceTabs.map((tab) => (tab.id === payment.tabId ? { ...tab, status, closedAt: null } : tab)) };
+        });
+      },
+
+      openCashShift: (establishmentId, openingAmount) => {
+        const current = get().cashShifts.find((shift) => shift.establishmentId === establishmentId && shift.status === 'open');
+        if (current) return current;
+        const shift: CashShift = { id: uid(), establishmentId, openedByPlayerId: get().currentPlayerId, openingAmount: Math.max(0, openingAmount), closingAmount: null, expectedAmount: null, difference: null, status: 'open', openedAt: nowIso(), closedAt: null };
+        set((state) => ({ cashShifts: [...state.cashShifts, shift] }));
+        return shift;
+      },
+
+      closeCashShift: (shiftId, closingAmount) => {
+        set((state) => ({
+          cashShifts: state.cashShifts.map((shift) => {
+            if (shift.id !== shiftId || shift.status !== 'open') return shift;
+            const tabIds = new Set(state.serviceTabs.filter((tab) => tab.establishmentId === shift.establishmentId).map((tab) => tab.id));
+            const cashSales = state.salePayments.filter((payment) => tabIds.has(payment.tabId) && payment.method === 'cash' && !payment.reversedAt && payment.paidAt >= shift.openedAt).reduce((sum, payment) => sum + payment.amount, 0);
+            const expectedAmount = shift.openingAmount + cashSales;
+            return { ...shift, closingAmount, expectedAmount, difference: closingAmount - expectedAmount, status: 'closed', closedAt: nowIso() };
+          }),
+        }));
+      },
+
+      addCoach: (establishmentId, playerId, sportIds, bio) => {
+        const existing = get().coaches.find((coach) => coach.establishmentId === establishmentId && coach.playerId === playerId);
+        if (existing) return existing;
+        const coach: Coach = { id: uid(), establishmentId, playerId, sportIds, bio, active: true };
+        set((state) => ({ coaches: [...state.coaches, coach] }));
+        return coach;
+      },
+
+      createClassProgram: (establishmentId, input) => {
+        const program: ClassProgram = { id: uid(), establishmentId, name: input.name.trim(), sportId: input.sportId, format: input.format, coachId: input.coachId, fieldId: input.fieldId, level: input.level.trim() || 'Todos os níveis', capacity: input.format === 'private' ? 1 : Math.max(2, input.capacity), durationMinutes: Math.max(15, input.durationMinutes), price: Math.max(0, input.price), billingType: input.billingType, active: true, createdAt: nowIso() };
+        set((state) => ({ classPrograms: [...state.classPrograms, program] }));
+        return program;
+      },
+
+      createClassSession: (programId, startsAt) => {
+        const state = get();
+        const program = state.classPrograms.find((row) => row.id === programId && row.active);
+        if (!program) return null;
+        const start = new Date(startsAt);
+        if (Number.isNaN(start.getTime())) return null;
+        const end = new Date(start.getTime() + program.durationMinutes * 60_000);
+        const overlaps = (aStart: Date, aEnd: Date) => start < aEnd && end > aStart;
+        const classConflict = state.classSessions.some((session) => {
+          const otherProgram = state.classPrograms.find((row) => row.id === session.programId);
+          return otherProgram?.fieldId === program.fieldId && session.status !== 'cancelled' && overlaps(new Date(session.startsAt), new Date(session.endsAt));
+        });
+        const gameConflict = state.games.some((game) => game.fieldId === program.fieldId && game.status !== 'cancelled' && overlaps(new Date(game.scheduledAt), new Date(new Date(game.scheduledAt).getTime() + Math.max(60, game.matchMinutes) * 60_000)));
+        const championshipConflict = state.championshipMatches.some((match) => match.fieldId === program.fieldId && match.scheduledAt && match.status !== 'finished' && overlaps(new Date(match.scheduledAt), new Date(new Date(match.scheduledAt).getTime() + program.durationMinutes * 60_000)));
+        if (classConflict || gameConflict || championshipConflict) return null;
+        const session: ClassSession = { id: uid(), programId, startsAt: start.toISOString(), endsAt: end.toISOString(), status: 'open', cancellationReason: null };
+        set((current) => ({ classSessions: [...current.classSessions, session] }));
+        return session;
+      },
+
+      cancelClassSession: (sessionId, reason) => {
+        set((state) => ({
+          classSessions: state.classSessions.map((session) => (session.id === sessionId ? { ...session, status: 'cancelled', cancellationReason: reason.trim() || 'Cancelada pelo estabelecimento' } : session)),
+          classEnrollments: state.classEnrollments.map((enrollment) => enrollment.sessionId === sessionId && enrollment.status !== 'cancelled' ? { ...enrollment, status: 'cancelled', paymentStatus: enrollment.paymentStatus === 'paid' ? 'refunded' : enrollment.paymentStatus } : enrollment),
+        }));
+      },
+
+      completeClassSession: (sessionId) => {
+        set((state) => ({ classSessions: state.classSessions.map((session) => session.id === sessionId ? { ...session, status: 'completed' } : session) }));
+      },
+
+      enrollInClass: (sessionId, playerId, isTrial = false) => {
+        const existing = get().classEnrollments.find((enrollment) => enrollment.sessionId === sessionId && enrollment.playerId === playerId && enrollment.status !== 'cancelled');
+        if (existing) return existing;
+        const session = get().classSessions.find((row) => row.id === sessionId);
+        const program = get().classPrograms.find((row) => row.id === session?.programId);
+        if (!session || !program || session.status === 'cancelled' || session.status === 'completed') {
+          throw new Error('Aula indisponível');
+        }
+        const confirmedCount = get().classEnrollments.filter((row) => row.sessionId === sessionId && row.status === 'confirmed').length;
+        const waitlistedCount = get().classEnrollments.filter((row) => row.sessionId === sessionId && row.status === 'waitlisted').length;
+        const confirmed = confirmedCount < program.capacity;
+        const credit = confirmed ? get().makeupCredits.find((row) => row.playerId === playerId && row.programId === program.id && !row.usedAt && new Date(row.expiresAt).getTime() > Date.now()) : undefined;
+        const waived = isTrial || Boolean(credit);
+        const enrollment: ClassEnrollment = { id: uid(), sessionId, playerId, status: confirmed ? 'confirmed' : 'waitlisted', paymentStatus: waived ? 'waived' : 'pending', paymentMethod: null, amount: waived ? 0 : program.price, isTrial, waitlistPosition: confirmed ? null : waitlistedCount + 1, enrolledAt: nowIso(), paidAt: null };
+        set((state) => ({
+          classEnrollments: [...state.classEnrollments, enrollment],
+          classSessions: state.classSessions.map((row) => row.id === sessionId && confirmedCount + 1 >= program.capacity ? { ...row, status: 'full' } : row),
+          makeupCredits: credit ? state.makeupCredits.map((row) => row.id === credit.id ? { ...row, usedAt: nowIso() } : row) : state.makeupCredits,
+        }));
+        return enrollment;
+      },
+
+      setClassEnrollmentPayment: (enrollmentId, method) => {
+        set((state) => ({ classEnrollments: state.classEnrollments.map((row) => row.id === enrollmentId ? { ...row, paymentStatus: 'paid', paymentMethod: method, paidAt: nowIso() } : row) }));
+      },
+
+      cancelClassEnrollment: (enrollmentId) => {
+        set((state) => {
+          const target = state.classEnrollments.find((row) => row.id === enrollmentId);
+          if (!target) return {};
+          const wasConfirmed = target.status === 'confirmed';
+          const waiting = state.classEnrollments.filter((row) => row.sessionId === target.sessionId && row.status === 'waitlisted').sort((a, b) => (a.waitlistPosition ?? 999) - (b.waitlistPosition ?? 999));
+          const promotedId = wasConfirmed ? waiting[0]?.id : undefined;
+          const promoted = waiting[0];
+          const session = state.classSessions.find((row) => row.id === target.sessionId);
+          const program = state.classPrograms.find((row) => row.id === session?.programId);
+          const promotedCredit = promoted && program ? state.makeupCredits.find((row) => row.playerId === promoted.playerId && row.programId === program.id && !row.usedAt && new Date(row.expiresAt).getTime() > Date.now()) : undefined;
+          const enrollments = state.classEnrollments.map((row) => {
+            if (row.id === enrollmentId) return { ...row, status: 'cancelled' as const, waitlistPosition: null, paymentStatus: row.paymentStatus === 'paid' ? 'refunded' as const : row.paymentStatus };
+            if (row.id === promotedId) return { ...row, status: 'confirmed' as const, waitlistPosition: null, paymentStatus: promotedCredit ? 'waived' as const : row.paymentStatus, amount: promotedCredit ? 0 : row.amount };
+            if (row.sessionId === target.sessionId && row.status === 'waitlisted' && promotedId) return { ...row, waitlistPosition: Math.max(1, (row.waitlistPosition ?? 1) - 1) };
+            return row;
+          });
+          return { classEnrollments: enrollments, classSessions: state.classSessions.map((session) => session.id === target.sessionId ? { ...session, status: 'open' } : session), makeupCredits: promotedCredit ? state.makeupCredits.map((row) => row.id === promotedCredit.id ? { ...row, usedAt: nowIso() } : row) : state.makeupCredits };
+        });
+      },
+
+      recordClassAttendance: (sessionId, playerId, status, coachNotes) => {
+        set((state) => {
+          const existing = state.classAttendances.find((row) => row.sessionId === sessionId && row.playerId === playerId);
+          const attendance: ClassAttendance = { id: existing?.id ?? uid(), sessionId, playerId, status, coachNotes: coachNotes?.trim() || null, recordedAt: nowIso() };
+          const session = state.classSessions.find((row) => row.id === sessionId);
+          const program = state.classPrograms.find((row) => row.id === session?.programId);
+          const hasCredit = state.makeupCredits.some((credit) => credit.sourceSessionId === sessionId && credit.playerId === playerId);
+          const credit: MakeupCredit | null = status === 'excused' && program && !hasCredit
+            ? { id: uid(), playerId, programId: program.id, sourceSessionId: sessionId, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), usedAt: null }
+            : null;
+          return {
+            classAttendances: existing ? state.classAttendances.map((row) => row.id === existing.id ? attendance : row) : [...state.classAttendances, attendance],
+            makeupCredits: credit ? [...state.makeupCredits, credit] : state.makeupCredits,
+          };
+        });
+      },
+
 
       createChampionship: (organizer, createdBy, input) => {
         const championship: Championship = {
@@ -1462,6 +1875,21 @@ export const useAppStore = create<AppState>()(
         friendlyMatches: state.friendlyMatches,
         friendlyMatchGoals: state.friendlyMatchGoals,
         playerDuels: state.playerDuels,
+        establishmentStaff: state.establishmentStaff,
+        productCategories: state.productCategories,
+        products: state.products,
+        serviceTabs: state.serviceTabs,
+        tabParticipants: state.tabParticipants,
+        serviceOrders: state.serviceOrders,
+        serviceOrderItems: state.serviceOrderItems,
+        salePayments: state.salePayments,
+        cashShifts: state.cashShifts,
+        coaches: state.coaches,
+        classPrograms: state.classPrograms,
+        classSessions: state.classSessions,
+        classEnrollments: state.classEnrollments,
+        classAttendances: state.classAttendances,
+        makeupCredits: state.makeupCredits,
         currentPlayerId: state.currentPlayerId,
         currentPeladaId: state.currentPeladaId,
       }),

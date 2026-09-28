@@ -27,6 +27,8 @@ export default function RootLayout() {
           <Stack.Screen name="entrar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="criar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="estabelecimento" />
+          <Stack.Screen name="operacao" />
+          <Stack.Screen name="aulas" />
           <Stack.Screen name="campeonato" />
         </Stack>
       </SafeAreaProvider>

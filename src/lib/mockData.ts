@@ -1,11 +1,18 @@
 import type {
   Attendance,
+  CashShift,
+  ClassAttendance,
+  ClassEnrollment,
+  ClassProgram,
+  ClassSession,
+  Coach,
   Championship,
   ChampionshipGoal,
   ChampionshipMatch,
   ChampionshipTeam,
   ChampionshipTeamPlayer,
   Establishment,
+  EstablishmentStaff,
   Field,
   FieldBooking,
   Friendship,
@@ -16,10 +23,17 @@ import type {
   Pelada,
   PeladaMembership,
   Player,
+  Product,
+  ProductCategory,
   PlayerDuel,
   Punishment,
   Rating,
   Schedule,
+  SalePayment,
+  ServiceOrder,
+  ServiceOrderItem,
+  ServiceTab,
+  TabParticipant,
   Team,
   TeamPlayer,
 } from '@/types';
@@ -166,6 +180,83 @@ export const MOCK_FIELD_BOOKINGS: FieldBooking[] = [
     createdAt: iso(now),
   },
 ];
+
+export const MOCK_ESTABLISHMENT_STAFF: EstablishmentStaff[] = [
+  { id: 'staff1', establishmentId: 'est2', playerId: 'p1', roles: ['manager'], active: true, createdAt: iso(now) },
+  { id: 'staff2', establishmentId: 'est2', playerId: 'p2', roles: ['cashier', 'coach'], active: true, createdAt: iso(now) },
+  { id: 'staff3', establishmentId: 'est2', playerId: 'p3', roles: ['kitchen'], active: true, createdAt: iso(now) },
+];
+
+export const MOCK_PRODUCT_CATEGORIES: ProductCategory[] = [
+  { id: 'pc1', establishmentId: 'est2', name: 'Bebidas', sortOrder: 1, active: true },
+  { id: 'pc2', establishmentId: 'est2', name: 'Espetinhos', sortOrder: 2, active: true },
+  { id: 'pc3', establishmentId: 'est2', name: 'Jantinhas', sortOrder: 3, active: true },
+];
+
+export const MOCK_PRODUCTS: Product[] = [
+  { id: 'prod1', establishmentId: 'est2', categoryId: 'pc1', name: 'Água mineral', description: 'Garrafa 500 ml', price: 4, station: 'bar', active: true, stockQuantity: 40 },
+  { id: 'prod2', establishmentId: 'est2', categoryId: 'pc1', name: 'Refrigerante lata', description: null, price: 7, station: 'bar', active: true, stockQuantity: 24 },
+  { id: 'prod3', establishmentId: 'est2', categoryId: 'pc2', name: 'Espetinho de carne', description: 'Com farofa e vinagrete', price: 12, station: 'kitchen', active: true, stockQuantity: 30 },
+  { id: 'prod4', establishmentId: 'est2', categoryId: 'pc2', name: 'Espetinho de frango', description: 'Com farofa e vinagrete', price: 10, station: 'kitchen', active: true, stockQuantity: 25 },
+  { id: 'prod5', establishmentId: 'est2', categoryId: 'pc3', name: 'Jantinha completa', description: 'Arroz, feijão tropeiro, salada e espetinho', price: 24, station: 'kitchen', active: true, stockQuantity: null },
+];
+
+export const MOCK_SERVICE_TABS: ServiceTab[] = [
+  { id: 'tab1', establishmentId: 'est2', label: 'Comanda 01', customerPlayerId: 'p1', customerName: 'Você', tableLabel: 'Mesa 4', gameId: null, status: 'open', openedByPlayerId: 'p1', openedAt: iso(now), closedAt: null },
+  { id: 'tab2', establishmentId: 'est2', label: 'Comanda 02', customerPlayerId: 'p5', customerName: 'Eduardo Santos', tableLabel: 'Quadra 1', gameId: 'g1', status: 'partially_paid', openedByPlayerId: 'p1', openedAt: iso(now), closedAt: null },
+];
+
+export const MOCK_TAB_PARTICIPANTS: TabParticipant[] = [
+  { id: 'tp1', tabId: 'tab1', playerId: 'p1', name: 'Você' },
+  { id: 'tp2', tabId: 'tab2', playerId: 'p5', name: 'Eduardo Santos' },
+  { id: 'tp3', tabId: 'tab2', playerId: 'p6', name: 'Fábio Costa' },
+];
+
+export const MOCK_SERVICE_ORDERS: ServiceOrder[] = [
+  { id: 'ord1', tabId: 'tab1', status: 'preparing', notes: 'Sem cebola', createdByPlayerId: 'p1', createdAt: iso(now), submittedAt: iso(now), completedAt: null },
+  { id: 'ord2', tabId: 'tab2', status: 'delivered', notes: null, createdByPlayerId: 'p1', createdAt: iso(now), submittedAt: iso(now), completedAt: iso(now) },
+];
+
+export const MOCK_SERVICE_ORDER_ITEMS: ServiceOrderItem[] = [
+  { id: 'oi1', orderId: 'ord1', productId: 'prod3', participantId: 'tp1', quantity: 2, unitPrice: 12, notes: 'Sem cebola', status: 'preparing', cancellationReason: null },
+  { id: 'oi2', orderId: 'ord1', productId: 'prod2', participantId: 'tp1', quantity: 1, unitPrice: 7, notes: null, status: 'ready', cancellationReason: null },
+  { id: 'oi3', orderId: 'ord2', productId: 'prod5', participantId: 'tp2', quantity: 1, unitPrice: 24, notes: null, status: 'delivered', cancellationReason: null },
+  { id: 'oi4', orderId: 'ord2', productId: 'prod1', participantId: 'tp3', quantity: 2, unitPrice: 4, notes: null, status: 'delivered', cancellationReason: null },
+];
+
+export const MOCK_SALE_PAYMENTS: SalePayment[] = [
+  { id: 'sp1', tabId: 'tab2', payerPlayerId: 'p5', payerName: 'Eduardo Santos', amount: 20, method: 'pix', paidAt: iso(now), reversedAt: null },
+];
+
+export const MOCK_CASH_SHIFTS: CashShift[] = [
+  { id: 'cash1', establishmentId: 'est2', openedByPlayerId: 'p1', openingAmount: 100, closingAmount: null, expectedAmount: null, difference: null, status: 'open', openedAt: iso(now), closedAt: null },
+];
+
+export const MOCK_COACHES: Coach[] = [
+  { id: 'coach1', establishmentId: 'est2', playerId: 'p2', sportIds: ['futebol', 'futvolei'], bio: 'Professor e treinador para iniciantes e intermediários.', active: true },
+];
+
+export const MOCK_CLASS_PROGRAMS: ClassProgram[] = [
+  { id: 'cp1', establishmentId: 'est2', name: 'Escolinha de futebol', sportId: 'futebol', format: 'group', coachId: 'coach1', fieldId: 'f2', level: 'Iniciante', capacity: 12, durationMinutes: 60, price: 120, billingType: 'monthly', active: true, createdAt: iso(now) },
+  { id: 'cp2', establishmentId: 'est2', name: 'Futevôlei particular', sportId: 'futvolei', format: 'private', coachId: 'coach1', fieldId: 'f5', level: 'Todos os níveis', capacity: 1, durationMinutes: 50, price: 80, billingType: 'drop_in', active: true, createdAt: iso(now) },
+];
+
+const classStartA = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+classStartA.setHours(18, 0, 0, 0);
+const classStartB = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+classStartB.setHours(9, 0, 0, 0);
+
+export const MOCK_CLASS_SESSIONS: ClassSession[] = [
+  { id: 'cs1', programId: 'cp1', startsAt: iso(classStartA), endsAt: iso(new Date(classStartA.getTime() + 60 * 60 * 1000)), status: 'open', cancellationReason: null },
+  { id: 'cs2', programId: 'cp2', startsAt: iso(classStartB), endsAt: iso(new Date(classStartB.getTime() + 50 * 60 * 1000)), status: 'open', cancellationReason: null },
+];
+
+export const MOCK_CLASS_ENROLLMENTS: ClassEnrollment[] = [
+  { id: 'ce1', sessionId: 'cs1', playerId: 'p5', status: 'confirmed', paymentStatus: 'paid', paymentMethod: 'pix', amount: 120, isTrial: false, waitlistPosition: null, enrolledAt: iso(now), paidAt: iso(now) },
+  { id: 'ce2', sessionId: 'cs1', playerId: 'p6', status: 'confirmed', paymentStatus: 'pending', paymentMethod: null, amount: 120, isTrial: true, waitlistPosition: null, enrolledAt: iso(now), paidAt: null },
+];
+
+export const MOCK_CLASS_ATTENDANCES: ClassAttendance[] = [];
 
 export const MOCK_SCHEDULES: Schedule[] = [
   {

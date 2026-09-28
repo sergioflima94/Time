@@ -489,6 +489,220 @@ create table player_duels (
 );
 
 -- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
+-- Operação do estabelecimento: equipe, cardápio, comandas e caixa.
+-- Mantém pagamentos de consumo separados do rateio de partidas.
+-- ---------------------------------------------------------------------
+create table establishment_staff (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  roles text[] not null default '{}',
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (establishment_id, player_id)
+);
+
+create table product_categories (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  name text not null,
+  sort_order int not null default 0,
+  active boolean not null default true
+);
+
+create table products (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  category_id uuid not null references product_categories (id),
+  name text not null,
+  description text,
+  price numeric(10, 2) not null check (price >= 0),
+  station text not null check (station in ('kitchen', 'bar', 'counter')),
+  active boolean not null default true,
+  stock_quantity int check (stock_quantity is null or stock_quantity >= 0)
+);
+
+create table service_tabs (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  label text not null,
+  customer_player_id uuid references players (id),
+  customer_name text not null,
+  table_label text,
+  game_id uuid references games (id) on delete set null,
+  status text not null default 'open' check (status in ('open', 'awaiting_payment', 'partially_paid', 'paid', 'closed', 'cancelled')),
+  opened_by_player_id uuid not null references players (id),
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+create table tab_participants (
+  id uuid primary key default gen_random_uuid(),
+  tab_id uuid not null references service_tabs (id) on delete cascade,
+  player_id uuid references players (id),
+  name text not null
+);
+
+create table service_orders (
+  id uuid primary key default gen_random_uuid(),
+  tab_id uuid not null references service_tabs (id) on delete cascade,
+  status text not null default 'submitted' check (status in ('draft', 'submitted', 'preparing', 'ready', 'delivered', 'cancelled')),
+  notes text,
+  created_by_player_id uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  submitted_at timestamptz,
+  completed_at timestamptz
+);
+
+create table service_order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references service_orders (id) on delete cascade,
+  product_id uuid not null references products (id),
+  participant_id uuid references tab_participants (id) on delete set null,
+  quantity int not null check (quantity > 0),
+  unit_price numeric(10, 2) not null check (unit_price >= 0),
+  notes text,
+  status text not null default 'submitted' check (status in ('submitted', 'preparing', 'ready', 'delivered', 'cancelled')),
+  cancellation_reason text
+);
+
+create table sale_payments (
+  id uuid primary key default gen_random_uuid(),
+  tab_id uuid not null references service_tabs (id),
+  payer_player_id uuid references players (id),
+  payer_name text not null,
+  amount numeric(10, 2) not null check (amount > 0),
+  method text not null check (method in ('pix', 'cash', 'card')),
+  paid_at timestamptz not null default now(),
+  reversed_at timestamptz
+);
+
+create table cash_shifts (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  opened_by_player_id uuid not null references players (id),
+  opening_amount numeric(10, 2) not null default 0,
+  closing_amount numeric(10, 2),
+  expected_amount numeric(10, 2),
+  difference numeric(10, 2),
+  status text not null default 'open' check (status in ('open', 'closed')),
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+-- ---------------------------------------------------------------------
+-- Aulas esportivas: programa, agenda, matrícula, pagamento e chamada.
+-- ---------------------------------------------------------------------
+create table coaches (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  player_id uuid not null references players (id),
+  sport_ids text[] not null default '{}',
+  bio text,
+  active boolean not null default true,
+  unique (establishment_id, player_id)
+);
+
+create table class_programs (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  name text not null,
+  sport_id text not null check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  format text not null check (format in ('group', 'private')),
+  coach_id uuid not null references coaches (id),
+  field_id uuid not null references fields (id),
+  level text not null,
+  capacity int not null check (capacity > 0),
+  duration_minutes int not null check (duration_minutes >= 15),
+  price numeric(10, 2) not null check (price >= 0),
+  billing_type text not null check (billing_type in ('drop_in', 'package', 'monthly')),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table class_sessions (
+  id uuid primary key default gen_random_uuid(),
+  program_id uuid not null references class_programs (id) on delete cascade,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  status text not null default 'open' check (status in ('scheduled', 'open', 'full', 'in_progress', 'completed', 'cancelled')),
+  cancellation_reason text,
+  check (ends_at > starts_at)
+);
+
+create table class_enrollments (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references class_sessions (id) on delete cascade,
+  player_id uuid not null references players (id),
+  status text not null check (status in ('confirmed', 'waitlisted', 'cancelled')),
+  payment_status text not null check (payment_status in ('pending', 'paid', 'waived', 'refunded')),
+  payment_method text check (payment_method in ('pix', 'cash', 'card')),
+  amount numeric(10, 2) not null default 0,
+  is_trial boolean not null default false,
+  waitlist_position int,
+  enrolled_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+create unique index class_enrollments_active_unique on class_enrollments (session_id, player_id) where status <> 'cancelled';
+
+create table class_attendances (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references class_sessions (id) on delete cascade,
+  player_id uuid not null references players (id),
+  status text not null check (status in ('present', 'absent', 'excused')),
+  coach_notes text,
+  recorded_at timestamptz not null default now(),
+  unique (session_id, player_id)
+);
+
+create table makeup_credits (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players (id),
+  program_id uuid not null references class_programs (id) on delete cascade,
+  source_session_id uuid not null references class_sessions (id),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+
+-- A agenda é validada também no banco: dois clientes podem tentar publicar ao mesmo
+-- tempo, portanto esconder o horário apenas no app não é suficiente.
+create function prevent_class_session_conflict() returns trigger as $$
+declare
+  v_field_id uuid;
+begin
+  select field_id into v_field_id from class_programs where id = new.program_id;
+  perform pg_advisory_xact_lock(hashtext(v_field_id::text));
+
+  if exists (
+    select 1 from class_sessions cs
+    join class_programs cp on cp.id = cs.program_id
+    where cp.field_id = v_field_id and cs.id <> new.id and cs.status <> 'cancelled'
+      and new.starts_at < cs.ends_at and new.ends_at > cs.starts_at
+  ) or exists (
+    select 1 from games g
+    where g.field_id = v_field_id and g.status <> 'cancelled'
+      and new.starts_at < g.scheduled_at + make_interval(mins => greatest(g.match_minutes, 60))
+      and new.ends_at > g.scheduled_at
+  ) or exists (
+    select 1 from championship_matches cm
+    join championships c on c.id = cm.championship_id
+    where cm.field_id = v_field_id and cm.status <> 'finished' and cm.scheduled_at is not null
+      and new.starts_at < cm.scheduled_at + make_interval(mins => greatest(c.match_minutes, 60))
+      and new.ends_at > cm.scheduled_at
+  ) then
+    raise exception 'field_schedule_conflict';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger class_sessions_prevent_conflict
+before insert or update of starts_at, ends_at, program_id, status on class_sessions
+for each row when (new.status <> 'cancelled') execute function prevent_class_session_conflict();
+
 -- View: nota geral do jogador estilo "carta de FIFA" (0-99)
 -- ---------------------------------------------------------------------
 create view player_overalls as
@@ -532,6 +746,20 @@ alter table championship_teams enable row level security;
 alter table championship_team_players enable row level security;
 alter table championship_matches enable row level security;
 alter table championship_goals enable row level security;
+alter table establishment_staff enable row level security;
+alter table product_categories enable row level security;
+alter table products enable row level security;
+alter table service_tabs enable row level security;
+alter table tab_participants enable row level security;
+alter table service_orders enable row level security;
+alter table service_order_items enable row level security;
+alter table sale_payments enable row level security;
+alter table cash_shifts enable row level security;
+alter table coaches enable row level security;
+alter table class_programs enable row level security;
+alter table class_sessions enable row level security;
+alter table class_enrollments enable row level security;
+alter table class_attendances enable row level security;
 alter table team_challenges enable row level security;
 alter table friendly_matches enable row level security;
 alter table friendly_match_goals enable row level security;
@@ -616,6 +844,109 @@ create policy "establishments_insert_self" on establishments for insert with che
 create policy "establishments_update_owner" on establishments for update using (
   exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
 );
+
+create function is_establishment_owner(p_establishment_id uuid) returns boolean as $$
+  select exists (
+    select 1 from establishments e
+    join players p on p.id = e.owner_player_id
+    where e.id = p_establishment_id and p.auth_user_id = auth.uid()
+  );
+$$ language sql security definer stable;
+
+create function can_operate_establishment(p_establishment_id uuid) returns boolean as $$
+  select is_establishment_owner(p_establishment_id) or exists (
+    select 1 from establishment_staff s
+    join players p on p.id = s.player_id
+    where s.establishment_id = p_establishment_id and p.auth_user_id = auth.uid() and s.active
+  );
+$$ language sql security definer stable;
+
+create policy "establishment_staff_select_team" on establishment_staff for select using (can_operate_establishment(establishment_id));
+create policy "establishment_staff_write_owner" on establishment_staff for all using (is_establishment_owner(establishment_id));
+
+create policy "product_categories_select_all" on product_categories for select using (true);
+create policy "product_categories_write_staff" on product_categories for all using (can_operate_establishment(establishment_id));
+create policy "products_select_all" on products for select using (true);
+create policy "products_write_staff" on products for all using (can_operate_establishment(establishment_id));
+
+create policy "service_tabs_select_involved" on service_tabs for select using (
+  can_operate_establishment(establishment_id)
+  or exists (select 1 from players p where p.id = customer_player_id and p.auth_user_id = auth.uid())
+);
+create policy "service_tabs_write_staff" on service_tabs for all using (can_operate_establishment(establishment_id));
+create policy "tab_participants_select_involved" on tab_participants for select using (
+  exists (select 1 from service_tabs t where t.id = tab_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from players p where p.id = tab_participants.player_id and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "tab_participants_write_staff" on tab_participants for all using (
+  exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
+);
+create policy "service_orders_select_involved" on service_orders for select using (
+  exists (select 1 from service_tabs t where t.id = tab_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from players p where p.id = t.customer_player_id and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "service_orders_write_staff" on service_orders for all using (
+  exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
+);
+create policy "service_order_items_select_involved" on service_order_items for select using (
+  exists (select 1 from service_orders o join service_tabs t on t.id = o.tab_id where o.id = order_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from players p where p.id = t.customer_player_id and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "service_order_items_write_staff" on service_order_items for all using (
+  exists (select 1 from service_orders o join service_tabs t on t.id = o.tab_id where o.id = order_id and can_operate_establishment(t.establishment_id))
+);
+create policy "sale_payments_select_involved" on sale_payments for select using (
+  exists (select 1 from service_tabs t where t.id = tab_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "sale_payments_write_staff" on sale_payments for all using (
+  exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
+);
+create policy "cash_shifts_staff" on cash_shifts for all using (can_operate_establishment(establishment_id));
+
+create policy "coaches_select_all" on coaches for select using (true);
+create policy "coaches_write_staff" on coaches for all using (can_operate_establishment(establishment_id));
+create policy "class_programs_select_all" on class_programs for select using (true);
+create policy "class_programs_write_staff" on class_programs for all using (can_operate_establishment(establishment_id));
+create policy "class_sessions_select_all" on class_sessions for select using (true);
+create policy "class_sessions_write_staff" on class_sessions for all using (
+  exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "class_enrollments_select_self_or_staff" on class_enrollments for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "class_enrollments_insert_self_or_staff" on class_enrollments for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "class_enrollments_update_self_or_staff" on class_enrollments for update using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "class_attendances_select_self_or_staff" on class_attendances for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "class_attendances_write_staff" on class_attendances for all using (
+  exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "makeup_credits_select_self_or_staff" on makeup_credits for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
+);
+create policy "makeup_credits_write_staff" on makeup_credits for all using (
+  exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
+);
+
 
 create policy "schedules_select_members" on schedules for select using (is_member_of_pelada(pelada_id));
 create policy "schedules_write_admins" on schedules for all using (is_admin_of_pelada(pelada_id));

@@ -35,6 +35,8 @@ export default function EstablishmentDashboardScreen() {
   const attendances = useAppStore((s) => s.attendances);
   const payments = useAppStore((s) => s.payments);
   const championshipTeams = useAppStore((s) => s.championshipTeams);
+  const serviceTabs = useAppStore(useShallow((s) => s.serviceTabs.filter((tab) => tab.establishmentId === id)));
+  const classPrograms = useAppStore(useShallow((s) => s.classPrograms.filter((program) => program.establishmentId === id)));
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(establishment?.name ?? '');
@@ -111,6 +113,11 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="trophy" label="Campeonatos" sub={`${championships.length} criados`} onPress={() => router.push(`/estabelecimento/${establishment.id}/campeonatos`)} />
         <NavCard icon="stats-chart" label="Financeiro" sub={formatBRL(summary.total)} onPress={() => router.push(`/estabelecimento/${establishment.id}/financeiro`)} />
         <NavCard icon="link" label="Página pública" sub="Marcar jogo sem conta" onPress={() => router.push(`/estabelecimento/${establishment.id}/publico`)} />
+        <NavCard icon="receipt" label="Comandas" sub={`${serviceTabs.filter((tab) => !['closed', 'cancelled'].includes(tab.status)).length} abertas`} onPress={() => router.push({ pathname: '/operacao/comandas', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="restaurant" label="Cozinha e bar" sub="Fila de produção" onPress={() => router.push({ pathname: '/operacao/cozinha', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="fast-food" label="Cardápio" sub="Produtos e estoque" onPress={() => router.push({ pathname: '/operacao/cardapio', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="school" label="Aulas" sub={`${classPrograms.length} programas`} onPress={() => router.push({ pathname: '/operacao/aulas', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
       </View>
 
       <Card style={styles.section}>
