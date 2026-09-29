@@ -7,6 +7,7 @@ import type {
   ClassSession,
   Coach,
   Championship,
+  ChampionshipBudget,
   ChampionshipGoal,
   ChampionshipMatch,
   ChampionshipTeam,
@@ -385,6 +386,16 @@ export const MOCK_CHAMPIONSHIPS: Championship[] = [
     status: 'in_progress',
     createdBy: 'p2',
     createdAt: iso(now),
+  },
+];
+
+export const MOCK_CHAMPIONSHIP_BUDGETS: ChampionshipBudget[] = [
+  {
+    id: 'cb1', championshipId: 'champ1', plannedTeams: 4,
+    fieldCostPerMatch: 60, refereeCostPerMatch: 80, assistantRefereeCostPerMatch: 0, tableStaffCostPerMatch: 20,
+    prizeCost: 500, trophiesCost: 180, medicalCost: 150, securityCost: 0, marketingCost: 100,
+    materialsCost: 70, cleaningCost: 80, foodWaterCost: 100, licensesCost: 0, otherCost: 0,
+    contingencyPercent: 10, paymentFeePercent: 2, targetProfit: 500, updatedAt: iso(now),
   },
 ];
 

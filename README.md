@@ -374,6 +374,14 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   "Campeonatos" — `Championship.organizerPeladaId`), sem estabelecimento por trás — mesmo
   motor (tabela, cronômetro, classificação), só sem taxa de inscrição (não tem pix
   cadastrado pra receber) e sem entrar no relatório financeiro do estabelecimento.
+- ✅ **Precificação da inscrição** (`app/campeonato/[id]/orcamento.tsx` e
+  `calculateChampionshipPricing`): o organizador informa custos por partida (quadra,
+  árbitro, auxiliar e mesário/apoio), gastos fixos (premiação, troféus, atendimento
+  médico, segurança, divulgação, material, limpeza, água/alimentação, licenças e outros),
+  taxa do gateway, reserva para imprevistos e lucro desejado. O app calcula quantas
+  partidas o formato exige, ponto de equilíbrio, inscrição recomendada por time,
+  receita, taxas e lucro/margem finais. O orçamento fica privado em
+  `championship_budgets` e a recomendação pode atualizar a taxa pública do campeonato.
 - ✅ **Emblema do time** (`src/lib/teamLogo.ts`, na inscrição do time): escolhe uma foto da
   galeria ou gera por IA a partir de uma descrição (ex.: "leão dourado com bola de
   futebol"). Ver "Configurar geração de emblema por IA" abaixo.

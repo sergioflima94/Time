@@ -705,6 +705,33 @@ export interface Championship {
   createdAt: string;
 }
 
+/** Premissas financeiras salvas pelo organizador para precificar a inscrição. */
+export interface ChampionshipBudget {
+  id: UUID;
+  championshipId: UUID;
+  plannedTeams: number;
+  fieldCostPerMatch: number;
+  refereeCostPerMatch: number;
+  assistantRefereeCostPerMatch: number;
+  tableStaffCostPerMatch: number;
+  prizeCost: number;
+  trophiesCost: number;
+  medicalCost: number;
+  securityCost: number;
+  marketingCost: number;
+  materialsCost: number;
+  cleaningCost: number;
+  foodWaterCost: number;
+  licensesCost: number;
+  otherCost: number;
+  contingencyPercent: number;
+  paymentFeePercent: number;
+  targetProfit: number;
+  updatedAt: string;
+}
+
+export type ChampionshipBudgetInput = Omit<ChampionshipBudget, 'id' | 'championshipId' | 'updatedAt'>;
+
 export type ChampionshipTeamStatus = 'pending' | 'confirmed';
 
 /** Um time inscrito no campeonato — vindo de uma pelada existente, ou avulso (só pro campeonato). */

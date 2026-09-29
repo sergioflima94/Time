@@ -505,6 +505,32 @@ create table establishment_staff (
   unique (establishment_id, player_id)
 );
 
+-- Premissas privadas de precificação. Os resultados (ponto de equilíbrio, sugestão e
+-- lucro) são derivados no app para continuarem auditáveis e fáceis de recalcular.
+create table championship_budgets (
+  id uuid primary key default gen_random_uuid(),
+  championship_id uuid not null unique references championships (id) on delete cascade,
+  planned_teams int not null check (planned_teams >= 2),
+  field_cost_per_match numeric(10, 2) not null default 0 check (field_cost_per_match >= 0),
+  referee_cost_per_match numeric(10, 2) not null default 0 check (referee_cost_per_match >= 0),
+  assistant_referee_cost_per_match numeric(10, 2) not null default 0 check (assistant_referee_cost_per_match >= 0),
+  table_staff_cost_per_match numeric(10, 2) not null default 0 check (table_staff_cost_per_match >= 0),
+  prize_cost numeric(10, 2) not null default 0 check (prize_cost >= 0),
+  trophies_cost numeric(10, 2) not null default 0 check (trophies_cost >= 0),
+  medical_cost numeric(10, 2) not null default 0 check (medical_cost >= 0),
+  security_cost numeric(10, 2) not null default 0 check (security_cost >= 0),
+  marketing_cost numeric(10, 2) not null default 0 check (marketing_cost >= 0),
+  materials_cost numeric(10, 2) not null default 0 check (materials_cost >= 0),
+  cleaning_cost numeric(10, 2) not null default 0 check (cleaning_cost >= 0),
+  food_water_cost numeric(10, 2) not null default 0 check (food_water_cost >= 0),
+  licenses_cost numeric(10, 2) not null default 0 check (licenses_cost >= 0),
+  other_cost numeric(10, 2) not null default 0 check (other_cost >= 0),
+  contingency_percent numeric(5, 2) not null default 10 check (contingency_percent between 0 and 100),
+  payment_fee_percent numeric(5, 2) not null default 0 check (payment_fee_percent >= 0 and payment_fee_percent < 100),
+  target_profit numeric(10, 2) not null default 0 check (target_profit >= 0),
+  updated_at timestamptz not null default now()
+);
+
 create table product_categories (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
@@ -866,6 +892,7 @@ alter table punishments enable row level security;
 alter table payments enable row level security;
 alter table free_agent_invites enable row level security;
 alter table championships enable row level security;
+alter table championship_budgets enable row level security;
 alter table championship_teams enable row level security;
 alter table championship_team_players enable row level security;
 alter table championship_matches enable row level security;
@@ -1260,6 +1287,14 @@ create policy "championships_write_owner" on championships for all using (
     select id from players where auth_user_id = auth.uid()
   )))
   or (organizer_pelada_id is not null and is_admin_of_pelada(organizer_pelada_id))
+);
+
+-- O orçamento contém custos e margem do organizador, então não é público como a tabela
+-- do campeonato: somente o dono do estabelecimento/admin da pelada organizadora acessa.
+create policy "championship_budgets_owner" on championship_budgets for all using (
+  is_owner_of_championship(championship_id)
+) with check (
+  is_owner_of_championship(championship_id)
 );
 
 -- championship_teams: leitura pública; o dono do campeonato ou quem inscreveu o time edita.

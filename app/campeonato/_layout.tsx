@@ -13,6 +13,7 @@ export default function CampeonatoLayout() {
       <Stack.Screen name="entrar" options={{ presentation: 'modal' }} />
       <Stack.Screen name="[id]/index" />
       <Stack.Screen name="[id]/inscrever-time" />
+      <Stack.Screen name="[id]/orcamento" />
       <Stack.Screen name="[id]/partida/[matchId]" />
     </Stack>
   );

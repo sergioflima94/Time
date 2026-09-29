@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
-import { computeStandings, computeTopScorers, formatChampionshipStatus } from '@/lib/championship';
+import { calculateChampionshipPricing, computeStandings, computeTopScorers, formatChampionshipStatus } from '@/lib/championship';
 import { formatBRL } from '@/lib/payments';
 import { shareViewAsImage } from '@/lib/shareImage';
 import { useAppStore } from '@/store/useAppStore';
@@ -28,6 +28,7 @@ export default function ChampionshipScreen() {
   const teamPlayers = useAppStore(useShallow((s) => s.championshipTeamPlayers.filter((tp) => teams.some((t) => t.id === tp.championshipTeamId))));
   const matches = useAppStore(useShallow((s) => s.championshipMatches.filter((m) => m.championshipId === id)));
   const goals = useAppStore(useShallow((s) => s.championshipGoals.filter((g) => matches.some((m) => m.id === g.matchId))));
+  const budget = useAppStore((s) => s.championshipBudgets.find((row) => row.championshipId === id));
   const players = useAppStore((s) => s.players);
   const generateChampionshipFixtures = useAppStore((s) => s.generateChampionshipFixtures);
 
@@ -54,6 +55,7 @@ export default function ChampionshipScreen() {
   const standings = championship.format === 'round_robin' ? computeStandings(teams, matches, goals) : [];
   const topScorers = computeTopScorers(goals).slice(0, 3);
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b);
+  const pricing = budget ? calculateChampionshipPricing(championship.format, budget, championship.entryFee ?? 0) : null;
 
   async function handleShare() {
     try {
@@ -91,6 +93,20 @@ export default function ChampionshipScreen() {
 
       {championship.entryFee && (
         <Text style={styles.entryFee}>Taxa de inscrição: {formatBRL(championship.entryFee)} por time</Text>
+      )}
+
+      {isOrganizer && championship.establishmentId && (
+        <Card style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Planejamento financeiro</Text>
+              <Text style={styles.hint}>{pricing ? `${pricing.matchCount} partidas · custo ${formatBRL(pricing.operatingCost)}` : 'Calcule custos, taxa mínima e lucro esperado.'}</Text>
+            </View>
+            {pricing && <Text style={[styles.profit, { color: pricing.projectedProfit >= 0 ? colors.success : colors.danger }]}>{formatBRL(pricing.projectedProfit)}</Text>}
+          </View>
+          {pricing && <Text style={styles.hint}>Lucro projetado com a taxa atual · sugestão {formatBRL(pricing.recommendedEntryFee)} por time</Text>}
+          <Button label={pricing ? 'Revisar precificação' : 'Precificar inscrição'} variant="outline" small onPress={() => router.push(`/campeonato/${championship.id}/orcamento`)} />
+        </Card>
       )}
 
       {championship.status === 'registration' && (
@@ -258,6 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  profit: { fontSize: 16, fontWeight: '900' },
   shareCapture: {
     backgroundColor: colors.card,
     borderRadius: radius.md,

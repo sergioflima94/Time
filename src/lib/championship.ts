@@ -1,6 +1,110 @@
-import type { Championship, ChampionshipGoal, ChampionshipMatch, ChampionshipTeam } from '@/types';
+import type { Championship, ChampionshipBudgetInput, ChampionshipFormat, ChampionshipGoal, ChampionshipMatch, ChampionshipTeam } from '@/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+export function estimateChampionshipMatchCount(format: ChampionshipFormat, teamCount: number): number {
+  const teams = Math.max(2, Math.floor(teamCount));
+  return format === 'round_robin' ? (teams * (teams - 1)) / 2 : teams - 1;
+}
+
+export interface ChampionshipPricingResult {
+  matchCount: number;
+  costPerMatch: number;
+  variableCosts: number;
+  fixedCosts: number;
+  contingencyCost: number;
+  operatingCost: number;
+  breakEvenRevenue: number;
+  breakEvenEntryFee: number;
+  recommendedRevenue: number;
+  recommendedEntryFee: number;
+  projectedRevenue: number;
+  projectedPaymentFees: number;
+  projectedProfit: number;
+  projectedMarginPercent: number;
+}
+
+const nonNegative = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0);
+const roundUpToFive = (value: number) => Math.ceil(value / 5) * 5;
+
+export function normalizeChampionshipBudget(input: ChampionshipBudgetInput): ChampionshipBudgetInput {
+  return {
+    ...input,
+    plannedTeams: Math.max(2, Math.floor(nonNegative(input.plannedTeams))),
+    fieldCostPerMatch: nonNegative(input.fieldCostPerMatch),
+    refereeCostPerMatch: nonNegative(input.refereeCostPerMatch),
+    assistantRefereeCostPerMatch: nonNegative(input.assistantRefereeCostPerMatch),
+    tableStaffCostPerMatch: nonNegative(input.tableStaffCostPerMatch),
+    prizeCost: nonNegative(input.prizeCost),
+    trophiesCost: nonNegative(input.trophiesCost),
+    medicalCost: nonNegative(input.medicalCost),
+    securityCost: nonNegative(input.securityCost),
+    marketingCost: nonNegative(input.marketingCost),
+    materialsCost: nonNegative(input.materialsCost),
+    cleaningCost: nonNegative(input.cleaningCost),
+    foodWaterCost: nonNegative(input.foodWaterCost),
+    licensesCost: nonNegative(input.licensesCost),
+    otherCost: nonNegative(input.otherCost),
+    contingencyPercent: Math.min(100, nonNegative(input.contingencyPercent)),
+    paymentFeePercent: Math.min(99, nonNegative(input.paymentFeePercent)),
+    targetProfit: nonNegative(input.targetProfit),
+  };
+}
+
+/** Calcula ponto de equilíbrio, inscrição sugerida e lucro para a taxa escolhida. */
+export function calculateChampionshipPricing(
+  format: ChampionshipFormat,
+  budget: ChampionshipBudgetInput,
+  entryFeePerTeam: number,
+): ChampionshipPricingResult {
+  budget = normalizeChampionshipBudget(budget);
+  const teams = budget.plannedTeams;
+  const matchCount = estimateChampionshipMatchCount(format, teams);
+  const costPerMatch = [
+    budget.fieldCostPerMatch,
+    budget.refereeCostPerMatch,
+    budget.assistantRefereeCostPerMatch,
+    budget.tableStaffCostPerMatch,
+  ].reduce((sum, value) => sum + nonNegative(value), 0);
+  const variableCosts = costPerMatch * matchCount;
+  const fixedCosts = [
+    budget.prizeCost,
+    budget.trophiesCost,
+    budget.medicalCost,
+    budget.securityCost,
+    budget.marketingCost,
+    budget.materialsCost,
+    budget.cleaningCost,
+    budget.foodWaterCost,
+    budget.licensesCost,
+    budget.otherCost,
+  ].reduce((sum, value) => sum + nonNegative(value), 0);
+  const subtotal = variableCosts + fixedCosts;
+  const contingencyCost = subtotal * (nonNegative(budget.contingencyPercent) / 100);
+  const operatingCost = subtotal + contingencyCost;
+  const paymentRate = budget.paymentFeePercent / 100;
+  const breakEvenRevenue = operatingCost / (1 - paymentRate);
+  const recommendedRevenue = (operatingCost + nonNegative(budget.targetProfit)) / (1 - paymentRate);
+  const projectedRevenue = nonNegative(entryFeePerTeam) * teams;
+  const projectedPaymentFees = projectedRevenue * paymentRate;
+  const projectedProfit = projectedRevenue - projectedPaymentFees - operatingCost;
+  return {
+    matchCount,
+    costPerMatch,
+    variableCosts,
+    fixedCosts,
+    contingencyCost,
+    operatingCost,
+    breakEvenRevenue,
+    breakEvenEntryFee: roundUpToFive(breakEvenRevenue / teams),
+    recommendedRevenue,
+    recommendedEntryFee: roundUpToFive(recommendedRevenue / teams),
+    projectedRevenue,
+    projectedPaymentFees,
+    projectedProfit,
+    projectedMarginPercent: projectedRevenue > 0 ? (projectedProfit / projectedRevenue) * 100 : 0,
+  };
+}
 
 type NewMatch = Omit<ChampionshipMatch, 'championshipId'>;
 

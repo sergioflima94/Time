@@ -6,6 +6,7 @@ import {
   CURRENT_PLAYER_ID,
   MOCK_ATTENDANCES,
   MOCK_CHAMPIONSHIP_GOALS,
+  MOCK_CHAMPIONSHIP_BUDGETS,
   MOCK_CHAMPIONSHIP_MATCHES,
   MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
   MOCK_CHAMPIONSHIP_TEAMS,
@@ -47,7 +48,7 @@ import {
   MOCK_TEAMS,
   MOCK_TEAM_PLAYERS,
 } from '@/lib/mockData';
-import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures } from '@/lib/championship';
+import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures, normalizeChampionshipBudget } from '@/lib/championship';
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
@@ -68,6 +69,8 @@ import type {
   ClassSession,
   Coach,
   Championship,
+  ChampionshipBudget,
+  ChampionshipBudgetInput,
   ChampionshipFormat,
   ChampionshipGoal,
   ChampionshipMatch,
@@ -179,6 +182,7 @@ interface AppState {
   freeAgentInvites: FreeAgentInvite[];
   establishments: Establishment[];
   championships: Championship[];
+  championshipBudgets: ChampionshipBudget[];
   championshipTeams: ChampionshipTeam[];
   championshipTeamPlayers: ChampionshipTeamPlayer[];
   championshipMatches: ChampionshipMatch[];
@@ -401,6 +405,7 @@ interface AppState {
     createdBy: string,
     input: { name: string; sportId: string; format: ChampionshipFormat; fieldId: string | null; maxTeams: number | null; entryFee: number | null; matchMinutes: number },
   ) => Championship;
+  saveChampionshipBudget: (championshipId: string, input: ChampionshipBudgetInput, entryFee: number) => ChampionshipBudget | null;
   /** Inscreve um time (de uma pelada existente, ou avulso) via código do campeonato. playerNames = jogadores sem conta (viram convidados). */
   registerChampionshipTeam: (
     code: string,
@@ -466,6 +471,7 @@ export const useAppStore = create<AppState>()(
       freeAgentInvites: [],
       establishments: MOCK_ESTABLISHMENTS,
       championships: MOCK_CHAMPIONSHIPS,
+      championshipBudgets: MOCK_CHAMPIONSHIP_BUDGETS,
       championshipTeams: MOCK_CHAMPIONSHIP_TEAMS,
       championshipTeamPlayers: MOCK_CHAMPIONSHIP_TEAM_PLAYERS,
       championshipMatches: MOCK_CHAMPIONSHIP_MATCHES,
@@ -1471,6 +1477,22 @@ export const useAppStore = create<AppState>()(
         return championship;
       },
 
+      saveChampionshipBudget: (championshipId, input, entryFee) => {
+        if (!get().championships.some((row) => row.id === championshipId)) return null;
+        const existing = get().championshipBudgets.find((row) => row.championshipId === championshipId);
+        const budget: ChampionshipBudget = {
+          ...normalizeChampionshipBudget(input),
+          id: existing?.id ?? uid(),
+          championshipId,
+          updatedAt: nowIso(),
+        };
+        set((state) => ({
+          championshipBudgets: [...state.championshipBudgets.filter((row) => row.championshipId !== championshipId), budget],
+          championships: state.championships.map((row) => row.id === championshipId ? { ...row, entryFee: Math.max(0, entryFee) } : row),
+        }));
+        return budget;
+      },
+
       registerChampionshipTeam: (code, input) => {
         const normalized = code.trim().toUpperCase();
         const championship = get().championships.find((c) => c.registrationCode.toUpperCase() === normalized);
@@ -2048,6 +2070,7 @@ export const useAppStore = create<AppState>()(
         freeAgentInvites: state.freeAgentInvites,
         establishments: state.establishments,
         championships: state.championships,
+        championshipBudgets: state.championshipBudgets,
         championshipTeams: state.championshipTeams,
         championshipTeamPlayers: state.championshipTeamPlayers,
         championshipMatches: state.championshipMatches,
