@@ -20,6 +20,7 @@ import type {
   Goal,
   MatchTurn,
   Payment,
+  PaymentGatewayConnection,
   Pelada,
   PeladaMembership,
   Player,
@@ -30,8 +31,11 @@ import type {
   Rating,
   Schedule,
   SalePayment,
+  SalePaymentAllocation,
+  SalePaymentIntent,
   ServiceOrder,
   ServiceOrderItem,
+  OrderItemShare,
   ServiceTab,
   TabParticipant,
   Team,
@@ -195,7 +199,7 @@ export const MOCK_PRODUCT_CATEGORIES: ProductCategory[] = [
 
 export const MOCK_PRODUCTS: Product[] = [
   { id: 'prod1', establishmentId: 'est2', categoryId: 'pc1', name: 'Água mineral', description: 'Garrafa 500 ml', price: 4, station: 'bar', active: true, stockQuantity: 40 },
-  { id: 'prod2', establishmentId: 'est2', categoryId: 'pc1', name: 'Refrigerante lata', description: null, price: 7, station: 'bar', active: true, stockQuantity: 24 },
+  { id: 'prod2', establishmentId: 'est2', categoryId: 'pc1', name: 'Coca-Cola 2L', description: 'Garrafa para compartilhar', price: 12, station: 'bar', active: true, stockQuantity: 24 },
   { id: 'prod3', establishmentId: 'est2', categoryId: 'pc2', name: 'Espetinho de carne', description: 'Com farofa e vinagrete', price: 12, station: 'kitchen', active: true, stockQuantity: 30 },
   { id: 'prod4', establishmentId: 'est2', categoryId: 'pc2', name: 'Espetinho de frango', description: 'Com farofa e vinagrete', price: 10, station: 'kitchen', active: true, stockQuantity: 25 },
   { id: 'prod5', establishmentId: 'est2', categoryId: 'pc3', name: 'Jantinha completa', description: 'Arroz, feijão tropeiro, salada e espetinho', price: 24, station: 'kitchen', active: true, stockQuantity: null },
@@ -208,6 +212,9 @@ export const MOCK_SERVICE_TABS: ServiceTab[] = [
 
 export const MOCK_TAB_PARTICIPANTS: TabParticipant[] = [
   { id: 'tp1', tabId: 'tab1', playerId: 'p1', name: 'Você' },
+  { id: 'tp4', tabId: 'tab1', playerId: 'p2', name: 'Bruno Silva' },
+  { id: 'tp5', tabId: 'tab1', playerId: 'p3', name: 'Carlos Eduardo' },
+  { id: 'tp6', tabId: 'tab1', playerId: 'p5', name: 'Eduardo Santos' },
   { id: 'tp2', tabId: 'tab2', playerId: 'p5', name: 'Eduardo Santos' },
   { id: 'tp3', tabId: 'tab2', playerId: 'p6', name: 'Fábio Costa' },
 ];
@@ -219,14 +226,34 @@ export const MOCK_SERVICE_ORDERS: ServiceOrder[] = [
 
 export const MOCK_SERVICE_ORDER_ITEMS: ServiceOrderItem[] = [
   { id: 'oi1', orderId: 'ord1', productId: 'prod3', participantId: 'tp1', quantity: 2, unitPrice: 12, notes: 'Sem cebola', status: 'preparing', cancellationReason: null },
-  { id: 'oi2', orderId: 'ord1', productId: 'prod2', participantId: 'tp1', quantity: 1, unitPrice: 7, notes: null, status: 'ready', cancellationReason: null },
+  { id: 'oi2', orderId: 'ord1', productId: 'prod2', participantId: null, quantity: 1, unitPrice: 12, notes: null, status: 'ready', cancellationReason: null },
   { id: 'oi3', orderId: 'ord2', productId: 'prod5', participantId: 'tp2', quantity: 1, unitPrice: 24, notes: null, status: 'delivered', cancellationReason: null },
   { id: 'oi4', orderId: 'ord2', productId: 'prod1', participantId: 'tp3', quantity: 2, unitPrice: 4, notes: null, status: 'delivered', cancellationReason: null },
+];
+
+export const MOCK_ORDER_ITEM_SHARES: OrderItemShare[] = [
+  { id: 'ois1', itemId: 'oi1', participantId: 'tp1', amountCents: 2400 },
+  { id: 'ois2', itemId: 'oi2', participantId: 'tp1', amountCents: 300 },
+  { id: 'ois3', itemId: 'oi2', participantId: 'tp4', amountCents: 300 },
+  { id: 'ois4', itemId: 'oi2', participantId: 'tp5', amountCents: 300 },
+  { id: 'ois5', itemId: 'oi2', participantId: 'tp6', amountCents: 300 },
+  { id: 'ois6', itemId: 'oi3', participantId: 'tp2', amountCents: 2400 },
+  { id: 'ois7', itemId: 'oi4', participantId: 'tp3', amountCents: 800 },
 ];
 
 export const MOCK_SALE_PAYMENTS: SalePayment[] = [
   { id: 'sp1', tabId: 'tab2', payerPlayerId: 'p5', payerName: 'Eduardo Santos', amount: 20, method: 'pix', paidAt: iso(now), reversedAt: null },
 ];
+
+export const MOCK_SALE_PAYMENT_ALLOCATIONS: SalePaymentAllocation[] = [
+  { id: 'spa1', paymentId: 'sp1', itemShareId: 'ois6', amountCents: 2000 },
+];
+
+export const MOCK_PAYMENT_GATEWAY_CONNECTIONS: PaymentGatewayConnection[] = [
+  { id: 'pgc1', establishmentId: 'est2', provider: 'sicoob', status: 'connected', accountLabel: 'Sicoob · conta final 4821', pixEnabled: true, cardEnabled: false, connectedAt: iso(now), updatedAt: iso(now) },
+];
+
+export const MOCK_SALE_PAYMENT_INTENTS: SalePaymentIntent[] = [];
 
 export const MOCK_CASH_SHIFTS: CashShift[] = [
   { id: 'cash1', establishmentId: 'est2', openedByPlayerId: 'p1', openingAmount: 100, closingAmount: null, expectedAmount: null, difference: null, status: 'open', openedAt: iso(now), closedAt: null },

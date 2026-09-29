@@ -204,11 +204,11 @@ supabase/schema.sql          schema completo + Row Level Security
   velocidade, de 1 a 5). A média vira a nota geral na escala 0-99, estilo carta de
   FIFA, com faixas de bronze/prata/ouro/especial.
 
-## Monetização (⚠️ simulada — não há dinheiro real envolvido)
+## Monetização e pagamentos
 
-O app tem três mecanismos de monetização implementados na camada de produto, mas
-**nenhum deles está conectado a um provedor de pagamento ou anúncio real** — são
-fluxos de demonstração para validar a experiência antes de integrar algo de verdade.
+Assinatura e rateio da quadra ainda usam o fluxo demonstrativo. A operação de consumo
+do estabelecimento já possui o contrato completo de gateway, Edge Functions e webhook;
+sem credenciais configuradas, continua em modo demonstração para não movimentar dinheiro.
 
 - **Assinatura Premium individual** (`src/components/PremiumSection.tsx`, tela
   Perfil): é mensal de verdade — `player.premiumUntil` guarda até quando o período
@@ -238,9 +238,9 @@ fluxos de demonstração para validar a experiência antes de integrar algo de v
 | Rateio da quadra (Pix/cartão) | `PaymentSplitSection` → em vez de `setPaymentStatus` direto, abrir um checkout (Pix Copia-e-Cola, link de pagamento) e só marcar `paid` via webhook confirmando o pagamento | [Mercado Pago](https://www.mercadopago.com.br/developers) ou [Stripe](https://stripe.com/br) (ambos têm Pix) |
 | Anúncios | Já integrado — só falta configurar sua conta AdMob (veja abaixo) | [react-native-google-mobile-ads](https://docs.page/invertase/react-native-google-mobile-ads) (AdMob) — requer EAS Build/dev client, não funciona no Expo Go |
 
-Qualquer integração de pagamento real deve rodar no backend (Supabase Edge Functions,
-por exemplo) para validar webhooks e nunca confiar apenas no que o app cliente diz —
-hoje, como tudo é local/mock, isso ainda não existe.
+Qualquer integração de pagamento real roda no backend (Supabase Edge Functions), valida
+o pagamento no provedor e usa uma função SQL transacional antes de dar baixa. O clique do
+cliente nunca marca uma cobrança real como paga.
 
 ### Configurar o AdMob
 
@@ -421,6 +421,24 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   participantes e vários pedidos. Cozinha e bar operam cada item em recebido → preparo →
   pronto → entregue. Cancelamento exige motivo e preserva o histórico. A comanda aceita
   pagamentos parciais/divididos em Pix, cartão ou dinheiro e só fecha com saldo zero.
+  Cada item também pode ser **rachado entre consumidores**: `OrderItemShare` guarda as
+  partes em centavos (incluindo ajuste determinístico do resto), e
+  `SalePaymentAllocation` registra exatamente quais partes cada pagamento quitou. Assim
+  uma Coca-Cola de R$ 12 pode virar quatro partes de R$ 3, e uma pessoa pode pagar a
+  própria parte mais a de outra em um único Pix de R$ 6. Isso é separado da cota da quadra.
+- ✅ **Gateway escolhido pelo dono** (`app/estabelecimento/[id]/pagamentos.tsx`): cada
+  estabelecimento escolhe Sicoob, Inter, Mercado Pago, PicPay ou Pix manual. Mercado Pago
+  e PicPay aceitam Pix e cartão; as opções bancárias são focadas em Pix. A configuração
+  pública fica em `PaymentGatewayConnection`, mas token/certificado fica somente no
+  Supabase Vault. No modo mock, a conexão e o webhook são simulados para testar todo o
+  fluxo sem cobrança real.
+- ✅ **Backend de cobrança de consumo** (`supabase/functions/create-sale-payment` e
+  `supabase/functions/payment-webhook`): Mercado Pago usa Orders API para Pix e checkout
+  hospedado para cartão; PicPay usa Payment Link para Pix/cartão. O webhook revalida o
+  pagamento e chama `settle_sale_payment_intent`, que cria pagamento, aloca as partes e
+  atualiza a comanda numa transação. Sicoob/Inter exigem certificado mTLS e homologação
+  por conta, então o contrato está preparado, mas o adaptador bancário depende das
+  credenciais/certificados de cada estabelecimento.
 - ✅ **Caixa e conciliação** (`app/operacao/caixa.tsx`): abertura com fundo inicial,
   fechamento com valor contado e diferença, e visão consolidada de quadras, alimentação
   e aulas. As origens continuam separadas: `Payment` é rateio, `SalePayment` é consumo e
@@ -453,6 +471,29 @@ cliente chama por `supabase.functions.invoke(...)`.
 4. Sem Supabase configurado (modo mock) ou se a função falhar, o app cai automaticamente
    num gerador de emblema de exemplo (`api.dicebear.com`, grátis, sem chave) — assim dá
    pra testar o fluxo inteiro sem precisar de conta na OpenAI.
+
+### Configurar gateways de consumo
+
+1. Aplique `supabase/schema.sql` e publique:
+   `supabase functions deploy create-sale-payment` e
+   `supabase functions deploy payment-webhook`.
+2. Configure `PAYMENT_WEBHOOK_URL` com a URL pública de `payment-webhook` e crie um
+   `PAYMENT_WEBHOOK_TOKEN` longo/aleatório para a URL cadastrada no PicPay.
+3. Para cada estabelecimento, crie no Supabase Vault um segredo JSON e coloque o UUID
+   em `payment_gateway_connections.credential_secret_id`:
+   - Mercado Pago: `{"accessToken":"APP_USR-...","payerEmail":"..."}`. Para várias
+     contas, obtenha o token de cada vendedor por OAuth Authorization Code/PKCE.
+   - PicPay: `{"accessToken":"...","redirectUrl":"https://..."}`.
+4. Cadastre no provedor a URL de webhook com `provider` e `connection`, por exemplo:
+   `.../payment-webhook?provider=mercado_pago&connection=UUID_DA_CONEXAO`.
+   No PicPay inclua também `hook_token` com o segredo configurado no passo 2.
+5. Nunca use token em variável `EXPO_PUBLIC_*`, AsyncStorage ou tabela legível pelo
+   aplicativo. O cliente vê somente o nome da conta e o status da conexão.
+
+Referências oficiais usadas na integração: [Pix/Orders do Mercado Pago](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/pix),
+[OAuth do Mercado Pago](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation),
+[Pix do PicPay](https://developers-business.picpay.com/pix/docs/api/charge-pix) e
+[Payment Link do PicPay](https://developers-business.picpay.com/payment-link/docs/api/create-charge).
 
 ## Multi-esporte
 

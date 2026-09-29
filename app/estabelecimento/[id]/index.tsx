@@ -37,6 +37,7 @@ export default function EstablishmentDashboardScreen() {
   const championshipTeams = useAppStore((s) => s.championshipTeams);
   const serviceTabs = useAppStore(useShallow((s) => s.serviceTabs.filter((tab) => tab.establishmentId === id)));
   const classPrograms = useAppStore(useShallow((s) => s.classPrograms.filter((program) => program.establishmentId === id)));
+  const gatewayConnection = useAppStore((s) => s.paymentGatewayConnections.find((row) => row.establishmentId === id && row.status === 'connected'));
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(establishment?.name ?? '');
@@ -118,6 +119,7 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="fast-food" label="Cardápio" sub="Produtos e estoque" onPress={() => router.push({ pathname: '/operacao/cardapio', params: { establishmentId: establishment.id } })} />
         <NavCard icon="school" label="Aulas" sub={`${classPrograms.length} programas`} onPress={() => router.push({ pathname: '/operacao/aulas', params: { establishmentId: establishment.id } })} />
         <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="card" label="Pagamentos" sub={gatewayConnection ? 'Gateway conectado' : 'Escolher gateway'} onPress={() => router.push(`/estabelecimento/${establishment.id}/pagamentos`)} />
       </View>
 
       <Card style={styles.section}>

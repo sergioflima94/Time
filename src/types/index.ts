@@ -266,6 +266,50 @@ export interface ServiceOrderItem {
   cancellationReason: string | null;
 }
 
+/** Parte de um item da comanda atribuída a uma pessoa. Valores em centavos evitam erros de arredondamento. */
+export interface OrderItemShare {
+  id: UUID;
+  itemId: UUID;
+  participantId: UUID;
+  amountCents: number;
+}
+
+export type PaymentGatewayProvider = 'manual_pix' | 'sicoob' | 'inter' | 'mercado_pago' | 'picpay';
+export type GatewayConnectionStatus = 'not_connected' | 'pending' | 'connected' | 'error';
+
+/** Configuração pública da conexão. Tokens e certificados ficam apenas no Supabase Vault/backend. */
+export interface PaymentGatewayConnection {
+  id: UUID;
+  establishmentId: UUID;
+  provider: PaymentGatewayProvider;
+  status: GatewayConnectionStatus;
+  accountLabel: string | null;
+  pixEnabled: boolean;
+  cardEnabled: boolean;
+  connectedAt: string | null;
+  updatedAt: string;
+}
+
+export type PaymentIntentStatus = 'pending' | 'paid' | 'expired' | 'cancelled' | 'failed';
+
+/** Cobrança criada no gateway. Pode reunir partes de várias pessoas pagas pelo mesmo pagador. */
+export interface SalePaymentIntent {
+  id: UUID;
+  tabId: UUID;
+  payerParticipantId: UUID;
+  coveredParticipantIds: UUID[];
+  provider: PaymentGatewayProvider;
+  method: PaymentMethod;
+  amountCents: number;
+  status: PaymentIntentStatus;
+  externalId: string | null;
+  pixCopyPaste: string | null;
+  checkoutUrl: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  paidAt: string | null;
+}
+
 /** Pagamento exclusivo de consumo. Não reutiliza Payment, que pertence ao rateio da partida. */
 export interface SalePayment {
   id: UUID;
@@ -276,6 +320,14 @@ export interface SalePayment {
   method: PaymentMethod;
   paidAt: string;
   reversedAt: string | null;
+}
+
+/** Liga um pagamento às partes exatas que ele quitou. */
+export interface SalePaymentAllocation {
+  id: UUID;
+  paymentId: UUID;
+  itemShareId: UUID;
+  amountCents: number;
 }
 
 export type CashShiftStatus = 'open' | 'closed';

@@ -4,6 +4,7 @@
 -- =========================================================================
 
 create extension if not exists "pgcrypto";
+create extension if not exists "supabase_vault";
 
 -- ---------------------------------------------------------------------
 -- players: 1 linha por usuário autenticado (auth.users) + convidados
@@ -568,6 +569,66 @@ create table service_order_items (
   cancellation_reason text
 );
 
+-- Partes de um item atribuídas aos consumidores. Centavos inteiros evitam divergência
+-- em divisões como R$ 10,00 / 3.
+create table order_item_shares (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references service_order_items (id) on delete cascade,
+  participant_id uuid not null references tab_participants (id) on delete cascade,
+  amount_cents int not null check (amount_cents > 0)
+);
+
+-- Metadados públicos da conta escolhida pelo estabelecimento. A credencial real fica
+-- no Supabase Vault e é acessada somente pelas Edge Functions com service_role.
+create table payment_gateway_connections (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null unique references establishments (id) on delete cascade,
+  provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
+  status text not null default 'not_connected' check (status in ('not_connected', 'pending', 'connected', 'error')),
+  account_label text,
+  pix_enabled boolean not null default true,
+  card_enabled boolean not null default false,
+  credential_secret_id uuid,
+  connected_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+-- Somente Edge Functions usando service_role conseguem recuperar a credencial
+-- descriptografada. O app móvel recebe apenas status e nome da conta.
+create or replace function get_gateway_credentials(p_connection_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path = public, vault
+as $$
+  select case when auth.role() = 'service_role' then jsonb_build_object(
+    'provider', c.provider,
+    'secret', ds.decrypted_secret
+  ) else null end
+  from payment_gateway_connections c
+  left join vault.decrypted_secrets ds on ds.id = c.credential_secret_id
+  where c.id = p_connection_id and c.status = 'connected';
+$$;
+revoke all on function get_gateway_credentials(uuid) from public, anon, authenticated;
+grant execute on function get_gateway_credentials(uuid) to service_role;
+
+create table sale_payment_intents (
+  id uuid primary key default gen_random_uuid(),
+  tab_id uuid not null references service_tabs (id) on delete cascade,
+  payer_participant_id uuid not null references tab_participants (id),
+  covered_participant_ids uuid[] not null,
+  provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
+  method text not null check (method in ('pix', 'cash', 'card')),
+  amount_cents int not null check (amount_cents > 0),
+  status text not null default 'pending' check (status in ('pending', 'paid', 'expired', 'cancelled', 'failed')),
+  external_id text,
+  pix_copy_paste text,
+  checkout_url text,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
 create table sale_payments (
   id uuid primary key default gen_random_uuid(),
   tab_id uuid not null references service_tabs (id),
@@ -578,6 +639,68 @@ create table sale_payments (
   paid_at timestamptz not null default now(),
   reversed_at timestamptz
 );
+
+create table sale_payment_allocations (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references sale_payments (id) on delete cascade,
+  item_share_id uuid not null references order_item_shares (id),
+  amount_cents int not null check (amount_cents > 0),
+  unique (payment_id, item_share_id)
+);
+
+-- Liquida a cobrança e distribui o pagamento pelas partes selecionadas em uma única
+-- transação de banco. Só o webhook com service_role pode chamar.
+create or replace function settle_sale_payment_intent(p_intent_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_intent sale_payment_intents%rowtype;
+  v_payment_id uuid;
+  v_payer tab_participants%rowtype;
+  v_share record;
+  v_paid numeric(10,2);
+  v_gross numeric(10,2);
+begin
+  if auth.role() <> 'service_role' then raise exception 'forbidden'; end if;
+  select * into v_intent from sale_payment_intents where id = p_intent_id and status = 'pending' for update;
+  if not found then return null; end if;
+  select * into v_payer from tab_participants where id = v_intent.payer_participant_id;
+
+  insert into sale_payments (tab_id, payer_player_id, payer_name, amount, method)
+  values (v_intent.tab_id, v_payer.player_id, v_payer.name, v_intent.amount_cents / 100.0, v_intent.method)
+  returning id into v_payment_id;
+
+  for v_share in
+    select s.id, greatest(0, s.amount_cents - coalesce(sum(a.amount_cents), 0)) as pending_cents
+    from order_item_shares s
+    join service_order_items i on i.id = s.item_id
+    join service_orders o on o.id = i.order_id
+    left join sale_payment_allocations a on a.item_share_id = s.id
+    where o.tab_id = v_intent.tab_id
+      and i.status <> 'cancelled'
+      and s.participant_id = any(v_intent.covered_participant_ids)
+    group by s.id, s.amount_cents
+  loop
+    if v_share.pending_cents > 0 then
+      insert into sale_payment_allocations (payment_id, item_share_id, amount_cents)
+      values (v_payment_id, v_share.id, v_share.pending_cents);
+    end if;
+  end loop;
+
+  update sale_payment_intents set status = 'paid', paid_at = now() where id = p_intent_id;
+  select coalesce(sum(amount), 0) into v_paid from sale_payments where tab_id = v_intent.tab_id and reversed_at is null;
+  select coalesce(sum(i.quantity * i.unit_price), 0) into v_gross
+    from service_order_items i join service_orders o on o.id = i.order_id
+    where o.tab_id = v_intent.tab_id and i.status <> 'cancelled';
+  update service_tabs set status = case when v_paid >= v_gross then 'paid' else 'partially_paid' end where id = v_intent.tab_id;
+  return v_payment_id;
+end;
+$$;
+revoke all on function settle_sale_payment_intent(uuid) from public, anon, authenticated;
+grant execute on function settle_sale_payment_intent(uuid) to service_role;
 
 create table cash_shifts (
   id uuid primary key default gen_random_uuid(),
@@ -753,7 +876,11 @@ alter table service_tabs enable row level security;
 alter table tab_participants enable row level security;
 alter table service_orders enable row level security;
 alter table service_order_items enable row level security;
+alter table order_item_shares enable row level security;
+alter table payment_gateway_connections enable row level security;
+alter table sale_payment_intents enable row level security;
 alter table sale_payments enable row level security;
+alter table sale_payment_allocations enable row level security;
 alter table cash_shifts enable row level security;
 alter table coaches enable row level security;
 alter table class_programs enable row level security;
@@ -901,6 +1028,24 @@ create policy "service_order_items_select_involved" on service_order_items for s
 create policy "service_order_items_write_staff" on service_order_items for all using (
   exists (select 1 from service_orders o join service_tabs t on t.id = o.tab_id where o.id = order_id and can_operate_establishment(t.establishment_id))
 );
+create policy "order_item_shares_select_involved" on order_item_shares for select using (
+  exists (select 1 from service_order_items i join service_orders o on o.id = i.order_id join service_tabs t on t.id = o.tab_id where i.id = item_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from tab_participants tp join players p on p.id = tp.player_id where tp.id = participant_id and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "order_item_shares_write_staff" on order_item_shares for all using (
+  exists (select 1 from service_order_items i join service_orders o on o.id = i.order_id join service_tabs t on t.id = o.tab_id where i.id = item_id and can_operate_establishment(t.establishment_id))
+);
+create policy "gateway_connections_owner" on payment_gateway_connections for all using (
+  exists (select 1 from establishments e join players p on p.id = e.owner_player_id where e.id = establishment_id and p.auth_user_id = auth.uid())
+);
+create policy "sale_payment_intents_select_involved" on sale_payment_intents for select using (
+  exists (select 1 from service_tabs t where t.id = tab_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from tab_participants tp join players p on p.id = tp.player_id where tp.id = payer_participant_id and p.auth_user_id = auth.uid())
+  ))
+);
 create policy "sale_payments_select_involved" on sale_payments for select using (
   exists (select 1 from service_tabs t where t.id = tab_id and (
     can_operate_establishment(t.establishment_id)
@@ -909,6 +1054,12 @@ create policy "sale_payments_select_involved" on sale_payments for select using 
 );
 create policy "sale_payments_write_staff" on sale_payments for all using (
   exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
+);
+create policy "sale_payment_allocations_select_involved" on sale_payment_allocations for select using (
+  exists (select 1 from sale_payments sp join service_tabs t on t.id = sp.tab_id where sp.id = payment_id and (
+    can_operate_establishment(t.establishment_id)
+    or exists (select 1 from players p where p.id = sp.payer_player_id and p.auth_user_id = auth.uid())
+  ))
 );
 create policy "cash_shifts_staff" on cash_shifts for all using (can_operate_establishment(establishment_id));
 

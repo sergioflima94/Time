@@ -32,10 +32,14 @@ import {
   MOCK_PLAYER_DUELS,
   MOCK_PRODUCT_CATEGORIES,
   MOCK_PRODUCTS,
+  MOCK_PAYMENT_GATEWAY_CONNECTIONS,
+  MOCK_ORDER_ITEM_SHARES,
   MOCK_PUNISHMENTS,
   MOCK_RATINGS,
   MOCK_SCHEDULES,
   MOCK_SALE_PAYMENTS,
+  MOCK_SALE_PAYMENT_ALLOCATIONS,
+  MOCK_SALE_PAYMENT_INTENTS,
   MOCK_SERVICE_ORDER_ITEMS,
   MOCK_SERVICE_ORDERS,
   MOCK_SERVICE_TABS,
@@ -46,6 +50,7 @@ import {
 import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures } from '@/lib/championship';
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
+import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
 import { buildPunishment } from '@/lib/punishment';
 import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
 import type {
@@ -86,6 +91,8 @@ import type {
   MatchTurn,
   MakeupCredit,
   Payment,
+  PaymentGatewayConnection,
+  PaymentGatewayProvider,
   PaymentMethod,
   PaymentStatus,
   Pelada,
@@ -102,8 +109,11 @@ import type {
   RecurrenceType,
   Schedule,
   SalePayment,
+  SalePaymentAllocation,
+  SalePaymentIntent,
   ServiceOrder,
   ServiceOrderItem,
+  OrderItemShare,
   ServiceTab,
   ServiceTabStatus,
   TabParticipant,
@@ -185,7 +195,11 @@ interface AppState {
   tabParticipants: TabParticipant[];
   serviceOrders: ServiceOrder[];
   serviceOrderItems: ServiceOrderItem[];
+  orderItemShares: OrderItemShare[];
   salePayments: SalePayment[];
+  salePaymentAllocations: SalePaymentAllocation[];
+  salePaymentIntents: SalePaymentIntent[];
+  paymentGatewayConnections: PaymentGatewayConnection[];
   cashShifts: CashShift[];
   coaches: Coach[];
   classPrograms: ClassProgram[];
@@ -343,9 +357,13 @@ interface AppState {
   openServiceTab: (establishmentId: string, input: { customerPlayerId: string | null; customerName: string; tableLabel: string | null; gameId: string | null }) => ServiceTab;
   addTabParticipant: (tabId: string, input: { playerId: string | null; name: string }) => TabParticipant;
   createServiceOrder: (tabId: string, items: Array<{ productId: string; participantId: string | null; quantity: number; notes: string | null }>, notes?: string) => ServiceOrder | null;
+  splitOrderItem: (itemId: string, participantIds: string[]) => void;
+  setEstablishmentGateway: (establishmentId: string, provider: PaymentGatewayProvider) => PaymentGatewayConnection;
+  createSalePaymentIntent: (tabId: string, payerParticipantId: string, coveredParticipantIds: string[], method: PaymentMethod) => SalePaymentIntent | null;
+  confirmSalePaymentIntent: (intentId: string) => void;
   setOrderItemStatus: (itemId: string, status: ServiceOrderItem['status'], cancellationReason?: string) => void;
   setServiceTabStatus: (tabId: string, status: ServiceTabStatus) => void;
-  payServiceTab: (tabId: string, input: { payerPlayerId: string | null; payerName: string; amount: number; method: PaymentMethod }) => void;
+  payServiceTab: (tabId: string, input: { payerPlayerId: string | null; payerName: string; amount: number; method: PaymentMethod; coveredParticipantIds?: string[] }) => void;
   reverseSalePayment: (paymentId: string) => void;
   openCashShift: (establishmentId: string, openingAmount: number) => CashShift;
   closeCashShift: (shiftId: string, closingAmount: number) => void;
@@ -464,7 +482,11 @@ export const useAppStore = create<AppState>()(
       tabParticipants: MOCK_TAB_PARTICIPANTS,
       serviceOrders: MOCK_SERVICE_ORDERS,
       serviceOrderItems: MOCK_SERVICE_ORDER_ITEMS,
+      orderItemShares: MOCK_ORDER_ITEM_SHARES,
       salePayments: MOCK_SALE_PAYMENTS,
+      salePaymentAllocations: MOCK_SALE_PAYMENT_ALLOCATIONS,
+      salePaymentIntents: MOCK_SALE_PAYMENT_INTENTS,
+      paymentGatewayConnections: MOCK_PAYMENT_GATEWAY_CONNECTIONS,
       cashShifts: MOCK_CASH_SHIFTS,
       coaches: MOCK_COACHES,
       classPrograms: MOCK_CLASS_PROGRAMS,
@@ -1040,9 +1062,16 @@ export const useAppStore = create<AppState>()(
         });
         if (orderItems.length === 0) return null;
         const purchased = new Map(orderItems.map((item) => [item.productId, item.quantity]));
+        const defaultShares: OrderItemShare[] = orderItems.flatMap((item) => item.participantId ? [{
+          id: uid(),
+          itemId: item.id,
+          participantId: item.participantId,
+          amountCents: Math.round(item.quantity * item.unitPrice * 100),
+        }] : []);
         set((state) => ({
           serviceOrders: [...state.serviceOrders, order],
           serviceOrderItems: [...state.serviceOrderItems, ...orderItems],
+          orderItemShares: [...state.orderItemShares, ...defaultShares],
           products: state.products.map((product) => {
             const quantity = purchased.get(product.id);
             return quantity && product.stockQuantity !== null
@@ -1053,10 +1082,141 @@ export const useAppStore = create<AppState>()(
         return order;
       },
 
+      splitOrderItem: (itemId, participantIds) => {
+        const uniqueIds = [...new Set(participantIds)];
+        if (uniqueIds.length === 0) return;
+        set((state) => {
+          const item = state.serviceOrderItems.find((row) => row.id === itemId && row.status !== 'cancelled');
+          if (!item) return {};
+          const order = state.serviceOrders.find((row) => row.id === item.orderId);
+          if (!order) return {};
+          const validIds = uniqueIds.filter((participantId) => state.tabParticipants.some((row) => row.id === participantId && row.tabId === order.tabId));
+          if (validIds.length === 0) return {};
+          const oldShareIds = new Set(state.orderItemShares.filter((share) => share.itemId === itemId).map((share) => share.id));
+          const hasPaidAllocation = state.salePaymentAllocations.some((allocation) => oldShareIds.has(allocation.itemShareId));
+          if (hasPaidAllocation) return {};
+          const shares = splitAmountCents(Math.round(item.quantity * item.unitPrice * 100), validIds).map((share) => ({
+            id: uid(),
+            itemId,
+            participantId: share.participantId,
+            amountCents: share.amountCents,
+          }));
+          return {
+            orderItemShares: [...state.orderItemShares.filter((share) => share.itemId !== itemId), ...shares],
+            serviceOrderItems: state.serviceOrderItems.map((row) => row.id === itemId ? { ...row, participantId: validIds.length === 1 ? validIds[0] : null } : row),
+          };
+        });
+      },
+
+      setEstablishmentGateway: (establishmentId, provider) => {
+        const existing = get().paymentGatewayConnections.find((row) => row.establishmentId === establishmentId);
+        const now = nowIso();
+        const connection: PaymentGatewayConnection = {
+          id: existing?.id ?? uid(),
+          establishmentId,
+          provider,
+          status: 'connected',
+          accountLabel: provider === 'manual_pix' ? 'Chave Pix do estabelecimento' : `${provider.replace('_', ' ')} · modo demonstração`,
+          pixEnabled: true,
+          cardEnabled: provider === 'mercado_pago' || provider === 'picpay',
+          connectedAt: existing?.connectedAt ?? now,
+          updatedAt: now,
+        };
+        set((state) => ({
+          paymentGatewayConnections: [...state.paymentGatewayConnections.filter((row) => row.establishmentId !== establishmentId), connection],
+        }));
+        return connection;
+      },
+
+      createSalePaymentIntent: (tabId, payerParticipantId, coveredParticipantIds, method) => {
+        const state = get();
+        const tab = state.serviceTabs.find((row) => row.id === tabId);
+        const payer = state.tabParticipants.find((row) => row.id === payerParticipantId && row.tabId === tabId);
+        if (!tab || !payer) return null;
+        const connection = state.paymentGatewayConnections.find((row) => row.establishmentId === tab.establishmentId && row.status === 'connected');
+        const provider = connection?.provider ?? 'manual_pix';
+        if (method === 'card' && !connection?.cardEnabled) return null;
+        const balances = outstandingByParticipant(tabId, state.serviceOrders, state.serviceOrderItems, state.orderItemShares, state.salePaymentAllocations);
+        const validCovered = [...new Set(coveredParticipantIds)].filter((participantId) => (balances[participantId] ?? 0) > 0);
+        const amountCents = validCovered.reduce((sum, participantId) => sum + (balances[participantId] ?? 0), 0);
+        if (amountCents <= 0) return null;
+        const id = uid();
+        const intent: SalePaymentIntent = {
+          id,
+          tabId,
+          payerParticipantId,
+          coveredParticipantIds: validCovered,
+          provider,
+          method,
+          amountCents,
+          status: 'pending',
+          externalId: `demo-${provider}-${id}`,
+          pixCopyPaste: method === 'pix' ? demoPixCode(provider, id, amountCents) : null,
+          checkoutUrl: method === 'card' ? `https://checkout.demo/${provider}/${id}` : null,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          createdAt: nowIso(),
+          paidAt: null,
+        };
+        set((current) => ({
+          salePaymentIntents: [
+            ...current.salePaymentIntents.map((row) => row.tabId === tabId && row.payerParticipantId === payerParticipantId && row.status === 'pending' ? { ...row, status: 'cancelled' as const } : row),
+            intent,
+          ],
+        }));
+        return intent;
+      },
+
+      confirmSalePaymentIntent: (intentId) => {
+        set((state) => {
+          const intent = state.salePaymentIntents.find((row) => row.id === intentId && row.status === 'pending');
+          if (!intent) return {};
+          const payer = state.tabParticipants.find((row) => row.id === intent.payerParticipantId);
+          if (!payer) return {};
+          const itemIds = new Set(state.serviceOrderItems.filter((item) => {
+            const order = state.serviceOrders.find((row) => row.id === item.orderId);
+            return order?.tabId === intent.tabId && item.status !== 'cancelled';
+          }).map((item) => item.id));
+          const allocatedByShare = new Map<string, number>();
+          for (const allocation of state.salePaymentAllocations) allocatedByShare.set(allocation.itemShareId, (allocatedByShare.get(allocation.itemShareId) ?? 0) + allocation.amountCents);
+          const targetShares = state.orderItemShares.filter((share) => itemIds.has(share.itemId) && intent.coveredParticipantIds.includes(share.participantId));
+          const paymentId = uid();
+          const allocations: SalePaymentAllocation[] = targetShares.flatMap((share) => {
+            const pending = Math.max(0, share.amountCents - (allocatedByShare.get(share.id) ?? 0));
+            return pending > 0 ? [{ id: uid(), paymentId, itemShareId: share.id, amountCents: pending }] : [];
+          });
+          const amountCents = allocations.reduce((sum, allocation) => sum + allocation.amountCents, 0);
+          if (amountCents <= 0) return { salePaymentIntents: state.salePaymentIntents.map((row) => row.id === intentId ? { ...row, status: 'cancelled' as const } : row) };
+          const payment: SalePayment = {
+            id: paymentId,
+            tabId: intent.tabId,
+            payerPlayerId: payer.playerId,
+            payerName: payer.name,
+            amount: amountCents / 100,
+            method: intent.method,
+            paidAt: nowIso(),
+            reversedAt: null,
+          };
+          const nextPayments = [...state.salePayments, payment];
+          const orderIds = new Set(state.serviceOrders.filter((order) => order.tabId === intent.tabId).map((order) => order.id));
+          const gross = state.serviceOrderItems.filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled').reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+          const paid = nextPayments.filter((row) => row.tabId === intent.tabId && !row.reversedAt).reduce((sum, row) => sum + row.amount, 0);
+          return {
+            salePayments: nextPayments,
+            salePaymentAllocations: [...state.salePaymentAllocations, ...allocations],
+            salePaymentIntents: state.salePaymentIntents.map((row) => row.id === intentId ? { ...row, status: 'paid' as const, paidAt: nowIso() } : row),
+            serviceTabs: state.serviceTabs.map((tab) => tab.id === intent.tabId ? { ...tab, status: paid + 0.001 >= gross ? 'paid' as const : 'partially_paid' as const } : tab),
+          };
+        });
+      },
+
       setOrderItemStatus: (itemId, status, cancellationReason) => {
         set((state) => {
           const target = state.serviceOrderItems.find((item) => item.id === itemId);
           if (!target) return {};
+          if (status === 'cancelled') {
+            const targetShareIds = new Set(state.orderItemShares.filter((share) => share.itemId === itemId).map((share) => share.id));
+            if (state.salePaymentAllocations.some((allocation) => targetShareIds.has(allocation.itemShareId))) return {};
+          }
           const items = state.serviceOrderItems.map((item) =>
             item.id === itemId
               ? { ...item, status, cancellationReason: status === 'cancelled' ? cancellationReason?.trim() || 'Cancelado pelo gerente' : null }
@@ -1115,10 +1275,26 @@ export const useAppStore = create<AppState>()(
           const amount = Math.min(input.amount, Math.max(0, gross - alreadyPaid));
           if (amount <= 0) return {};
           const payment: SalePayment = { id: uid(), tabId, payerPlayerId: input.payerPlayerId, payerName: input.payerName.trim() || 'Cliente', amount, method: input.method, paidAt: nowIso(), reversedAt: null };
+          const allocatedByShare = new Map<string, number>();
+          for (const allocation of state.salePaymentAllocations) allocatedByShare.set(allocation.itemShareId, (allocatedByShare.get(allocation.itemShareId) ?? 0) + allocation.amountCents);
+          const itemIds = new Set(state.serviceOrderItems.filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled').map((item) => item.id));
+          const allowedParticipants = input.coveredParticipantIds?.length ? new Set(input.coveredParticipantIds) : null;
+          let remainingCents = Math.round(amount * 100);
+          const allocations: SalePaymentAllocation[] = [];
+          for (const share of state.orderItemShares.filter((row) => itemIds.has(row.itemId) && (!allowedParticipants || allowedParticipants.has(row.participantId)))) {
+            if (remainingCents <= 0) break;
+            const pending = Math.max(0, share.amountCents - (allocatedByShare.get(share.id) ?? 0));
+            const allocated = Math.min(pending, remainingCents);
+            if (allocated > 0) {
+              allocations.push({ id: uid(), paymentId: payment.id, itemShareId: share.id, amountCents: allocated });
+              remainingCents -= allocated;
+            }
+          }
           const nextPaid = alreadyPaid + amount;
           const status: ServiceTabStatus = nextPaid + 0.001 >= gross ? 'paid' : 'partially_paid';
           return {
             salePayments: [...state.salePayments, payment],
+            salePaymentAllocations: [...state.salePaymentAllocations, ...allocations],
             serviceTabs: state.serviceTabs.map((tab) => (tab.id === tabId ? { ...tab, status } : tab)),
           };
         });
@@ -1133,7 +1309,11 @@ export const useAppStore = create<AppState>()(
           const gross = state.serviceOrderItems.filter((item) => orderIds.has(item.orderId) && item.status !== 'cancelled').reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
           const paid = payments.filter((row) => row.tabId === payment.tabId && !row.reversedAt).reduce((sum, row) => sum + row.amount, 0);
           const status: ServiceTabStatus = paid <= 0 ? 'awaiting_payment' : paid + 0.001 >= gross ? 'paid' : 'partially_paid';
-          return { salePayments: payments, serviceTabs: state.serviceTabs.map((tab) => (tab.id === payment.tabId ? { ...tab, status, closedAt: null } : tab)) };
+          return {
+            salePayments: payments,
+            salePaymentAllocations: state.salePaymentAllocations.filter((allocation) => allocation.paymentId !== paymentId),
+            serviceTabs: state.serviceTabs.map((tab) => (tab.id === payment.tabId ? { ...tab, status, closedAt: null } : tab)),
+          };
         });
       },
 
@@ -1882,7 +2062,11 @@ export const useAppStore = create<AppState>()(
         tabParticipants: state.tabParticipants,
         serviceOrders: state.serviceOrders,
         serviceOrderItems: state.serviceOrderItems,
+        orderItemShares: state.orderItemShares,
         salePayments: state.salePayments,
+        salePaymentAllocations: state.salePaymentAllocations,
+        salePaymentIntents: state.salePaymentIntents,
+        paymentGatewayConnections: state.paymentGatewayConnections,
         cashShifts: state.cashShifts,
         coaches: state.coaches,
         classPrograms: state.classPrograms,
