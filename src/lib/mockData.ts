@@ -250,7 +250,7 @@ export const MOCK_SALE_PAYMENT_ALLOCATIONS: SalePaymentAllocation[] = [
 ];
 
 export const MOCK_PAYMENT_GATEWAY_CONNECTIONS: PaymentGatewayConnection[] = [
-  { id: 'pgc1', establishmentId: 'est2', provider: 'sicoob', status: 'connected', accountLabel: 'Sicoob · conta final 4821', pixEnabled: true, cardEnabled: false, connectedAt: iso(now), updatedAt: iso(now) },
+  { id: 'pgc1', establishmentId: 'est2', provider: 'sicoob', status: 'connected', accountLabel: 'Sicoob · conta final 4821', pixEnabled: true, cardEnabled: false, contactlessEnabled: false, connectedAt: iso(now), updatedAt: iso(now) },
 ];
 
 export const MOCK_SALE_PAYMENT_INTENTS: SalePaymentIntent[] = [];

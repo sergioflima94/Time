@@ -1119,6 +1119,7 @@ export const useAppStore = create<AppState>()(
           accountLabel: provider === 'manual_pix' ? 'Chave Pix do estabelecimento' : `${provider.replace('_', ' ')} · modo demonstração`,
           pixEnabled: true,
           cardEnabled: provider === 'mercado_pago' || provider === 'picpay',
+          contactlessEnabled: provider === 'mercado_pago' || provider === 'picpay',
           connectedAt: existing?.connectedAt ?? now,
           updatedAt: now,
         };
@@ -1136,6 +1137,7 @@ export const useAppStore = create<AppState>()(
         const connection = state.paymentGatewayConnections.find((row) => row.establishmentId === tab.establishmentId && row.status === 'connected');
         const provider = connection?.provider ?? 'manual_pix';
         if (method === 'card' && !connection?.cardEnabled) return null;
+        if (method === 'contactless' && !connection?.contactlessEnabled) return null;
         const balances = outstandingByParticipant(tabId, state.serviceOrders, state.serviceOrderItems, state.orderItemShares, state.salePaymentAllocations);
         const validCovered = [...new Set(coveredParticipantIds)].filter((participantId) => (balances[participantId] ?? 0) > 0);
         const amountCents = validCovered.reduce((sum, participantId) => sum + (balances[participantId] ?? 0), 0);

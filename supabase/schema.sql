@@ -298,7 +298,7 @@ create table payments (
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   status text not null default 'pending' check (status in ('pending', 'paid', 'waived')),
-  method text check (method in ('pix', 'cash', 'card')),
+  method text check (method in ('pix', 'cash', 'card', 'contactless')),
   paid_at timestamptz,
   -- quem efetivamente pagou, quando alguém paga a própria parte e a de outro jogador junto. null = o próprio jogador.
   paid_by_player_id uuid references players (id),
@@ -588,6 +588,7 @@ create table payment_gateway_connections (
   account_label text,
   pix_enabled boolean not null default true,
   card_enabled boolean not null default false,
+  contactless_enabled boolean not null default false,
   credential_secret_id uuid,
   connected_at timestamptz,
   updated_at timestamptz not null default now()
@@ -618,7 +619,7 @@ create table sale_payment_intents (
   payer_participant_id uuid not null references tab_participants (id),
   covered_participant_ids uuid[] not null,
   provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
-  method text not null check (method in ('pix', 'cash', 'card')),
+  method text not null check (method in ('pix', 'cash', 'card', 'contactless')),
   amount_cents int not null check (amount_cents > 0),
   status text not null default 'pending' check (status in ('pending', 'paid', 'expired', 'cancelled', 'failed')),
   external_id text,
@@ -635,7 +636,7 @@ create table sale_payments (
   payer_player_id uuid references players (id),
   payer_name text not null,
   amount numeric(10, 2) not null check (amount > 0),
-  method text not null check (method in ('pix', 'cash', 'card')),
+  method text not null check (method in ('pix', 'cash', 'card', 'contactless')),
   paid_at timestamptz not null default now(),
   reversed_at timestamptz
 );
@@ -761,7 +762,7 @@ create table class_enrollments (
   player_id uuid not null references players (id),
   status text not null check (status in ('confirmed', 'waitlisted', 'cancelled')),
   payment_status text not null check (payment_status in ('pending', 'paid', 'waived', 'refunded')),
-  payment_method text check (payment_method in ('pix', 'cash', 'card')),
+  payment_method text check (payment_method in ('pix', 'cash', 'card', 'contactless')),
   amount numeric(10, 2) not null default 0,
   is_trial boolean not null default false,
   waitlist_position int,

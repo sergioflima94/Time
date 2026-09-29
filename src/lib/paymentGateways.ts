@@ -5,6 +5,7 @@ import type {
   SalePaymentAllocation,
   ServiceOrder,
   ServiceOrderItem,
+  PaymentMethod,
 } from '@/types';
 
 export interface GatewayDefinition {
@@ -13,6 +14,7 @@ export interface GatewayDefinition {
   shortDescription: string;
   pix: boolean;
   card: boolean;
+  contactless: boolean;
   connectionHint: string;
 }
 
@@ -23,6 +25,7 @@ export const PAYMENT_GATEWAYS: GatewayDefinition[] = [
     shortDescription: 'Pix de baixo custo com conciliação por txid.',
     pix: true,
     card: false,
+    contactless: false,
     connectionHint: 'Conta PJ, aplicação Pix e certificado configurados no backend.',
   },
   {
@@ -31,22 +34,25 @@ export const PAYMENT_GATEWAYS: GatewayDefinition[] = [
     shortDescription: 'Pix direto na conta Inter Empresas.',
     pix: true,
     card: false,
+    contactless: false,
     connectionHint: 'Conta Inter Empresas, Client ID/Secret e certificado.',
   },
   {
     id: 'mercado_pago',
     label: 'Mercado Pago',
-    shortDescription: 'Pix e cartão com checkout conhecido pelo público.',
+    shortDescription: 'Pix, cartão e Point Tap/Tap to Pay no celular.',
     pix: true,
     card: true,
+    contactless: true,
     connectionHint: 'Conexão segura por OAuth; o dono não compartilha a senha.',
   },
   {
     id: 'picpay',
     label: 'PicPay',
-    shortDescription: 'Pix, carteira PicPay e cartão por link de pagamento.',
+    shortDescription: 'Pix, carteira, cartão e Tap on Phone mediante habilitação.',
     pix: true,
     card: true,
+    contactless: true,
     connectionHint: 'Conta PicPay Empresas e credencial guardada no backend.',
   },
   {
@@ -55,6 +61,7 @@ export const PAYMENT_GATEWAYS: GatewayDefinition[] = [
     shortDescription: 'Sem automação: mostra a chave e o caixa confirma o recebimento.',
     pix: true,
     card: false,
+    contactless: false,
     connectionHint: 'Usa a chave Pix já cadastrada no estabelecimento.',
   },
 ];
@@ -109,4 +116,13 @@ export function connectedGateway(
 
 export function demoPixCode(provider: PaymentGatewayProvider, intentId: string, amountCents: number): string {
   return `00020126${provider.toUpperCase()}-${intentId}-BRL-${amountCents}6304DEMO`;
+}
+
+export function paymentMethodLabel(method: PaymentMethod): string {
+  return ({
+    pix: 'Pix',
+    card: 'Cartão online',
+    contactless: 'Aproximação',
+    cash: 'Dinheiro',
+  } satisfies Record<PaymentMethod, string>)[method];
 }

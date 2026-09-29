@@ -60,6 +60,7 @@ export default function PaymentGatewaysScreen() {
             <View style={styles.capabilities}>
               {gateway.pix && <Badge label="PIX" color={colors.primary} />}
               {gateway.card && <Badge label="CARTÃO" color={colors.secondary} />}
+              {gateway.contactless && <Badge label="APROXIMAÇÃO" color={colors.warning} />}
             </View>
             <Text style={styles.hint}>{gateway.connectionHint}</Text>
             <Button label={active ? 'Gateway em uso' : gateway.id === 'manual_pix' ? 'Usar Pix manual' : 'Conectar conta'} variant={active ? 'secondary' : 'outline'} onPress={() => connect(gateway.id)} disabled={active} />
@@ -72,6 +73,7 @@ export default function PaymentGatewaysScreen() {
         <Text style={styles.hint}>• O aplicativo nunca salva senha bancária.</Text>
         <Text style={styles.hint}>• Cada cobrança usa uma chave de idempotência.</Text>
         <Text style={styles.hint}>• Somente webhooks validados confirmam pagamentos reais.</Text>
+        <Text style={styles.hint}>• Aproximação exige aparelho com NFC e build nativo homologado; não funciona no Expo Go.</Text>
         <Text style={styles.hint}>• O caixa ainda pode registrar dinheiro ou confirmar Pix manual.</Text>
       </Card>
     </Screen>

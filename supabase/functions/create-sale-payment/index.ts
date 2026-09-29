@@ -59,6 +59,23 @@ serve(async (req) => {
     const amount = (intent.amount_cents / 100).toFixed(2);
     const webhookBase = Deno.env.get('PAYMENT_WEBHOOK_URL');
 
+    // A captura NFC acontece no SDK SoftPOS certificado dentro do build nativo.
+    // A Edge Function nunca tenta ler cartão nem devolve credenciais secretas ao app;
+    // ela apenas autoriza o fluxo ligado a uma intenção já persistida. O resultado
+    // financeiro continua sendo confirmado pelo webhook do PSP.
+    if (intent.method === 'contactless') {
+      if (!connection.contactless_enabled || !['mercado_pago', 'picpay'].includes(connection.provider)) {
+        return jsonResponse({ error: 'Aproximação não habilitada para este gateway' }, 409);
+      }
+      return jsonResponse({
+        intentId: intent.id,
+        provider: connection.provider,
+        nativeAction: connection.provider === 'mercado_pago' ? 'mercado_pago_point_tap' : 'picpay_tap_on_phone',
+        requiresNativeCapture: true,
+        amountCents: intent.amount_cents,
+      });
+    }
+
     let externalId: string | null = null;
     let pixCopyPaste: string | null = null;
     let checkoutUrl: string | null = null;

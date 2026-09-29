@@ -432,6 +432,13 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   pública fica em `PaymentGatewayConnection`, mas token/certificado fica somente no
   Supabase Vault. No modo mock, a conexão e o webhook são simulados para testar todo o
   fluxo sem cobrança real.
+- ✅ **Pagamento por aproximação (SoftPOS)**: no fechamento da comanda o caixa pode
+  selecionar **Aprox.**, escolher as partes que uma pessoa vai quitar e ativar o leitor.
+  O cliente aproxima cartão, relógio ou outro celular com Apple Pay/Google Pay. Mercado
+  Pago usa Point Tap/Tap to Pay; PicPay fica disponível quando a conta possui Tap on
+  Phone homologado. A intenção mantém o mesmo vínculo com `OrderItemShare`, portanto um
+  único pagamento pode quitar a parte do pagador e de outras pessoas. A resposta local
+  do NFC nunca dá baixa sozinha: o webhook validado continua sendo a autoridade.
 - ✅ **Backend de cobrança de consumo** (`supabase/functions/create-sale-payment` e
   `supabase/functions/payment-webhook`): Mercado Pago usa Orders API para Pix e checkout
   hospedado para cartão; PicPay usa Payment Link para Pix/cartão. O webhook revalida o
@@ -490,10 +497,34 @@ cliente chama por `supabase.functions.invoke(...)`.
 5. Nunca use token em variável `EXPO_PUBLIC_*`, AsyncStorage ou tabela legível pelo
    aplicativo. O cliente vê somente o nome da conta e o status da conexão.
 
+#### Ativar pagamento por aproximação
+
+O fluxo visual e o contrato de dados já estão implementados em
+`src/lib/contactlessPayments.ts`. Em modo mock ele é totalmente simulável. Em produção,
+SoftPOS não é uma leitura NFC comum e **não funciona no Expo Go nem na web**: é necessário
+um development/production build com o SDK certificado do provedor.
+
+1. O estabelecimento conecta Mercado Pago ou PicPay e solicita ao provedor a habilitação
+   de Point Tap/Tap to Pay ou Tap on Phone para a conta.
+2. O build nativo fornece o módulo `PeladaContactless`, com o método
+   `startPayment({ intentId, amountCents, provider })`. O módulo deve usar exclusivamente
+   o SDK homologado entregue pelo PSP; não use bibliotecas NFC genéricas para ler cartões.
+3. No iPhone, solicite à Apple o entitlement de Tap to Pay e use um PSP participante. No
+   Android, o aparelho precisa de NFC e atender aos requisitos de integridade do SoftPOS.
+4. Marque `payment_gateway_connections.contactless_enabled = true` somente depois da
+   homologação daquele estabelecimento/build.
+5. Configure o webhook do PSP. Mesmo se o SDK retornar “aprovado”, somente
+   `payment-webhook` chama `settle_sale_payment_intent` e quita a comanda.
+
+Enquanto o SDK comercial não estiver presente, o app mostra a causa da indisponibilidade
+em vez de fingir uma cobrança. O Pix continua disponível como opção de menor custo.
+
 Referências oficiais usadas na integração: [Pix/Orders do Mercado Pago](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/pix),
 [OAuth do Mercado Pago](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation),
 [Pix do PicPay](https://developers-business.picpay.com/pix/docs/api/charge-pix) e
 [Payment Link do PicPay](https://developers-business.picpay.com/payment-link/docs/api/create-charge).
+Para aproximação, consulte também [Tap to Pay no iPhone — provedores no Brasil](https://developer.apple.com/tap-to-pay/regions/)
+e [Point Tap do Mercado Pago](https://www.mercadopago.com.br/developers/pt/support/23846).
 
 ## Multi-esporte
 

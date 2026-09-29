@@ -11,8 +11,10 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
+import { contactlessReadiness, startContactlessPayment } from '@/lib/contactlessPayments';
 import { formatMoney, orderStatusLabel, tabStatusLabel, tabTotals } from '@/lib/establishmentOperations';
-import { getGateway, outstandingByParticipant } from '@/lib/paymentGateways';
+import { getGateway, outstandingByParticipant, paymentMethodLabel } from '@/lib/paymentGateways';
+import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import type { PaymentMethod } from '@/types';
 
@@ -49,6 +51,7 @@ export default function TabDetailScreen() {
   const [payerParticipantId, setPayerParticipantId] = useState<string | null>(participants[0]?.id ?? null);
   const [coveredParticipantIds, setCoveredParticipantIds] = useState<string[]>(participants[0]?.id ? [participants[0].id] : []);
   const [currentIntentId, setCurrentIntentId] = useState<string | null>(null);
+  const [contactlessStage, setContactlessStage] = useState<'idle' | 'starting' | 'presented' | 'cancelled'>('idle');
 
   const totals = tab ? tabTotals(tab.id, allOrders, allItems, payments) : { gross: 0, paid: 0, balance: 0 };
   const orderIds = useMemo(() => new Set(orders.map((order) => order.id)), [orders]);
@@ -58,6 +61,7 @@ export default function TabDetailScreen() {
     [id, allOrders, allItems, itemShares, allocations],
   );
   const gateway = getGateway(gatewayConnection?.provider ?? 'manual_pix');
+  const contactless = contactlessReadiness(gatewayConnection);
   const currentIntent = paymentIntents.find((row) => row.id === currentIntentId) ?? null;
   const canOrder = tab?.status === 'open';
 
@@ -115,14 +119,27 @@ export default function TabDetailScreen() {
     setCoveredParticipantIds((current) => current.includes(participantId) ? current.filter((id) => id !== participantId) : [...current, participantId]);
   }
 
-  function handleGatewayCharge() {
+  async function handleGatewayCharge() {
     if (!payerParticipantId) return;
+    if (paymentMethod === 'contactless' && !contactless.available) {
+      Alert.alert('Aproximação indisponível', contactless.message);
+      return;
+    }
     const intent = createSalePaymentIntent(tabId, payerParticipantId, coveredParticipantIds, paymentMethod);
     if (!intent) {
-      Alert.alert('Não foi possível criar a cobrança', paymentMethod === 'card' ? `${gateway.label} não está habilitado para cartão.` : 'Confira as pessoas e os saldos selecionados.');
+      Alert.alert('Não foi possível criar a cobrança', paymentMethod === 'card' ? `${gateway.label} não está habilitado para cartão.` : paymentMethod === 'contactless' ? `${gateway.label} não está habilitado para aproximação.` : 'Confira as pessoas e os saldos selecionados.');
       return;
     }
     setCurrentIntentId(intent.id);
+    if (paymentMethod !== 'contactless' || !gatewayConnection) return;
+    setContactlessStage('starting');
+    try {
+      const result = await startContactlessPayment(intent, gatewayConnection);
+      setContactlessStage(result.status === 'cancelled' ? 'cancelled' : 'presented');
+    } catch (error) {
+      setContactlessStage('idle');
+      Alert.alert('Não foi possível abrir o leitor', error instanceof Error ? error.message : 'Tente novamente.');
+    }
   }
 
   function handleClose() {
@@ -226,17 +243,26 @@ export default function TabDetailScreen() {
             {participants.filter((participant) => (outstanding[participant.id] ?? 0) > 0).map((participant) => <Pressable key={participant.id} onPress={() => toggleCovered(participant.id)} style={[styles.chip, coveredParticipantIds.includes(participant.id) && styles.chipActive]}><Text style={[styles.chipText, coveredParticipantIds.includes(participant.id) && styles.chipTextActive]}>{participant.name} · {formatMoney((outstanding[participant.id] ?? 0) / 100)}</Text></Pressable>)}
           </View>
 
-          <SegmentedControl<PaymentMethod> label="Forma" value={paymentMethod} onChange={setPaymentMethod} options={[{ value: 'pix', label: 'Pix' }, { value: 'card', label: 'Cartão' }, { value: 'cash', label: 'Dinheiro' }]} />
-          <Button label={paymentMethod === 'pix' ? 'Gerar cobrança Pix' : paymentMethod === 'card' ? 'Abrir checkout do cartão' : 'Preparar baixa em dinheiro'} onPress={handleGatewayCharge} disabled={!payerParticipantId || coveredParticipantIds.length === 0 || (paymentMethod === 'card' && !gateway.card)} />
+          <SegmentedControl<PaymentMethod> label="Forma" value={paymentMethod} onChange={(method) => { setPaymentMethod(method); setContactlessStage('idle'); }} options={[{ value: 'pix', label: 'Pix' }, { value: 'contactless', label: 'Aprox.' }, { value: 'card', label: 'Online' }, { value: 'cash', label: 'Dinheiro' }]} />
+          {paymentMethod === 'contactless' && (
+            <View style={[styles.contactlessInfo, contactless.available && styles.contactlessInfoReady]}>
+              <Ionicons name="phone-portrait-outline" size={24} color={contactless.available ? colors.primary : colors.warning} />
+              <View style={{ flex: 1 }}><Text style={styles.gatewayTitle}>{contactless.available ? 'Celular pronto para receber' : 'Aproximação indisponível'}</Text><Text style={styles.meta}>{contactless.message}</Text></View>
+            </View>
+          )}
+          <Button loading={contactlessStage === 'starting'} label={paymentMethod === 'pix' ? 'Gerar cobrança Pix' : paymentMethod === 'contactless' ? 'Ativar leitor por aproximação' : paymentMethod === 'card' ? 'Abrir checkout online' : 'Preparar baixa em dinheiro'} onPress={handleGatewayCharge} disabled={!payerParticipantId || coveredParticipantIds.length === 0 || (paymentMethod === 'card' && !gateway.card) || (paymentMethod === 'contactless' && !contactless.available)} />
           {paymentMethod === 'card' && !gateway.card && <Text style={styles.warning}>Escolha Mercado Pago ou PicPay no estabelecimento para aceitar cartão.</Text>}
+          {paymentMethod === 'contactless' && !gateway.contactless && <Text style={styles.warning}>Escolha Mercado Pago ou PicPay no estabelecimento para aceitar aproximação.</Text>}
 
           {currentIntent && (
             <View style={styles.intentBox}>
               <View style={styles.row}><Text style={styles.gatewayTitle}>Cobrança {currentIntent.status === 'paid' ? 'confirmada' : 'gerada'}</Text><Badge label={currentIntent.status === 'paid' ? 'PAGO' : 'AGUARDANDO'} color={currentIntent.status === 'paid' ? colors.success : colors.warning} /></View>
               <Text style={styles.intentAmount}>{formatMoney(currentIntent.amountCents / 100)}</Text>
-              <Text style={styles.meta}>{getGateway(currentIntent.provider).label} · {currentIntent.method === 'pix' ? 'Pix' : currentIntent.method === 'card' ? 'Cartão' : 'Dinheiro'}</Text>
+              <Text style={styles.meta}>{getGateway(currentIntent.provider).label} · {paymentMethodLabel(currentIntent.method)}</Text>
               {currentIntent.pixCopyPaste && <Text selectable style={styles.pixCode}>{currentIntent.pixCopyPaste}</Text>}
-              {currentIntent.status === 'pending' && <Button label="Simular confirmação do gateway" variant="outline" onPress={() => confirmSalePaymentIntent(currentIntent.id)} />}
+              {currentIntent.method === 'contactless' && currentIntent.status === 'pending' && contactlessStage === 'presented' && <View style={styles.tapPrompt}><Ionicons name="radio-outline" size={30} color={colors.primary} /><View style={{ flex: 1 }}><Text style={styles.tapTitle}>Aproxime agora</Text><Text style={styles.meta}>Encoste o cartão, relógio ou celular do cliente na parte traseira deste aparelho e aguarde a confirmação.</Text></View></View>}
+              {currentIntent.method === 'contactless' && contactlessStage === 'cancelled' && <Text style={styles.warning}>Leitura cancelada. Você pode ativar o leitor novamente.</Text>}
+              {isMockMode && currentIntent.status === 'pending' && <Button label="Simular confirmação do gateway" variant="outline" onPress={() => confirmSalePaymentIntent(currentIntent.id)} />}
             </View>
           )}
 
@@ -263,4 +289,5 @@ const styles = StyleSheet.create({
   orderBlock: { borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingVertical: spacing.md }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, orderTitle: { color: colors.text, fontWeight: '700' }, itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.sm }, itemText: { color: colors.textMuted, flex: 1 }, cancelled: { textDecorationLine: 'line-through', color: colors.textFaint }, empty: { color: colors.textMuted, textAlign: 'center', marginVertical: spacing.lg },
   itemBlock: { borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingBottom: spacing.sm }, shareSummary: { color: colors.primary, fontSize: 11, lineHeight: 16 }, splitBox: { backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm }, inlineButtons: { flexDirection: 'row', gap: spacing.sm },
   gatewayBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.md }, gatewayTitle: { color: colors.text, fontWeight: '800', fontSize: 13 }, subheading: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginTop: spacing.sm }, balanceRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }, balanceValue: { color: colors.text, fontWeight: '800' }, warning: { color: colors.warning, fontSize: 11 }, intentBox: { backgroundColor: colors.bgElevated, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm }, intentAmount: { color: colors.primary, fontSize: 24, fontWeight: '900' }, pixCode: { color: colors.textMuted, fontSize: 10, backgroundColor: colors.bg, borderRadius: radius.sm, padding: spacing.sm }, divider: { height: 1, backgroundColor: colors.cardBorder, marginVertical: spacing.sm },
+  contactlessInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: radius.md, padding: spacing.md }, contactlessInfoReady: { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.08)' }, tapPrompt: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.md, padding: spacing.md, backgroundColor: 'rgba(34,197,94,0.1)' }, tapTitle: { color: colors.primary, fontSize: 17, fontWeight: '900' },
 });

@@ -286,6 +286,8 @@ export interface PaymentGatewayConnection {
   accountLabel: string | null;
   pixEnabled: boolean;
   cardEnabled: boolean;
+  /** SoftPOS/Tap to Pay homologado no aparelho do caixa. */
+  contactlessEnabled: boolean;
   connectedAt: string | null;
   updatedAt: string;
 }
@@ -639,7 +641,7 @@ export interface PlayerPunishmentSummary {
 }
 
 export type PaymentStatus = 'pending' | 'paid' | 'waived';
-export type PaymentMethod = 'pix' | 'cash' | 'card';
+export type PaymentMethod = 'pix' | 'cash' | 'card' | 'contactless';
 
 /** Rateio ("vaquinha") do custo da quadra: 1 registro por jogador confirmado em um Game com fieldCost definido. */
 export interface Payment {
