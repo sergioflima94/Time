@@ -1,3 +1,46 @@
+-- Atualização incremental da versão inicial já hospedada.
+-- Não remove tabelas nem registros.
+alter table public.players
+  add column if not exists banter_opt_in boolean not null default false,
+  add column if not exists favorite_sports text[] not null default array['futebol'],
+  add column if not exists free_agent_opt_in boolean not null default false,
+  add column if not exists free_agent_radius_km numeric,
+  add column if not exists free_agent_availability jsonb not null default '[]'::jsonb,
+  add column if not exists location_lat double precision,
+  add column if not exists location_lng double precision,
+  add column if not exists location_updated_at timestamptz;
+
+alter table public.peladas
+  add column if not exists sport_id text not null default 'futebol',
+  add column if not exists football_variant text not null default 'society',
+  add column if not exists member_can_invite_free_agents boolean not null default false,
+  add column if not exists member_can_invite_new_members boolean not null default false;
+
+alter table public.fields alter column pelada_id drop not null;
+alter table public.fields
+  add column if not exists establishment_id uuid,
+  add column if not exists sport_id text not null default 'futebol',
+  add column if not exists latitude double precision,
+  add column if not exists longitude double precision,
+  add column if not exists average_rating numeric(3, 2),
+  add column if not exists cancellation_rate numeric(5, 4) not null default 0;
+
+alter table public.schedules
+  add column if not exists booking_duration_minutes int not null default 90,
+  add column if not exists auto_booking_enabled boolean not null default false,
+  add column if not exists booking_minimum_players int not null default 10,
+  add column if not exists booking_response_minutes int not null default 30,
+  add column if not exists poll_quorum_percent int not null default 50,
+  add column if not exists poll_reminder_minutes int not null default 120;
+
+alter table public.games
+  add column if not exists duration_minutes int not null default 90,
+  add column if not exists rotation_mode text not null default 'teams';
+
+alter table public.payments
+  add column if not exists paid_by_player_id uuid references public.players(id);
+alter table public.payments drop constraint if exists payments_method_check;
+alter table public.payments add constraint payments_method_check check (method in ('pix', 'cash', 'card', 'contactless'));
 -- =========================================================================
 -- Schema do app de Pelada (futebol amador)
 -- Rode este arquivo no SQL Editor do seu projeto Supabase (supabase.com).
@@ -9,7 +52,7 @@ create extension if not exists "supabase_vault";
 -- ---------------------------------------------------------------------
 -- players: 1 linha por usuário autenticado (auth.users) + convidados
 -- ---------------------------------------------------------------------
-create table players (
+create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid unique references auth.users (id) on delete set null,
   name text not null,
@@ -43,7 +86,7 @@ create table players (
 -- ---------------------------------------------------------------------
 -- peladas: o grupo fixo de jogadores
 -- ---------------------------------------------------------------------
-create table peladas (
+create table if not exists peladas (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
@@ -62,7 +105,7 @@ create table peladas (
   created_at timestamptz not null default now()
 );
 
-create table pelada_memberships (
+create table if not exists pelada_memberships (
   pelada_id uuid not null references peladas (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   role text not null default 'member' check (role in ('admin', 'member')),
@@ -75,7 +118,7 @@ create table pelada_memberships (
 -- establishments: dono de campo/quadra — papel independente de pelada.
 -- Cadastra como quer receber o rateio das partidas jogadas no campo dele.
 -- ---------------------------------------------------------------------
-create table establishments (
+create table if not exists establishments (
   id uuid primary key default gen_random_uuid(),
   owner_player_id uuid not null references players (id) on delete cascade,
   name text not null,
@@ -92,7 +135,7 @@ create table establishments (
   created_at timestamptz not null default now()
 );
 
-create table fields (
+create table if not exists fields (
   id uuid primary key default gen_random_uuid(),
   -- null = campo próprio do estabelecimento, cadastrado direto pelo dono, sem pertencer a nenhuma pelada.
   pelada_id uuid references peladas (id) on delete cascade,
@@ -116,7 +159,7 @@ create table fields (
 -- (peladaId setado) ou avulso (só o nome). "weekly" é o horário fixo: toda semana, naquele
 -- dia + horário, aquele time já está lá. O bloqueio de conflito de horário (mesmo campo +
 -- dia + faixa de horário sobreposta) é feito na store (src/lib/fieldBooking.ts), não aqui.
-create table field_bookings (
+create table if not exists field_bookings (
   id uuid primary key default gen_random_uuid(),
   field_id uuid not null references fields (id) on delete cascade,
   establishment_id uuid not null references establishments (id) on delete cascade,
@@ -139,7 +182,7 @@ create table field_bookings (
   )
 );
 
-create table schedules (
+create table if not exists schedules (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   field_id uuid not null references fields (id),
@@ -163,7 +206,7 @@ create table schedules (
   created_by uuid not null references players (id)
 );
 
-create table schedule_field_preferences (
+create table if not exists schedule_field_preferences (
   id uuid primary key default gen_random_uuid(),
   schedule_id uuid not null references schedules (id) on delete cascade,
   field_id uuid not null references fields (id) on delete cascade,
@@ -174,7 +217,7 @@ create table schedule_field_preferences (
   unique (schedule_id, priority)
 );
 
-create table games (
+create table if not exists games (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   schedule_id uuid references schedules (id) on delete set null,
@@ -196,7 +239,7 @@ create table games (
   created_at timestamptz not null default now()
 );
 
-create table attendances (
+create table if not exists attendances (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -208,7 +251,7 @@ create table attendances (
   unique (game_id, player_id)
 );
 
-create table teams (
+create table if not exists teams (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   name text not null,
@@ -216,14 +259,14 @@ create table teams (
   queue_order int not null default 0
 );
 
-create table team_players (
+create table if not exists team_players (
   team_id uuid not null references teams (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   is_goalkeeper boolean not null default false,
   primary key (team_id, player_id)
 );
 
-create table match_turns (
+create table if not exists match_turns (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   team_a_id uuid not null references teams (id),
@@ -235,7 +278,7 @@ create table match_turns (
 );
 
 -- gol marcado durante uma rodada (match_turn): usado pro placar ao vivo e pro saldo de gols na carta
-create table goals (
+create table if not exists goals (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   match_turn_id uuid not null references match_turns (id) on delete cascade,
@@ -247,7 +290,7 @@ create table goals (
 -- jogador tirado de campo por cansaço (não é falta/punição) — ver "Troca de jogador em
 -- campo" no README. "resting" volta sozinho depois de matches_remaining rodadas
 -- encerradas; "done_for_today" fica de fora até o admin reverter manualmente.
-create table player_fatigue (
+create table if not exists player_fatigue (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -260,7 +303,7 @@ create table player_fatigue (
 -- jogador aguardando entrar num time no rodízio individual (games.rotation_mode =
 -- 'players') — fica fora de team_players até ser sorteado pra um novo time. Ver
 -- "Rodízio individual" no README.
-create table waiting_players (
+create table if not exists waiting_players (
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   -- rodadas seguidas que já ficou de fora desde a última vez que jogou (ou desde o
@@ -274,7 +317,7 @@ create table waiting_players (
 );
 
 -- amizade entre dois jogadores, independente de pelada (aba Amigos / rede social).
-create table friendships (
+create table if not exists friendships (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references players (id) on delete cascade,
   addressee_id uuid not null references players (id) on delete cascade,
@@ -288,7 +331,7 @@ create table friendships (
 -- curtida num item do feed de atividades. activity_id é a chave estável calculada no
 -- app (ex.: "goal:<player_id>:<game_id>"), não uma FK — o feed em si é derivado de
 -- gols/memberships, não uma tabela de posts.
-create table activity_likes (
+create table if not exists activity_likes (
   id uuid primary key default gen_random_uuid(),
   activity_id text not null,
   player_id uuid not null references players (id) on delete cascade,
@@ -300,7 +343,7 @@ create table activity_likes (
 -- Notificações (pedido de amizade, aceite, curtida, comentário) são computadas em
 -- src/lib/notifications.ts a partir destas tabelas + friendships — não existe uma
 -- tabela "notifications" separada.
-create table activity_comments (
+create table if not exists activity_comments (
   id uuid primary key default gen_random_uuid(),
   activity_id text not null,
   player_id uuid not null references players (id) on delete cascade,
@@ -308,7 +351,7 @@ create table activity_comments (
   created_at timestamptz not null default now()
 );
 
-create table ratings (
+create table if not exists ratings (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   rater_player_id uuid not null references players (id) on delete cascade,
@@ -324,7 +367,7 @@ create table ratings (
 
 -- Selos bem-humorados pós-jogo. A autoria fica protegida; o app consome apenas
 -- a soma por selo via player_banter_summary(). Cada voto expira em 30 dias.
-create table banter_votes (
+create table if not exists banter_votes (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   pelada_id uuid not null references peladas (id) on delete cascade,
@@ -338,7 +381,7 @@ create table banter_votes (
   check (expires_at > created_at and expires_at <= created_at + interval '30 days')
 );
 
-create function clear_banter_votes_on_opt_out() returns trigger as $$
+create or replace function clear_banter_votes_on_opt_out() returns trigger as $$
 begin
   if old.banter_opt_in and not new.banter_opt_in then
     delete from banter_votes where target_player_id = new.id;
@@ -352,7 +395,7 @@ after update of banter_opt_in on players
 for each row execute function clear_banter_votes_on_opt_out();
 
 -- Rateio ("vaquinha") do custo da quadra: 1 linha por jogador confirmado em jogos com field_cost definido.
-create table payments (
+create table if not exists payments (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -364,7 +407,7 @@ create table payments (
   unique (game_id, player_id)
 );
 
-create table punishments (
+create table if not exists punishments (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -380,7 +423,7 @@ create table punishments (
 -- free_agent_invites: convite pra um "jogador livre" (fora da pelada) jogar
 -- um jogo específico — ver src/lib/geo.ts e src/components/NearbyFreeAgentsSection.tsx
 -- ---------------------------------------------------------------------
-create table free_agent_invites (
+create table if not exists free_agent_invites (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   pelada_id uuid not null references peladas (id) on delete cascade,
@@ -397,7 +440,7 @@ create table free_agent_invites (
 -- Aceita times vindos de uma pelada existente ou times avulsos (criados só pro campeonato).
 -- Formato pontos corridos ou mata-mata — ver src/lib/championship.ts
 -- ---------------------------------------------------------------------
-create table championships (
+create table if not exists championships (
   id uuid primary key default gen_random_uuid(),
   -- exatamente um dos dois é preenchido: um estabelecimento cadastrado (dono de campo) organiza,
   -- ou uma pelada organiza direto, sem dono de campo por trás (o admin dela administra).
@@ -425,7 +468,7 @@ create table championships (
   )
 );
 
-create table championship_teams (
+create table if not exists championship_teams (
   id uuid primary key default gen_random_uuid(),
   championship_id uuid not null references championships (id) on delete cascade,
   name text not null,
@@ -439,14 +482,14 @@ create table championship_teams (
   created_at timestamptz not null default now()
 );
 
-create table championship_team_players (
+create table if not exists championship_team_players (
   championship_team_id uuid not null references championship_teams (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   is_goalkeeper boolean not null default false,
   primary key (championship_team_id, player_id)
 );
 
-create table championship_matches (
+create table if not exists championship_matches (
   id uuid primary key default gen_random_uuid(),
   championship_id uuid not null references championships (id) on delete cascade,
   round int not null,
@@ -470,7 +513,7 @@ create table championship_matches (
 );
 
 -- gol/ponto marcado numa partida de campeonato — separado de goals (que é de jogo de pelada)
-create table championship_goals (
+create table if not exists championship_goals (
   id uuid primary key default gen_random_uuid(),
   match_id uuid not null references championship_matches (id) on delete cascade,
   team_id uuid not null references championship_teams (id),
@@ -483,7 +526,7 @@ create table championship_goals (
 -- e confronto direto entre dois jogadores — ver src/store/useAppStore.ts
 -- (sendTeamChallenge/respondTeamChallenge, sendPlayerDuel/respondPlayerDuel).
 -- ---------------------------------------------------------------------
-create table team_challenges (
+create table if not exists team_challenges (
   id uuid primary key default gen_random_uuid(),
   challenger_pelada_id uuid not null references peladas (id) on delete cascade,
   challenged_pelada_id uuid not null references peladas (id) on delete cascade,
@@ -502,7 +545,7 @@ create table team_challenges (
 
 -- partida amistosa gerada quando um desafio é aceito — reaproveita o elenco (membros
 -- ativos) inteiro de cada pelada como "o time", sem seleção avulsa como em campeonato.
-create table friendly_matches (
+create table if not exists friendly_matches (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid not null references team_challenges (id) on delete cascade,
   pelada_a_id uuid not null references peladas (id) on delete cascade,
@@ -523,7 +566,7 @@ alter table team_challenges add constraint team_challenges_match_id_fkey
 
 -- gol/ponto marcado numa partida amistosa — separado de goals (jogo de pelada) e
 -- championship_goals (campeonato).
-create table friendly_match_goals (
+create table if not exists friendly_match_goals (
   id uuid primary key default gen_random_uuid(),
   match_id uuid not null references friendly_matches (id) on delete cascade,
   pelada_id uuid not null references peladas (id),
@@ -533,7 +576,7 @@ create table friendly_match_goals (
 
 -- confronto direto entre dois jogadores, independente de pelada — resultado (quando
 -- registrado) aparece como retrospecto no perfil de cada um.
-create table player_duels (
+create table if not exists player_duels (
   id uuid primary key default gen_random_uuid(),
   challenger_id uuid not null references players (id) on delete cascade,
   challenged_id uuid not null references players (id) on delete cascade,
@@ -554,7 +597,7 @@ create table player_duels (
 -- Operação do estabelecimento: equipe, cardápio, comandas e caixa.
 -- Mantém pagamentos de consumo separados do rateio de partidas.
 -- ---------------------------------------------------------------------
-create table establishment_staff (
+create table if not exists establishment_staff (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -564,7 +607,7 @@ create table establishment_staff (
   unique (establishment_id, player_id)
 );
 
-create table field_availabilities (
+create table if not exists field_availabilities (
   id uuid primary key default gen_random_uuid(),
   field_id uuid not null references fields (id) on delete cascade,
   day_of_week int not null check (day_of_week between 0 and 6),
@@ -575,7 +618,7 @@ create table field_availabilities (
   active boolean not null default true
 );
 
-create table field_promotions (
+create table if not exists field_promotions (
   id uuid primary key default gen_random_uuid(),
   field_id uuid not null references fields (id) on delete cascade,
   sport_id text not null check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
@@ -589,7 +632,7 @@ create table field_promotions (
 
 -- Premissas privadas de precificação. Os resultados (ponto de equilíbrio, sugestão e
 -- lucro) são derivados no app para continuarem auditáveis e fáceis de recalcular.
-create table championship_budgets (
+create table if not exists championship_budgets (
   id uuid primary key default gen_random_uuid(),
   championship_id uuid not null unique references championships (id) on delete cascade,
   planned_teams int not null check (planned_teams >= 2),
@@ -613,7 +656,7 @@ create table championship_budgets (
   updated_at timestamptz not null default now()
 );
 
-create table product_categories (
+create table if not exists product_categories (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   name text not null,
@@ -621,7 +664,7 @@ create table product_categories (
   active boolean not null default true
 );
 
-create table products (
+create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   category_id uuid not null references product_categories (id),
@@ -633,7 +676,7 @@ create table products (
   stock_quantity int check (stock_quantity is null or stock_quantity >= 0)
 );
 
-create table service_tabs (
+create table if not exists service_tabs (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   label text not null,
@@ -647,14 +690,14 @@ create table service_tabs (
   closed_at timestamptz
 );
 
-create table tab_participants (
+create table if not exists tab_participants (
   id uuid primary key default gen_random_uuid(),
   tab_id uuid not null references service_tabs (id) on delete cascade,
   player_id uuid references players (id),
   name text not null
 );
 
-create table service_orders (
+create table if not exists service_orders (
   id uuid primary key default gen_random_uuid(),
   tab_id uuid not null references service_tabs (id) on delete cascade,
   status text not null default 'submitted' check (status in ('draft', 'submitted', 'preparing', 'ready', 'delivered', 'cancelled')),
@@ -665,7 +708,7 @@ create table service_orders (
   completed_at timestamptz
 );
 
-create table service_order_items (
+create table if not exists service_order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references service_orders (id) on delete cascade,
   product_id uuid not null references products (id),
@@ -679,7 +722,7 @@ create table service_order_items (
 
 -- Partes de um item atribuídas aos consumidores. Centavos inteiros evitam divergência
 -- em divisões como R$ 10,00 / 3.
-create table order_item_shares (
+create table if not exists order_item_shares (
   id uuid primary key default gen_random_uuid(),
   item_id uuid not null references service_order_items (id) on delete cascade,
   participant_id uuid not null references tab_participants (id) on delete cascade,
@@ -688,7 +731,7 @@ create table order_item_shares (
 
 -- Metadados públicos da conta escolhida pelo estabelecimento. A credencial real fica
 -- no Supabase Vault e é acessada somente pelas Edge Functions com service_role.
-create table payment_gateway_connections (
+create table if not exists payment_gateway_connections (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null unique references establishments (id) on delete cascade,
   provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
@@ -722,7 +765,7 @@ $$;
 revoke all on function get_gateway_credentials(uuid) from public, anon, authenticated;
 grant execute on function get_gateway_credentials(uuid) to service_role;
 
-create table sale_payment_intents (
+create table if not exists sale_payment_intents (
   id uuid primary key default gen_random_uuid(),
   tab_id uuid not null references service_tabs (id) on delete cascade,
   payer_participant_id uuid not null references tab_participants (id),
@@ -739,7 +782,7 @@ create table sale_payment_intents (
   paid_at timestamptz
 );
 
-create table sale_payments (
+create table if not exists sale_payments (
   id uuid primary key default gen_random_uuid(),
   tab_id uuid not null references service_tabs (id),
   payer_player_id uuid references players (id),
@@ -750,7 +793,7 @@ create table sale_payments (
   reversed_at timestamptz
 );
 
-create table sale_payment_allocations (
+create table if not exists sale_payment_allocations (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references sale_payments (id) on delete cascade,
   item_share_id uuid not null references order_item_shares (id),
@@ -812,7 +855,7 @@ $$;
 revoke all on function settle_sale_payment_intent(uuid) from public, anon, authenticated;
 grant execute on function settle_sale_payment_intent(uuid) to service_role;
 
-create table cash_shifts (
+create table if not exists cash_shifts (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   opened_by_player_id uuid not null references players (id),
@@ -828,7 +871,7 @@ create table cash_shifts (
 -- ---------------------------------------------------------------------
 -- Aulas esportivas: programa, agenda, matrícula, pagamento e chamada.
 -- ---------------------------------------------------------------------
-create table coaches (
+create table if not exists coaches (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   player_id uuid not null references players (id),
@@ -838,7 +881,7 @@ create table coaches (
   unique (establishment_id, player_id)
 );
 
-create table class_programs (
+create table if not exists class_programs (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   name text not null,
@@ -855,7 +898,7 @@ create table class_programs (
   created_at timestamptz not null default now()
 );
 
-create table game_booking_requests (
+create table if not exists game_booking_requests (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   schedule_id uuid not null references schedules (id) on delete cascade,
@@ -876,11 +919,11 @@ create table game_booking_requests (
   failure_reason text
 );
 
-create unique index one_live_booking_request_per_game
+create unique index if not exists one_live_booking_request_per_game
   on game_booking_requests (game_id)
   where status in ('awaiting_owner', 'accepted');
 
-create table team_availability_polls (
+create table if not exists team_availability_polls (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   pelada_id uuid not null references peladas (id) on delete cascade,
@@ -894,7 +937,7 @@ create table team_availability_polls (
   reminder_sent_at timestamptz
 );
 
-create table team_availability_poll_options (
+create table if not exists team_availability_poll_options (
   id uuid primary key default gen_random_uuid(),
   poll_id uuid not null references team_availability_polls (id) on delete cascade,
   field_id uuid not null references fields (id),
@@ -905,7 +948,7 @@ create table team_availability_poll_options (
 alter table team_availability_polls
   add constraint team_poll_selected_option_fk foreign key (selected_option_id) references team_availability_poll_options (id) on delete set null;
 
-create table team_availability_poll_votes (
+create table if not exists team_availability_poll_votes (
   id uuid primary key default gen_random_uuid(),
   poll_id uuid not null references team_availability_polls (id) on delete cascade,
   option_id uuid not null references team_availability_poll_options (id) on delete cascade,
@@ -914,7 +957,7 @@ create table team_availability_poll_votes (
   unique (poll_id, player_id)
 );
 
-create table whatsapp_deliveries (
+create table if not exists whatsapp_deliveries (
   id uuid primary key default gen_random_uuid(),
   booking_request_id uuid references game_booking_requests (id) on delete cascade,
   poll_id uuid references team_availability_polls (id) on delete cascade,
@@ -931,7 +974,7 @@ create table whatsapp_deliveries (
   fallback_from_provider text check (fallback_from_provider in ('evolution_go', 'meta_cloud'))
 );
 
-create table booking_deposits (
+create table if not exists booking_deposits (
   id uuid primary key default gen_random_uuid(),
   booking_request_id uuid not null unique references game_booking_requests (id) on delete cascade,
   payer_player_id uuid not null references players (id),
@@ -950,7 +993,7 @@ create table booking_deposits (
 
 -- Vaquinha é distinta do rateio da quadra. O gateway liquida direto para o responsável;
 -- o app só mantém intenção, confirmação por webhook e prestação de contas.
-create table fundraising_campaigns (
+create table if not exists fundraising_campaigns (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   title text not null,
@@ -968,7 +1011,7 @@ create table fundraising_campaigns (
   closed_at timestamptz
 );
 
-create table fundraising_contributions (
+create table if not exists fundraising_contributions (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references fundraising_campaigns (id) on delete cascade,
   paid_by_player_id uuid not null references players (id),
@@ -986,7 +1029,7 @@ create table fundraising_contributions (
   paid_at timestamptz
 );
 
-create table fundraising_expenses (
+create table if not exists fundraising_expenses (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references fundraising_campaigns (id) on delete cascade,
   title text not null,
@@ -996,7 +1039,7 @@ create table fundraising_expenses (
   created_at timestamptz not null default now()
 );
 
-create table class_sessions (
+create table if not exists class_sessions (
   id uuid primary key default gen_random_uuid(),
   program_id uuid not null references class_programs (id) on delete cascade,
   starts_at timestamptz not null,
@@ -1006,7 +1049,7 @@ create table class_sessions (
   check (ends_at > starts_at)
 );
 
-create table class_enrollments (
+create table if not exists class_enrollments (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references class_sessions (id) on delete cascade,
   player_id uuid not null references players (id),
@@ -1020,9 +1063,9 @@ create table class_enrollments (
   paid_at timestamptz
 );
 
-create unique index class_enrollments_active_unique on class_enrollments (session_id, player_id) where status <> 'cancelled';
+create unique index if not exists class_enrollments_active_unique on class_enrollments (session_id, player_id) where status <> 'cancelled';
 
-create table class_attendances (
+create table if not exists class_attendances (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references class_sessions (id) on delete cascade,
   player_id uuid not null references players (id),
@@ -1032,7 +1075,7 @@ create table class_attendances (
   unique (session_id, player_id)
 );
 
-create table makeup_credits (
+create table if not exists makeup_credits (
   id uuid primary key default gen_random_uuid(),
   player_id uuid not null references players (id),
   program_id uuid not null references class_programs (id) on delete cascade,
@@ -1043,7 +1086,7 @@ create table makeup_credits (
 
 -- A agenda é validada também no banco: dois clientes podem tentar publicar ao mesmo
 -- tempo, portanto esconder o horário apenas no app não é suficiente.
-create function prevent_class_session_conflict() returns trigger as $$
+create or replace function prevent_class_session_conflict() returns trigger as $$
 declare
   v_field_id uuid;
 begin
@@ -1079,7 +1122,7 @@ for each row when (new.status <> 'cancelled') execute function prevent_class_ses
 
 -- View: nota geral do jogador estilo "carta de FIFA" (0-99)
 -- ---------------------------------------------------------------------
-create view player_overalls as
+create or replace view player_overalls as
 select
   rated_player_id as player_id,
   round(avg(attack) * 19.8)::int as attack,
@@ -1155,7 +1198,7 @@ revoke all on function respond_game_booking_request(uuid, boolean, text) from pu
 -- ---------------------------------------------------------------------
 -- Módulos da Central do Esporte. O app local usa useGrowthStore; estas tabelas
 -- são o contrato de persistência para produção e mantêm cada domínio isolado.
-create table multi_sport_scoreboards (
+create table if not exists multi_sport_scoreboards (
   id uuid primary key default gen_random_uuid(),
   game_id uuid references games (id) on delete cascade,
   sport_id text not null,
@@ -1172,7 +1215,7 @@ create table multi_sport_scoreboards (
   created_at timestamptz not null default now()
 );
 
-create table scoreboard_segments (
+create table if not exists scoreboard_segments (
   id uuid primary key default gen_random_uuid(),
   scoreboard_id uuid not null references multi_sport_scoreboards (id) on delete cascade,
   label text not null,
@@ -1183,7 +1226,7 @@ create table scoreboard_segments (
   unique (scoreboard_id, sequence)
 );
 
-create table chat_channels (
+create table if not exists chat_channels (
   id uuid primary key default gen_random_uuid(),
   context_type text not null check (context_type in ('team', 'game', 'championship', 'captains', 'service')),
   context_id uuid not null,
@@ -1192,14 +1235,14 @@ create table chat_channels (
   created_by uuid not null references players (id),
   created_at timestamptz not null default now()
 );
-create table chat_participants (
+create table if not exists chat_participants (
   channel_id uuid not null references chat_channels (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   role text not null default 'member' check (role in ('member', 'admin')),
   last_read_at timestamptz,
   primary key (channel_id, player_id)
 );
-create table chat_messages (
+create table if not exists chat_messages (
   id uuid primary key default gen_random_uuid(),
   channel_id uuid not null references chat_channels (id) on delete cascade,
   sender_player_id uuid not null references players (id),
@@ -1208,7 +1251,7 @@ create table chat_messages (
   created_at timestamptz not null default now()
 );
 
-create table wallet_ledger (
+create table if not exists wallet_ledger (
   id uuid primary key default gen_random_uuid(),
   player_id uuid not null references players (id),
   establishment_id uuid references establishments (id),
@@ -1218,7 +1261,7 @@ create table wallet_ledger (
   external_reference text,
   created_at timestamptz not null default now()
 );
-create table loyalty_plans (
+create table if not exists loyalty_plans (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   name text not null,
@@ -1228,7 +1271,7 @@ create table loyalty_plans (
   benefits jsonb not null default '[]',
   active boolean not null default true
 );
-create table loyalty_subscriptions (
+create table if not exists loyalty_subscriptions (
   id uuid primary key default gen_random_uuid(),
   plan_id uuid not null references loyalty_plans (id),
   player_id uuid not null references players (id),
@@ -1237,7 +1280,7 @@ create table loyalty_subscriptions (
   created_at timestamptz not null default now()
 );
 
-create table sports_staff (
+create table if not exists sports_staff (
   id uuid primary key default gen_random_uuid(),
   player_id uuid references players (id),
   name text not null,
@@ -1247,7 +1290,7 @@ create table sports_staff (
   rating numeric(3,2) not null default 0,
   available boolean not null default true
 );
-create table staff_assignments (
+create table if not exists staff_assignments (
   id uuid primary key default gen_random_uuid(),
   staff_id uuid not null references sports_staff (id),
   establishment_id uuid not null references establishments (id),
@@ -1257,7 +1300,7 @@ create table staff_assignments (
   status text not null default 'invited' check (status in ('invited', 'accepted', 'paid'))
 );
 
-create table open_slot_offers (
+create table if not exists open_slot_offers (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id),
   field_id uuid not null references fields (id),
@@ -1270,7 +1313,7 @@ create table open_slot_offers (
   status text not null default 'available' check (status in ('available', 'reserved', 'expired'))
 );
 
-create table digital_waivers (
+create table if not exists digital_waivers (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   body text not null,
@@ -1281,7 +1324,7 @@ create table digital_waivers (
   created_by uuid not null references players (id),
   updated_at timestamptz not null default now()
 );
-create table waiver_acceptances (
+create table if not exists waiver_acceptances (
   waiver_id uuid not null references digital_waivers (id),
   player_id uuid not null references players (id),
   waiver_version int not null,
@@ -1290,7 +1333,7 @@ create table waiver_acceptances (
   primary key (waiver_id, player_id, waiver_version)
 );
 
-create table sport_highlights (
+create table if not exists sport_highlights (
   id uuid primary key default gen_random_uuid(),
   player_id uuid not null references players (id),
   game_id uuid references games (id),
@@ -1299,7 +1342,7 @@ create table sport_highlights (
   kind text not null check (kind in ('record', 'mvp', 'streak', 'moment')),
   created_at timestamptz not null default now()
 );
-create table commerce_listings (
+create table if not exists commerce_listings (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id),
   name text not null,
@@ -1309,7 +1352,7 @@ create table commerce_listings (
   category text not null,
   active boolean not null default true
 );
-create table rental_orders (
+create table if not exists rental_orders (
   id uuid primary key default gen_random_uuid(),
   listing_id uuid not null references commerce_listings (id),
   player_id uuid not null references players (id),
@@ -1319,7 +1362,7 @@ create table rental_orders (
   status text not null default 'reserved' check (status in ('reserved', 'picked_up', 'returned')),
   created_at timestamptz not null default now()
 );
-create table device_push_tokens (
+create table if not exists device_push_tokens (
   id uuid primary key default gen_random_uuid(),
   player_id uuid not null references players (id) on delete cascade,
   expo_push_token text not null unique,
@@ -1409,7 +1452,7 @@ alter table commerce_listings enable row level security;
 alter table rental_orders enable row level security;
 alter table device_push_tokens enable row level security;
 
-create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
+create or replace function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
     select 1 from pelada_memberships m
     join players p on p.id = m.player_id
@@ -1417,7 +1460,7 @@ create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   );
 $$ language sql security definer stable;
 
-create function is_admin_of_pelada(p_pelada_id uuid) returns boolean as $$
+create or replace function is_admin_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
     select 1 from pelada_memberships m
     join players p on p.id = m.player_id
@@ -1427,20 +1470,29 @@ $$ language sql security definer stable;
 
 -- players: qualquer usuário autenticado pode ler perfis (para ver notas/cartas dos colegas);
 -- só o próprio dono edita seu perfil.
+drop policy if exists "players_select_all" on players;
 create policy "players_select_all" on players for select using (true);
+drop policy if exists "players_insert_self" on players;
 create policy "players_insert_self" on players for insert with check (auth_user_id = auth.uid());
+drop policy if exists "players_update_self" on players;
 create policy "players_update_self" on players for update using (auth_user_id = auth.uid());
 
 -- select liberado (nome/descrição não são sensíveis) pra permitir localizar a pelada pelo
 -- código de convite antes de virar membro; dados sensíveis (jogos, chamada, pagamentos)
 -- continuam só pra quem já é membro.
+drop policy if exists "peladas_select_all" on peladas;
 create policy "peladas_select_all" on peladas for select using (true);
+drop policy if exists "peladas_insert_authenticated" on peladas;
 create policy "peladas_insert_authenticated" on peladas for insert with check (auth.uid() is not null);
+drop policy if exists "peladas_update_admins" on peladas;
 create policy "peladas_update_admins" on peladas for update using (is_admin_of_pelada(id));
 
+drop policy if exists "memberships_select_members" on pelada_memberships;
 create policy "memberships_select_members" on pelada_memberships for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "memberships_write_admins" on pelada_memberships;
 create policy "memberships_write_admins" on pelada_memberships for all using (is_admin_of_pelada(pelada_id));
 -- entrar numa pelada por código de convite: o próprio jogador pode se auto-adicionar como membro comum
+drop policy if exists "memberships_insert_self" on pelada_memberships;
 create policy "memberships_insert_self" on pelada_memberships for insert with check (
   role = 'member' and exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
@@ -1448,9 +1500,11 @@ create policy "memberships_insert_self" on pelada_memberships for insert with ch
 -- campo de pelada: só membros veem/editam (como antes). Campo próprio do estabelecimento
 -- (pelada_id null): leitura pública (precisa aparecer pra quem for montar um campeonato ali),
 -- só o dono do estabelecimento cadastra/edita/remove.
+drop policy if exists "fields_select_members_or_public" on fields;
 create policy "fields_select_members_or_public" on fields for select using (
   (pelada_id is not null and is_member_of_pelada(pelada_id)) or pelada_id is null
 );
+drop policy if exists "fields_write_admins_or_owner" on fields;
 create policy "fields_write_admins_or_owner" on fields for all using (
   (pelada_id is not null and is_admin_of_pelada(pelada_id))
   or (pelada_id is null and exists (
@@ -1462,7 +1516,9 @@ create policy "fields_write_admins_or_owner" on fields for all using (
 
 -- field_bookings: leitura pública (admin de pelada precisa ver se um horário já está
 -- ocupado antes de agendar um jogo ali); só o dono do estabelecimento cadastra/edita/remove.
+drop policy if exists "field_bookings_select_all" on field_bookings;
 create policy "field_bookings_select_all" on field_bookings for select using (true);
+drop policy if exists "field_bookings_write_owner" on field_bookings;
 create policy "field_bookings_write_owner" on field_bookings for all using (
   exists (
     select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
@@ -1474,6 +1530,7 @@ create policy "field_bookings_write_owner" on field_bookings for all using (
 -- jogador autenticado marca um jogo avulso em nome próprio, sem precisar ser o dono
 -- nem pertencer a uma pelada vinculada — só não edita/cancela a reserva de outra pessoa
 -- (isso continua exclusivo do dono, via field_bookings_write_owner acima).
+drop policy if exists "field_bookings_insert_self" on field_bookings;
 create policy "field_bookings_insert_self" on field_bookings for insert with check (
   pelada_id is null
   and exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
@@ -1481,15 +1538,18 @@ create policy "field_bookings_insert_self" on field_bookings for insert with che
 
 -- establishments: qualquer autenticado pode ler (precisa achar pelo access_code pra
 -- vincular um campo), mas só o dono edita o próprio estabelecimento.
+drop policy if exists "establishments_select_all" on establishments;
 create policy "establishments_select_all" on establishments for select using (true);
+drop policy if exists "establishments_insert_self" on establishments;
 create policy "establishments_insert_self" on establishments for insert with check (
   exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "establishments_update_owner" on establishments;
 create policy "establishments_update_owner" on establishments for update using (
   exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
 );
 
-create function is_establishment_owner(p_establishment_id uuid) returns boolean as $$
+create or replace function is_establishment_owner(p_establishment_id uuid) returns boolean as $$
   select exists (
     select 1 from establishments e
     join players p on p.id = e.owner_player_id
@@ -1500,7 +1560,7 @@ $$ language sql security definer stable;
 -- Retorna apenas o placar agregado do Modo Resenha. A identidade de quem votou
 -- nunca sai do banco e o resumo só é visível ao próprio jogador ou a colegas
 -- que compartilham ao menos uma pelada ativa com ele.
-create function player_banter_summary(p_target_player_id uuid)
+create or replace function player_banter_summary(p_target_player_id uuid)
 returns table (badge text, vote_count bigint) as $$
 declare
   current_player_id uuid;
@@ -1533,7 +1593,7 @@ $$ language plpgsql security definer stable set search_path = public;
 revoke all on function player_banter_summary(uuid) from public, anon;
 grant execute on function player_banter_summary(uuid) to authenticated;
 
-create function can_operate_establishment(p_establishment_id uuid) returns boolean as $$
+create or replace function can_operate_establishment(p_establishment_id uuid) returns boolean as $$
   select is_establishment_owner(p_establishment_id) or exists (
     select 1 from establishment_staff s
     join players p on p.id = s.player_id
@@ -1541,161 +1601,215 @@ create function can_operate_establishment(p_establishment_id uuid) returns boole
   );
 $$ language sql security definer stable;
 
+drop policy if exists "field_availabilities_select_all" on field_availabilities;
 create policy "field_availabilities_select_all" on field_availabilities for select using (true);
+drop policy if exists "field_availabilities_write_owner" on field_availabilities;
 create policy "field_availabilities_write_owner" on field_availabilities for all using (
   exists (select 1 from fields f where f.id = field_id and is_establishment_owner(f.establishment_id))
 );
+drop policy if exists "field_promotions_select_active" on field_promotions;
 create policy "field_promotions_select_active" on field_promotions for select using (active);
 
+drop policy if exists "establishment_staff_select_team" on establishment_staff;
 create policy "establishment_staff_select_team" on establishment_staff for select using (can_operate_establishment(establishment_id));
+drop policy if exists "establishment_staff_write_owner" on establishment_staff;
 create policy "establishment_staff_write_owner" on establishment_staff for all using (is_establishment_owner(establishment_id));
 
+drop policy if exists "product_categories_select_all" on product_categories;
 create policy "product_categories_select_all" on product_categories for select using (true);
+drop policy if exists "product_categories_write_staff" on product_categories;
 create policy "product_categories_write_staff" on product_categories for all using (can_operate_establishment(establishment_id));
+drop policy if exists "products_select_all" on products;
 create policy "products_select_all" on products for select using (true);
+drop policy if exists "products_write_staff" on products;
 create policy "products_write_staff" on products for all using (can_operate_establishment(establishment_id));
 
+drop policy if exists "service_tabs_select_involved" on service_tabs;
 create policy "service_tabs_select_involved" on service_tabs for select using (
   can_operate_establishment(establishment_id)
   or exists (select 1 from players p where p.id = customer_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "service_tabs_write_staff" on service_tabs;
 create policy "service_tabs_write_staff" on service_tabs for all using (can_operate_establishment(establishment_id));
+drop policy if exists "tab_participants_select_involved" on tab_participants;
 create policy "tab_participants_select_involved" on tab_participants for select using (
   exists (select 1 from service_tabs t where t.id = tab_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from players p where p.id = tab_participants.player_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "tab_participants_write_staff" on tab_participants;
 create policy "tab_participants_write_staff" on tab_participants for all using (
   exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
 );
+drop policy if exists "service_orders_select_involved" on service_orders;
 create policy "service_orders_select_involved" on service_orders for select using (
   exists (select 1 from service_tabs t where t.id = tab_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from players p where p.id = t.customer_player_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "service_orders_write_staff" on service_orders;
 create policy "service_orders_write_staff" on service_orders for all using (
   exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
 );
+drop policy if exists "service_order_items_select_involved" on service_order_items;
 create policy "service_order_items_select_involved" on service_order_items for select using (
   exists (select 1 from service_orders o join service_tabs t on t.id = o.tab_id where o.id = order_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from players p where p.id = t.customer_player_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "service_order_items_write_staff" on service_order_items;
 create policy "service_order_items_write_staff" on service_order_items for all using (
   exists (select 1 from service_orders o join service_tabs t on t.id = o.tab_id where o.id = order_id and can_operate_establishment(t.establishment_id))
 );
+drop policy if exists "order_item_shares_select_involved" on order_item_shares;
 create policy "order_item_shares_select_involved" on order_item_shares for select using (
   exists (select 1 from service_order_items i join service_orders o on o.id = i.order_id join service_tabs t on t.id = o.tab_id where i.id = item_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from tab_participants tp join players p on p.id = tp.player_id where tp.id = participant_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "order_item_shares_write_staff" on order_item_shares;
 create policy "order_item_shares_write_staff" on order_item_shares for all using (
   exists (select 1 from service_order_items i join service_orders o on o.id = i.order_id join service_tabs t on t.id = o.tab_id where i.id = item_id and can_operate_establishment(t.establishment_id))
 );
+drop policy if exists "gateway_connections_owner" on payment_gateway_connections;
 create policy "gateway_connections_owner" on payment_gateway_connections for all using (
   exists (select 1 from establishments e join players p on p.id = e.owner_player_id where e.id = establishment_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "sale_payment_intents_select_involved" on sale_payment_intents;
 create policy "sale_payment_intents_select_involved" on sale_payment_intents for select using (
   exists (select 1 from service_tabs t where t.id = tab_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from tab_participants tp join players p on p.id = tp.player_id where tp.id = payer_participant_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "sale_payments_select_involved" on sale_payments;
 create policy "sale_payments_select_involved" on sale_payments for select using (
   exists (select 1 from service_tabs t where t.id = tab_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "sale_payments_write_staff" on sale_payments;
 create policy "sale_payments_write_staff" on sale_payments for all using (
   exists (select 1 from service_tabs t where t.id = tab_id and can_operate_establishment(t.establishment_id))
 );
+drop policy if exists "sale_payment_allocations_select_involved" on sale_payment_allocations;
 create policy "sale_payment_allocations_select_involved" on sale_payment_allocations for select using (
   exists (select 1 from sale_payments sp join service_tabs t on t.id = sp.tab_id where sp.id = payment_id and (
     can_operate_establishment(t.establishment_id)
     or exists (select 1 from players p where p.id = sp.payer_player_id and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "cash_shifts_staff" on cash_shifts;
 create policy "cash_shifts_staff" on cash_shifts for all using (can_operate_establishment(establishment_id));
 
+drop policy if exists "coaches_select_all" on coaches;
 create policy "coaches_select_all" on coaches for select using (true);
+drop policy if exists "coaches_write_staff" on coaches;
 create policy "coaches_write_staff" on coaches for all using (can_operate_establishment(establishment_id));
+drop policy if exists "class_programs_select_all" on class_programs;
 create policy "class_programs_select_all" on class_programs for select using (true);
+drop policy if exists "class_programs_write_staff" on class_programs;
 create policy "class_programs_write_staff" on class_programs for all using (can_operate_establishment(establishment_id));
+drop policy if exists "class_sessions_select_all" on class_sessions;
 create policy "class_sessions_select_all" on class_sessions for select using (true);
+drop policy if exists "class_sessions_write_staff" on class_sessions;
 create policy "class_sessions_write_staff" on class_sessions for all using (
   exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "class_enrollments_select_self_or_staff" on class_enrollments;
 create policy "class_enrollments_select_self_or_staff" on class_enrollments for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "class_enrollments_insert_self_or_staff" on class_enrollments;
 create policy "class_enrollments_insert_self_or_staff" on class_enrollments for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "class_enrollments_update_self_or_staff" on class_enrollments;
 create policy "class_enrollments_update_self_or_staff" on class_enrollments for update using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "class_attendances_select_self_or_staff" on class_attendances;
 create policy "class_attendances_select_self_or_staff" on class_attendances for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "class_attendances_write_staff" on class_attendances;
 create policy "class_attendances_write_staff" on class_attendances for all using (
   exists (select 1 from class_sessions cs join class_programs cp on cp.id = cs.program_id where cs.id = session_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "makeup_credits_select_self_or_staff" on makeup_credits;
 create policy "makeup_credits_select_self_or_staff" on makeup_credits for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
 );
+drop policy if exists "makeup_credits_write_staff" on makeup_credits;
 create policy "makeup_credits_write_staff" on makeup_credits for all using (
   exists (select 1 from class_programs cp where cp.id = program_id and can_operate_establishment(cp.establishment_id))
 );
 
 
+drop policy if exists "schedules_select_members" on schedules;
 create policy "schedules_select_members" on schedules for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "schedules_write_admins" on schedules;
 create policy "schedules_write_admins" on schedules for all using (is_admin_of_pelada(pelada_id));
 
+drop policy if exists "schedule_field_preferences_select_members" on schedule_field_preferences;
 create policy "schedule_field_preferences_select_members" on schedule_field_preferences for select using (
   exists (select 1 from schedules s where s.id = schedule_id and is_member_of_pelada(s.pelada_id))
 );
+drop policy if exists "schedule_field_preferences_write_admins" on schedule_field_preferences;
 create policy "schedule_field_preferences_write_admins" on schedule_field_preferences for all using (
   exists (select 1 from schedules s where s.id = schedule_id and is_admin_of_pelada(s.pelada_id))
 );
 
+drop policy if exists "games_select_members" on games;
 create policy "games_select_members" on games for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "games_write_admins" on games;
 create policy "games_write_admins" on games for all using (is_admin_of_pelada(pelada_id));
 
+drop policy if exists "game_booking_requests_select_involved" on game_booking_requests;
 create policy "game_booking_requests_select_involved" on game_booking_requests for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
   or exists (select 1 from fields f where f.id = field_id and is_establishment_owner(f.establishment_id))
 );
+drop policy if exists "game_booking_requests_write_admins" on game_booking_requests;
 create policy "game_booking_requests_write_admins" on game_booking_requests for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "team_polls_select_members" on team_availability_polls;
 create policy "team_polls_select_members" on team_availability_polls for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "team_polls_write_admins" on team_availability_polls;
 create policy "team_polls_write_admins" on team_availability_polls for all using (is_admin_of_pelada(pelada_id));
+drop policy if exists "team_poll_options_select_members" on team_availability_poll_options;
 create policy "team_poll_options_select_members" on team_availability_poll_options for select using (
   exists (select 1 from team_availability_polls p where p.id = poll_id and is_member_of_pelada(p.pelada_id))
 );
+drop policy if exists "team_poll_options_write_admins" on team_availability_poll_options;
 create policy "team_poll_options_write_admins" on team_availability_poll_options for all using (
   exists (select 1 from team_availability_polls p where p.id = poll_id and is_admin_of_pelada(p.pelada_id))
 );
+drop policy if exists "team_poll_votes_select_members" on team_availability_poll_votes;
 create policy "team_poll_votes_select_members" on team_availability_poll_votes for select using (
   exists (select 1 from team_availability_polls p where p.id = poll_id and is_member_of_pelada(p.pelada_id))
 );
+drop policy if exists "team_poll_votes_insert_self" on team_availability_poll_votes;
 create policy "team_poll_votes_insert_self" on team_availability_poll_votes for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "team_poll_votes_update_self" on team_availability_poll_votes;
 create policy "team_poll_votes_update_self" on team_availability_poll_votes for update using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "whatsapp_deliveries_select_involved" on whatsapp_deliveries;
 create policy "whatsapp_deliveries_select_involved" on whatsapp_deliveries for select using (
   exists (select 1 from players p where p.id = to_player_id and p.auth_user_id = auth.uid())
   or exists (
@@ -1704,6 +1818,7 @@ create policy "whatsapp_deliveries_select_involved" on whatsapp_deliveries for s
   )
 );
 
+drop policy if exists "booking_deposits_select_involved" on booking_deposits;
 create policy "booking_deposits_select_involved" on booking_deposits for select using (
   exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
   or exists (
@@ -1715,24 +1830,31 @@ create policy "booking_deposits_select_involved" on booking_deposits for select 
     where r.id = booking_request_id and is_establishment_owner(f.establishment_id)
   )
 );
+drop policy if exists "booking_deposits_insert_payer_or_admin" on booking_deposits;
 create policy "booking_deposits_insert_payer_or_admin" on booking_deposits for insert with check (
   exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from game_booking_requests r join games g on g.id = r.game_id where r.id = booking_request_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "fundraising_campaigns_select_members" on fundraising_campaigns;
 create policy "fundraising_campaigns_select_members" on fundraising_campaigns for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "fundraising_campaigns_write_admins" on fundraising_campaigns;
 create policy "fundraising_campaigns_write_admins" on fundraising_campaigns for all using (is_admin_of_pelada(pelada_id));
+drop policy if exists "fundraising_contributions_select_self_or_admin" on fundraising_contributions;
 create policy "fundraising_contributions_select_self_or_admin" on fundraising_contributions for select using (
   exists (select 1 from players p where p.id = paid_by_player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_admin_of_pelada(c.pelada_id))
 );
+drop policy if exists "fundraising_contributions_insert_self" on fundraising_contributions;
 create policy "fundraising_contributions_insert_self" on fundraising_contributions for insert with check (
   exists (select 1 from players p where p.id = paid_by_player_id and p.auth_user_id = auth.uid())
   and exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_member_of_pelada(c.pelada_id))
 );
+drop policy if exists "fundraising_expenses_select_members" on fundraising_expenses;
 create policy "fundraising_expenses_select_members" on fundraising_expenses for select using (
   exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_member_of_pelada(c.pelada_id))
 );
+drop policy if exists "fundraising_expenses_write_admins" on fundraising_expenses;
 create policy "fundraising_expenses_write_admins" on fundraising_expenses for all using (
   exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_admin_of_pelada(c.pelada_id))
 );
@@ -1750,15 +1872,18 @@ $$;
 revoke all on function fundraising_campaign_feed(uuid) from public, anon;
 grant execute on function fundraising_campaign_feed(uuid) to authenticated;
 
+drop policy if exists "attendances_select_members" on attendances;
 create policy "attendances_select_members" on attendances for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "attendances_upsert_self_or_admin" on attendances;
 create policy "attendances_upsert_self_or_admin" on attendances for insert with check (
   exists (
     select 1 from games g join players p on p.id = attendances.player_id
     where g.id = game_id and (p.auth_user_id = auth.uid() or is_admin_of_pelada(g.pelada_id))
   )
 );
+drop policy if exists "attendances_update_self_or_admin" on attendances;
 create policy "attendances_update_self_or_admin" on attendances for update using (
   exists (
     select 1 from games g join players p on p.id = attendances.player_id
@@ -1766,93 +1891,118 @@ create policy "attendances_update_self_or_admin" on attendances for update using
   )
 );
 
+drop policy if exists "teams_select_members" on teams;
 create policy "teams_select_members" on teams for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "teams_write_admins" on teams;
 create policy "teams_write_admins" on teams for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "team_players_select_members" on team_players;
 create policy "team_players_select_members" on team_players for select using (
   exists (select 1 from teams t join games g on g.id = t.game_id where t.id = team_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "team_players_write_admins" on team_players;
 create policy "team_players_write_admins" on team_players for all using (
   exists (select 1 from teams t join games g on g.id = t.game_id where t.id = team_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "match_turns_select_members" on match_turns;
 create policy "match_turns_select_members" on match_turns for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "match_turns_write_admins" on match_turns;
 create policy "match_turns_write_admins" on match_turns for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "goals_select_members" on goals;
 create policy "goals_select_members" on goals for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "goals_write_admins" on goals;
 create policy "goals_write_admins" on goals for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "player_fatigue_select_members" on player_fatigue;
 create policy "player_fatigue_select_members" on player_fatigue for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "player_fatigue_write_admins" on player_fatigue;
 create policy "player_fatigue_write_admins" on player_fatigue for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "waiting_players_select_members" on waiting_players;
 create policy "waiting_players_select_members" on waiting_players for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "waiting_players_write_admins" on waiting_players;
 create policy "waiting_players_write_admins" on waiting_players for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
 -- amizade só é visível/editável pelos dois jogadores envolvidos (pedido, aceite ou recusa).
+drop policy if exists "friendships_select_involved" on friendships;
 create policy "friendships_select_involved" on friendships for select using (
   exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "friendships_insert_requester" on friendships;
 create policy "friendships_insert_requester" on friendships for insert with check (
   exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "friendships_update_involved" on friendships;
 create policy "friendships_update_involved" on friendships for update using (
   exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "friendships_delete_involved" on friendships;
 create policy "friendships_delete_involved" on friendships for delete using (
   exists (select 1 from players p where p.id = requester_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = addressee_id and p.auth_user_id = auth.uid())
 );
 
 -- curtidas do feed: qualquer jogador autenticado pode ler, mas só curte/descurte em nome próprio.
+drop policy if exists "activity_likes_select_all" on activity_likes;
 create policy "activity_likes_select_all" on activity_likes for select using (auth.uid() is not null);
+drop policy if exists "activity_likes_write_self" on activity_likes;
 create policy "activity_likes_write_self" on activity_likes for all using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "activity_comments_select_all" on activity_comments;
 create policy "activity_comments_select_all" on activity_comments for select using (auth.uid() is not null);
+drop policy if exists "activity_comments_insert_self" on activity_comments;
 create policy "activity_comments_insert_self" on activity_comments for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "activity_comments_delete_self" on activity_comments;
 create policy "activity_comments_delete_self" on activity_comments for delete using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
 -- ratings: qualquer membro pode ler (cartas são públicas dentro da pelada);
 -- só o próprio jogador insere avaliações que ele deu.
+drop policy if exists "ratings_select_members" on ratings;
 create policy "ratings_select_members" on ratings for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "ratings_insert_self" on ratings;
 create policy "ratings_insert_self" on ratings for insert with check (
   exists (select 1 from players p where p.id = rater_player_id and p.auth_user_id = auth.uid())
 );
 
 -- A tabela bruta não revela votos de terceiros. Cada jogador só relê/remove o
 -- próprio voto; os demais veem apenas a soma anônima pela função acima.
+drop policy if exists "banter_votes_select_own" on banter_votes;
 create policy "banter_votes_select_own" on banter_votes for select using (
   exists (select 1 from players p where p.id = banter_votes.voter_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "banter_votes_insert_eligible" on banter_votes;
 create policy "banter_votes_insert_eligible" on banter_votes for insert with check (
   exists (select 1 from players p where p.id = banter_votes.voter_player_id and p.auth_user_id = auth.uid())
   and exists (select 1 from players p where p.id = banter_votes.target_player_id and p.banter_opt_in)
@@ -1866,17 +2016,22 @@ create policy "banter_votes_insert_eligible" on banter_votes for insert with che
       and target.status = 'confirmed' and not target.no_show
   )
 );
+drop policy if exists "banter_votes_delete_own" on banter_votes;
 create policy "banter_votes_delete_own" on banter_votes for delete using (
   exists (select 1 from players p where p.id = banter_votes.voter_player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "punishments_select_members" on punishments;
 create policy "punishments_select_members" on punishments for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "punishments_write_admins" on punishments;
 create policy "punishments_write_admins" on punishments for all using (is_admin_of_pelada(pelada_id));
 
 -- payments: membros da pelada veem o rateio; o próprio jogador (ou um admin) marca/atualiza o pagamento.
+drop policy if exists "payments_select_members" on payments;
 create policy "payments_select_members" on payments for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
 );
+drop policy if exists "payments_write_self_or_admin" on payments;
 create policy "payments_write_self_or_admin" on payments for all using (
   exists (
     select 1 from games g join players p on p.id = payments.player_id
@@ -1886,10 +2041,12 @@ create policy "payments_write_self_or_admin" on payments for all using (
 
 -- free_agent_invites: o admin que convidou e o próprio jogador convidado (mesmo sem
 -- ser membro da pelada) veem e respondem o convite; só admin cria/cancela.
+drop policy if exists "free_agent_invites_select_involved" on free_agent_invites;
 create policy "free_agent_invites_select_involved" on free_agent_invites for select using (
   is_admin_of_pelada(pelada_id)
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "free_agent_invites_write_admin_or_permitted_member" on free_agent_invites;
 create policy "free_agent_invites_write_admin_or_permitted_member" on free_agent_invites for insert with check (
   is_admin_of_pelada(pelada_id)
   or (
@@ -1897,6 +2054,7 @@ create policy "free_agent_invites_write_admin_or_permitted_member" on free_agent
     and exists (select 1 from peladas p where p.id = pelada_id and p.member_can_invite_free_agents)
   )
 );
+drop policy if exists "free_agent_invites_update_admin_or_invitee" on free_agent_invites;
 create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites for update using (
   is_admin_of_pelada(pelada_id)
   or exists (select 1 from players p where p.id = free_agent_invites.player_id and p.auth_user_id = auth.uid())
@@ -1904,7 +2062,7 @@ create policy "free_agent_invites_update_admin_or_invitee" on free_agent_invites
 
 -- true tanto pro dono do estabelecimento quanto pro admin da pelada organizadora
 -- (campeonato self-organizado por um time, sem dono de campo).
-create function is_owner_of_championship(p_championship_id uuid) returns boolean as $$
+create or replace function is_owner_of_championship(p_championship_id uuid) returns boolean as $$
   select exists (
     select 1 from championships c
     left join establishments e on e.id = c.establishment_id
@@ -1920,7 +2078,9 @@ $$ language sql security definer stable;
 -- championships: público pra leitura (precisa achar pelo registration_code pra inscrever
 -- um time), mas só quem organiza (dono do estabelecimento, ou admin da pelada quando
 -- self-organizado) edita.
+drop policy if exists "championships_select_all" on championships;
 create policy "championships_select_all" on championships for select using (true);
+drop policy if exists "championships_write_owner" on championships;
 create policy "championships_write_owner" on championships for all using (
   (establishment_id is not null and exists (select 1 from establishments e where e.id = establishment_id and e.owner_player_id in (
     select id from players where auth_user_id = auth.uid()
@@ -1930,6 +2090,7 @@ create policy "championships_write_owner" on championships for all using (
 
 -- O orçamento contém custos e margem do organizador, então não é público como a tabela
 -- do campeonato: somente o dono do estabelecimento/admin da pelada organizadora acessa.
+drop policy if exists "championship_budgets_owner" on championship_budgets;
 create policy "championship_budgets_owner" on championship_budgets for all using (
   is_owner_of_championship(championship_id)
 ) with check (
@@ -1937,18 +2098,24 @@ create policy "championship_budgets_owner" on championship_budgets for all using
 );
 
 -- championship_teams: leitura pública; o dono do campeonato ou quem inscreveu o time edita.
+drop policy if exists "championship_teams_select_all" on championship_teams;
 create policy "championship_teams_select_all" on championship_teams for select using (true);
+drop policy if exists "championship_teams_insert_authenticated" on championship_teams;
 create policy "championship_teams_insert_authenticated" on championship_teams for insert with check (auth.uid() is not null);
+drop policy if exists "championship_teams_update_owner_or_registrant" on championship_teams;
 create policy "championship_teams_update_owner_or_registrant" on championship_teams for update using (
   is_owner_of_championship(championship_id)
   or exists (select 1 from players p where p.id = registered_by_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "championship_teams_delete_owner_or_registrant" on championship_teams;
 create policy "championship_teams_delete_owner_or_registrant" on championship_teams for delete using (
   is_owner_of_championship(championship_id)
   or exists (select 1 from players p where p.id = registered_by_player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "championship_team_players_select_all" on championship_team_players;
 create policy "championship_team_players_select_all" on championship_team_players for select using (true);
+drop policy if exists "championship_team_players_write_owner_or_registrant" on championship_team_players;
 create policy "championship_team_players_write_owner_or_registrant" on championship_team_players for all using (
   exists (
     select 1 from championship_teams t
@@ -1959,42 +2126,53 @@ create policy "championship_team_players_write_owner_or_registrant" on champions
   )
 );
 
+drop policy if exists "championship_matches_select_all" on championship_matches;
 create policy "championship_matches_select_all" on championship_matches for select using (true);
+drop policy if exists "championship_matches_write_owner" on championship_matches;
 create policy "championship_matches_write_owner" on championship_matches for all using (is_owner_of_championship(championship_id));
 
+drop policy if exists "championship_goals_select_all" on championship_goals;
 create policy "championship_goals_select_all" on championship_goals for select using (true);
+drop policy if exists "championship_goals_write_owner" on championship_goals;
 create policy "championship_goals_write_owner" on championship_goals for all using (
   exists (select 1 from championship_matches m where m.id = match_id and is_owner_of_championship(m.championship_id))
 );
 
 -- team_challenges: visível pra membros de qualquer uma das duas peladas envolvidas;
 -- só admin propõe (em nome da própria pelada) e só admin de uma das duas responde/cancela.
+drop policy if exists "team_challenges_select_involved" on team_challenges;
 create policy "team_challenges_select_involved" on team_challenges for select using (
   is_member_of_pelada(challenger_pelada_id) or is_member_of_pelada(challenged_pelada_id)
 );
+drop policy if exists "team_challenges_insert_admin" on team_challenges;
 create policy "team_challenges_insert_admin" on team_challenges for insert with check (
   is_admin_of_pelada(challenger_pelada_id)
   and exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "team_challenges_update_admin_involved" on team_challenges;
 create policy "team_challenges_update_admin_involved" on team_challenges for update using (
   is_admin_of_pelada(challenger_pelada_id) or is_admin_of_pelada(challenged_pelada_id)
 );
 
 -- friendly_matches/friendly_match_goals: visível pra membros de qualquer uma das duas
 -- peladas; só admin de uma das duas opera o cronômetro/placar (mesma regra de time_challenges).
+drop policy if exists "friendly_matches_select_involved" on friendly_matches;
 create policy "friendly_matches_select_involved" on friendly_matches for select using (
   is_member_of_pelada(pelada_a_id) or is_member_of_pelada(pelada_b_id)
 );
+drop policy if exists "friendly_matches_write_admin_involved" on friendly_matches;
 create policy "friendly_matches_write_admin_involved" on friendly_matches for all using (
   is_admin_of_pelada(pelada_a_id) or is_admin_of_pelada(pelada_b_id)
 );
 
+drop policy if exists "friendly_match_goals_select_involved" on friendly_match_goals;
 create policy "friendly_match_goals_select_involved" on friendly_match_goals for select using (
   exists (
     select 1 from friendly_matches m where m.id = match_id
     and (is_member_of_pelada(m.pelada_a_id) or is_member_of_pelada(m.pelada_b_id))
   )
 );
+drop policy if exists "friendly_match_goals_write_admin_involved" on friendly_match_goals;
 create policy "friendly_match_goals_write_admin_involved" on friendly_match_goals for all using (
   exists (
     select 1 from friendly_matches m where m.id = match_id
@@ -2004,13 +2182,16 @@ create policy "friendly_match_goals_write_admin_involved" on friendly_match_goal
 
 -- player_duels: só os dois jogadores envolvidos veem/editam (propor, aceitar/recusar,
 -- registrar resultado — qualquer um dos dois pode registrar o resultado final).
+drop policy if exists "player_duels_select_involved" on player_duels;
 create policy "player_duels_select_involved" on player_duels for select using (
   exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = challenged_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "player_duels_insert_challenger" on player_duels;
 create policy "player_duels_insert_challenger" on player_duels for insert with check (
   exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "player_duels_update_involved" on player_duels;
 create policy "player_duels_update_involved" on player_duels for update using (
   exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = challenged_id and p.auth_user_id = auth.uid())
@@ -2019,7 +2200,7 @@ create policy "player_duels_update_involved" on player_duels for update using (
 -- ---------------------------------------------------------------------
 -- Central do Esporte: políticas dos módulos de crescimento
 -- ---------------------------------------------------------------------
-create function is_chat_participant(p_channel_id uuid) returns boolean as $$
+create or replace function is_chat_participant(p_channel_id uuid) returns boolean as $$
   select exists (
     select 1 from chat_participants cp
     join players p on p.id = cp.player_id
@@ -2027,20 +2208,24 @@ create function is_chat_participant(p_channel_id uuid) returns boolean as $$
   );
 $$ language sql security definer stable set search_path = public;
 
+drop policy if exists "scoreboards_select_members" on multi_sport_scoreboards;
 create policy "scoreboards_select_members" on multi_sport_scoreboards for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
   or exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "scoreboards_write_admin" on multi_sport_scoreboards;
 create policy "scoreboards_write_admin" on multi_sport_scoreboards for all using (
   exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
   or exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "scoreboard_segments_select_members" on scoreboard_segments;
 create policy "scoreboard_segments_select_members" on scoreboard_segments for select using (
   exists (select 1 from multi_sport_scoreboards s where s.id = scoreboard_id and (
     exists (select 1 from games g where g.id = s.game_id and is_member_of_pelada(g.pelada_id))
     or exists (select 1 from players p where p.id = s.created_by and p.auth_user_id = auth.uid())
   ))
 );
+drop policy if exists "scoreboard_segments_write_admin" on scoreboard_segments;
 create policy "scoreboard_segments_write_admin" on scoreboard_segments for all using (
   exists (select 1 from multi_sport_scoreboards s where s.id = scoreboard_id and (
     exists (select 1 from games g where g.id = s.game_id and is_admin_of_pelada(g.pelada_id))
@@ -2048,18 +2233,25 @@ create policy "scoreboard_segments_write_admin" on scoreboard_segments for all u
   ))
 );
 
+drop policy if exists "chat_channels_participants" on chat_channels;
 create policy "chat_channels_participants" on chat_channels for select using (is_chat_participant(id));
+drop policy if exists "chat_channels_create_self" on chat_channels;
 create policy "chat_channels_create_self" on chat_channels for insert with check (
   exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "chat_channels_update_creator" on chat_channels;
 create policy "chat_channels_update_creator" on chat_channels for update using (
   exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "chat_participants_same_channel" on chat_participants;
 create policy "chat_participants_same_channel" on chat_participants for select using (is_chat_participant(channel_id));
+drop policy if exists "chat_participants_manage_creator" on chat_participants;
 create policy "chat_participants_manage_creator" on chat_participants for all using (
   exists (select 1 from chat_channels c join players p on p.id = c.created_by where c.id = channel_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "chat_messages_participants" on chat_messages;
 create policy "chat_messages_participants" on chat_messages for select using (is_chat_participant(channel_id));
+drop policy if exists "chat_messages_send_self" on chat_messages;
 create policy "chat_messages_send_self" on chat_messages for insert with check (
   is_chat_participant(channel_id)
   and exists (select 1 from players p where p.id = sender_player_id and p.auth_user_id = auth.uid())
@@ -2068,60 +2260,82 @@ create policy "chat_messages_send_self" on chat_messages for insert with check (
   ))
 );
 
+drop policy if exists "wallet_ledger_owner_select" on wallet_ledger;
 create policy "wallet_ledger_owner_select" on wallet_ledger for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or (establishment_id is not null and can_operate_establishment(establishment_id))
 );
+drop policy if exists "wallet_ledger_operator_insert" on wallet_ledger;
 create policy "wallet_ledger_operator_insert" on wallet_ledger for insert with check (
   establishment_id is not null and can_operate_establishment(establishment_id)
 );
 
+drop policy if exists "loyalty_plans_public" on loyalty_plans;
 create policy "loyalty_plans_public" on loyalty_plans for select using (active or can_operate_establishment(establishment_id));
+drop policy if exists "loyalty_plans_operator" on loyalty_plans;
 create policy "loyalty_plans_operator" on loyalty_plans for all using (can_operate_establishment(establishment_id));
+drop policy if exists "loyalty_subscriptions_owner" on loyalty_subscriptions;
 create policy "loyalty_subscriptions_owner" on loyalty_subscriptions for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from loyalty_plans lp where lp.id = plan_id and can_operate_establishment(lp.establishment_id))
 );
 
+drop policy if exists "sports_staff_public" on sports_staff;
 create policy "sports_staff_public" on sports_staff for select using (true);
+drop policy if exists "sports_staff_self" on sports_staff;
 create policy "sports_staff_self" on sports_staff for update using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "staff_assignments_involved" on staff_assignments;
 create policy "staff_assignments_involved" on staff_assignments for select using (
   can_operate_establishment(establishment_id)
   or exists (select 1 from sports_staff ss join players p on p.id = ss.player_id where ss.id = staff_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "staff_assignments_operator" on staff_assignments;
 create policy "staff_assignments_operator" on staff_assignments for all using (can_operate_establishment(establishment_id));
 
+drop policy if exists "open_slot_offers_public" on open_slot_offers;
 create policy "open_slot_offers_public" on open_slot_offers for select using (true);
+drop policy if exists "open_slot_offers_operator" on open_slot_offers;
 create policy "open_slot_offers_operator" on open_slot_offers for all using (can_operate_establishment(establishment_id));
 
+drop policy if exists "digital_waivers_authenticated" on digital_waivers;
 create policy "digital_waivers_authenticated" on digital_waivers for select using (auth.uid() is not null);
+drop policy if exists "digital_waivers_creator" on digital_waivers;
 create policy "digital_waivers_creator" on digital_waivers for all using (
   exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
 );
+drop policy if exists "waiver_acceptances_self" on waiver_acceptances;
 create policy "waiver_acceptances_self" on waiver_acceptances for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "waiver_acceptances_insert_self" on waiver_acceptances;
 create policy "waiver_acceptances_insert_self" on waiver_acceptances for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "sport_highlights_public" on sport_highlights;
 create policy "sport_highlights_public" on sport_highlights for select using (true);
+drop policy if exists "sport_highlights_self" on sport_highlights;
 create policy "sport_highlights_self" on sport_highlights for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "commerce_listings_public" on commerce_listings;
 create policy "commerce_listings_public" on commerce_listings for select using (active or can_operate_establishment(establishment_id));
+drop policy if exists "commerce_listings_operator" on commerce_listings;
 create policy "commerce_listings_operator" on commerce_listings for all using (can_operate_establishment(establishment_id));
+drop policy if exists "rental_orders_involved" on rental_orders;
 create policy "rental_orders_involved" on rental_orders for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from commerce_listings cl where cl.id = listing_id and can_operate_establishment(cl.establishment_id))
 );
+drop policy if exists "rental_orders_insert_self" on rental_orders;
 create policy "rental_orders_insert_self" on rental_orders for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "device_push_tokens_self" on device_push_tokens;
 create policy "device_push_tokens_self" on device_push_tokens for all using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
@@ -2129,7 +2343,7 @@ create policy "device_push_tokens_self" on device_push_tokens for all using (
 -- ---------------------------------------------------------------------
 -- Operação Pro: check-in, confiabilidade, temporadas, crescimento e sync
 -- ---------------------------------------------------------------------
-create table game_checkin_passes (
+create table if not exists game_checkin_passes (
   id uuid primary key default gen_random_uuid(),
   game_id uuid not null references games (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
@@ -2140,7 +2354,7 @@ create table game_checkin_passes (
   unique (game_id, player_id)
 );
 
-create table reliability_events (
+create table if not exists reliability_events (
   id uuid primary key default gen_random_uuid(),
   entity_type text not null check (entity_type in ('player', 'team', 'establishment')),
   entity_id uuid not null,
@@ -2151,7 +2365,7 @@ create table reliability_events (
   created_at timestamptz not null default now()
 );
 
-create table sport_seasons (
+create table if not exists sport_seasons (
   id uuid primary key default gen_random_uuid(),
   pelada_id uuid not null references peladas (id) on delete cascade,
   name text not null,
@@ -2165,7 +2379,7 @@ create table sport_seasons (
   created_at timestamptz not null default now()
 );
 
-create table season_standings (
+create table if not exists season_standings (
   season_id uuid not null references sport_seasons (id) on delete cascade,
   player_id uuid not null references players (id) on delete cascade,
   games int not null default 0,
@@ -2179,7 +2393,7 @@ create table season_standings (
   primary key (season_id, player_id)
 );
 
-create table commercial_plans (
+create table if not exists commercial_plans (
   id uuid primary key default gen_random_uuid(),
   audience text not null check (audience in ('player', 'team', 'establishment')),
   name text not null,
@@ -2189,7 +2403,7 @@ create table commercial_plans (
   active boolean not null default true
 );
 
-create table commercial_subscriptions (
+create table if not exists commercial_subscriptions (
   id uuid primary key default gen_random_uuid(),
   plan_id uuid not null references commercial_plans (id),
   subscriber_player_id uuid references players (id) on delete cascade,
@@ -2203,7 +2417,7 @@ create table commercial_subscriptions (
   check (num_nonnulls(subscriber_player_id, pelada_id, establishment_id) = 1)
 );
 
-create table referral_campaigns (
+create table if not exists referral_campaigns (
   id uuid primary key default gen_random_uuid(),
   owner_player_id uuid not null references players (id) on delete cascade,
   code text not null unique,
@@ -2214,7 +2428,7 @@ create table referral_campaigns (
   created_at timestamptz not null default now()
 );
 
-create table referral_redemptions (
+create table if not exists referral_redemptions (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references referral_campaigns (id) on delete cascade,
   referred_player_id uuid not null references players (id) on delete cascade,
@@ -2223,7 +2437,7 @@ create table referral_redemptions (
   unique (referred_player_id)
 );
 
-create table moderation_reports (
+create table if not exists moderation_reports (
   id uuid primary key default gen_random_uuid(),
   reporter_player_id uuid not null references players (id),
   target_type text not null check (target_type in ('player', 'team', 'establishment')),
@@ -2235,7 +2449,7 @@ create table moderation_reports (
   resolved_at timestamptz
 );
 
-create table audit_events (
+create table if not exists audit_events (
   id uuid primary key default gen_random_uuid(),
   actor_player_id uuid references players (id) on delete set null,
   entity_type text not null check (entity_type in ('player', 'team', 'establishment', 'game', 'payment')),
@@ -2247,7 +2461,7 @@ create table audit_events (
 );
 
 -- Caixa de entrada idempotente usada pela fila offline-first do aplicativo.
-create table client_mutations (
+create table if not exists client_mutations (
   id text primary key,
   auth_user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   aggregate text not null,
@@ -2260,7 +2474,7 @@ create table client_mutations (
   processing_error text
 );
 
-create table payment_settlements (
+create table if not exists payment_settlements (
   id uuid primary key default gen_random_uuid(),
   establishment_id uuid not null references establishments (id) on delete cascade,
   source_type text not null check (source_type in ('sale', 'booking', 'fundraising', 'subscription')),
@@ -2288,58 +2502,76 @@ alter table audit_events enable row level security;
 alter table client_mutations enable row level security;
 alter table payment_settlements enable row level security;
 
+drop policy if exists "checkin_pass_involved" on game_checkin_passes;
 create policy "checkin_pass_involved" on game_checkin_passes for select using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
+drop policy if exists "checkin_pass_self_insert" on game_checkin_passes;
 create policy "checkin_pass_self_insert" on game_checkin_passes for insert with check (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "reliability_authenticated_read" on reliability_events;
 create policy "reliability_authenticated_read" on reliability_events for select using (auth.uid() is not null);
+drop policy if exists "reliability_admin_write" on reliability_events;
 create policy "reliability_admin_write" on reliability_events for insert with check (
   game_id is not null and exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
 );
 
+drop policy if exists "seasons_members_read" on sport_seasons;
 create policy "seasons_members_read" on sport_seasons for select using (is_member_of_pelada(pelada_id));
+drop policy if exists "seasons_admin_write" on sport_seasons;
 create policy "seasons_admin_write" on sport_seasons for all using (is_admin_of_pelada(pelada_id));
+drop policy if exists "season_standings_members_read" on season_standings;
 create policy "season_standings_members_read" on season_standings for select using (
   exists (select 1 from sport_seasons s where s.id = season_id and is_member_of_pelada(s.pelada_id))
 );
+drop policy if exists "season_standings_admin_write" on season_standings;
 create policy "season_standings_admin_write" on season_standings for all using (
   exists (select 1 from sport_seasons s where s.id = season_id and is_admin_of_pelada(s.pelada_id))
 );
 
+drop policy if exists "commercial_plans_public" on commercial_plans;
 create policy "commercial_plans_public" on commercial_plans for select using (active);
+drop policy if exists "subscriptions_involved" on commercial_subscriptions;
 create policy "subscriptions_involved" on commercial_subscriptions for select using (
   (subscriber_player_id is not null and exists (select 1 from players p where p.id = subscriber_player_id and p.auth_user_id = auth.uid()))
   or (pelada_id is not null and is_admin_of_pelada(pelada_id))
   or (establishment_id is not null and can_operate_establishment(establishment_id))
 );
 
+drop policy if exists "referrals_owner" on referral_campaigns;
 create policy "referrals_owner" on referral_campaigns for select using (
   exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "referrals_owner_write" on referral_campaigns;
 create policy "referrals_owner_write" on referral_campaigns for insert with check (
   exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "referral_redemptions_involved" on referral_redemptions;
 create policy "referral_redemptions_involved" on referral_redemptions for select using (
   exists (select 1 from players p where p.id = referred_player_id and p.auth_user_id = auth.uid())
   or exists (select 1 from referral_campaigns c join players p on p.id = c.owner_player_id where c.id = campaign_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "moderation_reporter_insert" on moderation_reports;
 create policy "moderation_reporter_insert" on moderation_reports for insert with check (
   exists (select 1 from players p where p.id = reporter_player_id and p.auth_user_id = auth.uid())
 );
+drop policy if exists "moderation_reporter_read" on moderation_reports;
 create policy "moderation_reporter_read" on moderation_reports for select using (
   exists (select 1 from players p where p.id = reporter_player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "audit_involved_read" on audit_events;
 create policy "audit_involved_read" on audit_events for select using (
   actor_player_id is not null and exists (select 1 from players p where p.id = actor_player_id and p.auth_user_id = auth.uid())
 );
 
+drop policy if exists "client_mutations_self" on client_mutations;
 create policy "client_mutations_self" on client_mutations for all using (auth_user_id = auth.uid()) with check (auth_user_id = auth.uid());
+drop policy if exists "payment_settlements_operator" on payment_settlements;
 create policy "payment_settlements_operator" on payment_settlements for select using (can_operate_establishment(establishment_id));
 
 create or replace function issue_game_checkin_pass(p_game_id uuid, p_player_id uuid, p_token text)

@@ -1,5 +1,6 @@
 import { isMockMode, supabase } from '@/lib/supabase';
 import type { SyncMutation } from '@/types/pro';
+import type { Json } from '@/types/supabase.generated';
 
 export interface SyncResult {
   id: string;
@@ -23,7 +24,7 @@ export async function flushSyncMutations(mutations: SyncMutation[]): Promise<Syn
       aggregate: mutation.aggregate,
       aggregate_id: mutation.aggregateId,
       operation: mutation.operation,
-      payload: mutation.payload,
+      payload: mutation.payload as Json,
       client_created_at: mutation.createdAt,
     }, { onConflict: 'id' });
     results.push({ id: mutation.id, ok: !error, error: error?.message ?? null });

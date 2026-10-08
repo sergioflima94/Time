@@ -44,13 +44,17 @@
     "@expo/metro-runtime": "~57.0.10",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "~57.0.7",
+    "supabase": "^2.120.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "supabase:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts",
+    "supabase:push": "supabase db push --linked",
+    "supabase:functions": "supabase functions deploy"
   },
   "private": true
 }

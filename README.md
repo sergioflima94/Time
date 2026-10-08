@@ -61,22 +61,37 @@ telas normalmente — é tudo local, não afeta ninguém além do seu próprio a
 
 ## Configurando o Supabase (dados reais, multiusuário)
 
-1. Crie uma conta gratuita em [supabase.com](https://supabase.com) e um novo projeto.
-2. No **SQL Editor** do projeto, rode o conteúdo de `supabase/schema.sql` — ele cria
-   todas as tabelas (jogadores, peladas, campos, agenda, jogos, chamada, times,
-   avaliações, punições) já com Row Level Security configurada (cada pelada só é
-   visível para quem faz parte dela; só admins editam configurações).
-3. Em **Project Settings → API**, copie a **Project URL** e a **anon public key**.
-4. Crie um arquivo `.env` na raiz do projeto (veja `.env.example`):
+O repositório está vinculado ao projeto hospedado e o schema é controlado por
+`supabase/migrations`. Não rode mais `schema.sql` manualmente no SQL Editor: novas
+alterações devem sempre virar migrações versionadas e ser aplicadas pelo CLI.
+
+1. Faça login e vincule sua cópia local uma única vez:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref SEU_PROJECT_REF
+   ```
+2. Em **Connect → Framework**, copie a **Project URL** e a **Publishable key**.
+3. Crie `.env.local` na raiz (o arquivo é ignorado pelo Git):
    ```
    EXPO_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
+   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-publicavel
    ```
-5. Reinicie o `npm run start`. Com essas variáveis definidas, `isMockMode` vira
+4. Reinicie o `npm run start`. Com essas variáveis definidas, `isMockMode` vira
    `false`, login/cadastro usam Supabase Auth e a fila Pro passa a enviar eventos para
    `client_mutations`.
-6. Em **Authentication**, habilite o provedor de e-mail/senha (ou o de sua
+5. Em **Authentication**, habilite o provedor de e-mail/senha (ou o de sua
    preferência) para o cadastro de jogadores.
+6. Para publicar mudanças de backend:
+   ```bash
+   npm run supabase:push
+   npm run supabase:functions
+   npm run supabase:types
+   ```
+
+As Edge Functions estão configuradas em `supabase/config.toml`. Webhooks e tarefas
+agendadas validam seus próprios segredos; funções iniciadas pelo app exigem JWT.
+Nunca coloque `service_role`, tokens de gateway, WhatsApp ou OpenAI em variáveis
+`EXPO_PUBLIC_*`.
 
 > As telas históricas ainda usam as stores persistidas do aparelho. A autenticação e
 > a caixa de entrada idempotente já são reais; cronômetro, chamada, comandas e agenda
@@ -403,8 +418,10 @@ cliente nunca marca uma cobrança real como paga.
 
 ## Checklist para implantação real
 
-- Aplicar `supabase/schema.sql` em um projeto de homologação e migrar, por agregado,
-  chamada, cronômetro, agenda e comandas para Realtime.
+- ✅ Schema, RLS, gatilhos, migrações, Auth, tipos gerados e Edge Functions publicados
+  no projeto Supabase vinculado em 8 de outubro de 2026.
+- Migrar, por agregado, chamada, cronômetro, agenda e comandas das stores persistidas
+  para queries e Realtime. Até essa migração, esses módulos continuam com cache local.
 - Configurar Vault, credenciais e webhooks dos gateways; validar estorno, duplicidade,
   chargeback e conciliação antes de movimentar dinheiro real.
 - Gerar development builds para câmera, push, AdMob e SDKs SoftPOS; esses recursos não

@@ -5,6 +5,7 @@
 // Deploy: supabase functions deploy generate-team-logo
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,27 @@ serve(async (req) => {
   }
 
   try {
+    const authorization = req.headers.get('Authorization');
+    if (!authorization) {
+      return new Response(JSON.stringify({ error: 'Não autenticado' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authorization } } },
+    );
+    const { data: auth, error: authError } = await userClient.auth.getUser();
+    if (authError || !auth.user) {
+      return new Response(JSON.stringify({ error: 'Sessão inválida' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { prompt } = await req.json();
     if (!prompt || typeof prompt !== 'string') {
       return new Response(JSON.stringify({ error: 'prompt é obrigatório' }), {
