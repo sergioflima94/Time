@@ -11,12 +11,14 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
+  const loading = useAuthStore((s) => s.loading);
+  const authError = useAuthStore((s) => s.error);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  function handleLogin() {
-    login();
-    router.replace('/(tabs)');
+  async function handleLogin() {
+    const ok = await login(email, password);
+    if (ok) router.replace('/(tabs)');
   }
 
   return (
@@ -59,7 +61,8 @@ export default function LoginScreen() {
           style={styles.input}
         />
 
-        <Button label="Entrar" onPress={handleLogin} style={{ marginTop: spacing.lg }} />
+        {authError && <Text style={styles.authError}>{authError}</Text>}
+        <Button label="Entrar" loading={loading} disabled={!isMockMode && (!email.trim() || !password)} onPress={handleLogin} style={{ marginTop: spacing.lg }} />
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Ainda não tem conta?</Text>
@@ -153,4 +156,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  authError: { color: colors.danger, fontSize: 12, marginTop: spacing.sm },
 });

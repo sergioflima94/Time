@@ -40,6 +40,14 @@ module.exports = {
       'expo-sharing',
       'expo-notifications',
       [
+        'expo-camera',
+        {
+          cameraPermission: 'O app usa a câmera somente para ler o QR Code de check-in dos jogadores.',
+          recordAudioAndroid: false,
+          barcodeScannerEnabled: true,
+        },
+      ],
+      [
         'expo-splash-screen',
         {
           backgroundColor: '#0F1B12',

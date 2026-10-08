@@ -16,6 +16,8 @@ export default function GameLayout() {
       <Stack.Screen name="sorteio" options={{ title: 'Sortear times' }} />
       <Stack.Screen name="cronometro" options={{ title: 'Cronômetro' }} />
       <Stack.Screen name="avaliar" options={{ title: 'Avaliar jogadores' }} />
+      <Stack.Screen name="dia-do-jogo" options={{ title: 'Dia do jogo' }} />
+      <Stack.Screen name="checkin" options={{ title: 'Check-in' }} />
     </Stack>
   );
 }

@@ -62,6 +62,12 @@ export default function AgendaScreen() {
         <Ionicons name="chevron-forward" size={18} color={colors.primary} />
       </Pressable>
 
+      <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
+        <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={21} color={colors.white} /></View>
+        <View style={{ flex: 1 }}><Text style={styles.growthCentralTitle}>Operação Pro</Text><Text style={styles.growthCentralText}>Check-in, confiabilidade, temporadas, inteligência e segurança.</Text></View>
+        <Ionicons name="chevron-forward" size={18} color={colors.special} />
+      </Pressable>
+
       <Card style={styles.perfCard}>
         <View style={styles.perfHeaderRow}>
           <Text style={styles.sectionTitle}>Seu desempenho</Text>
@@ -219,6 +225,8 @@ const styles = StyleSheet.create({
   },
   growthCentralTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   growthCentralText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  proCentral: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, marginTop: -spacing.sm, marginBottom: spacing.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.special, borderRadius: radius.lg },
+  proCentralIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.special },
   perfHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

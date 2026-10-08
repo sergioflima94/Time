@@ -13,7 +13,9 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { PlayerPosition } from '@/types';
 
 export default function CadastroScreen() {
-  const login = useAuthStore((s) => s.login);
+  const register = useAuthStore((s) => s.register);
+  const authLoading = useAuthStore((s) => s.loading);
+  const authError = useAuthStore((s) => s.error);
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const updateProfile = useAppStore((s) => s.updateCurrentPlayerProfile);
   const setPlayerPhoto = useAppStore((s) => s.setPlayerPhoto);
@@ -21,6 +23,8 @@ export default function CadastroScreen() {
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [position, setPosition] = useState<PlayerPosition>('line');
   const [favoriteSports, setFavoriteSports] = useState<string[]>(['futebol']);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -43,7 +47,11 @@ export default function CadastroScreen() {
     });
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    const ok = await register(email || 'demo@pelada.app', password || 'demonstracao', {
+      name: name.trim() || 'Novo Jogador', phone: phone.trim() || null, preferredPosition: position, favoriteSports,
+    });
+    if (!ok) return;
     updateProfile({
       name: name.trim() || 'Novo Jogador',
       nickname: nickname.trim() || null,
@@ -52,7 +60,6 @@ export default function CadastroScreen() {
       favoriteSports,
     });
     if (photoUri) setPlayerPhoto(currentPlayerId, photoUri);
-    login();
     router.replace('/(tabs)');
   }
 
@@ -77,6 +84,12 @@ export default function CadastroScreen() {
 
       <Text style={styles.label}>Telefone (opcional)</Text>
       <TextInput value={phone} onChangeText={setPhone} placeholder="(11) 99999-9999" placeholderTextColor={colors.textFaint} keyboardType="phone-pad" style={styles.input} />
+
+      <Text style={styles.label}>E-mail</Text>
+      <TextInput value={email} onChangeText={setEmail} placeholder="voce@email.com" placeholderTextColor={colors.textFaint} autoCapitalize="none" keyboardType="email-address" style={styles.input} />
+
+      <Text style={styles.label}>Senha</Text>
+      <TextInput value={password} onChangeText={setPassword} placeholder="Mínimo de 6 caracteres" placeholderTextColor={colors.textFaint} secureTextEntry style={styles.input} />
 
       <Text style={styles.label}>Posição preferida</Text>
       <View style={styles.positionRow}>
@@ -112,7 +125,8 @@ export default function CadastroScreen() {
         })}
       </View>
 
-      <Button label="Criar conta e entrar" onPress={handleSubmit} disabled={!name.trim()} style={{ marginTop: spacing.xl }} />
+      {authError && <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{authError}</Text>}
+      <Button label="Criar conta e entrar" onPress={handleSubmit} loading={authLoading} disabled={!name.trim()} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
     </ScrollView>
   );

@@ -258,6 +258,7 @@ interface AppState {
 
   // chamada / presença
   setAttendance: (gameId: string, playerId: string, status: AttendanceStatus) => void;
+  setPlayerCheckIn: (gameId: string, playerId: string, checkedIn: boolean) => void;
   /** Admin adiciona um convidado sem conta direto na chamada de um jogo específico; entra confirmado (ou na espera, se lotado). */
   addGuest: (gameId: string, name: string) => Player;
 
@@ -643,6 +644,16 @@ export const useAppStore = create<AppState>()(
           return { attendances, games };
         });
         get().triggerGameBookingAutomation(gameId);
+      },
+
+      setPlayerCheckIn: (gameId, playerId, checkedIn) => {
+        set((state) => ({
+          attendances: state.attendances.map((attendance) =>
+            attendance.gameId === gameId && attendance.playerId === playerId
+              ? { ...attendance, checkedIn, noShow: checkedIn ? false : attendance.noShow }
+              : attendance,
+          ),
+        }));
       },
 
       addGuest: (gameId, name) => {

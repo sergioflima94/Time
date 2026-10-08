@@ -697,6 +697,7 @@ create table payment_gateway_connections (
   pix_enabled boolean not null default true,
   card_enabled boolean not null default false,
   contactless_enabled boolean not null default false,
+  platform_fee_percent numeric(5,2) not null default 0 check (platform_fee_percent between 0 and 30),
   credential_secret_id uuid,
   connected_at timestamptz,
   updated_at timestamptz not null default now()
@@ -2124,3 +2125,291 @@ create policy "rental_orders_insert_self" on rental_orders for insert with check
 create policy "device_push_tokens_self" on device_push_tokens for all using (
   exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
+
+-- ---------------------------------------------------------------------
+-- Operação Pro: check-in, confiabilidade, temporadas, crescimento e sync
+-- ---------------------------------------------------------------------
+create table game_checkin_passes (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  token_hash text not null,
+  issued_at timestamptz not null default now(),
+  redeemed_at timestamptz,
+  redeemed_by uuid references players (id) on delete set null,
+  unique (game_id, player_id)
+);
+
+create table reliability_events (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null check (entity_type in ('player', 'team', 'establishment')),
+  entity_id uuid not null,
+  game_id uuid references games (id) on delete set null,
+  kind text not null check (kind in ('checked_in', 'late', 'late_cancel', 'no_show', 'fair_play')),
+  points int not null check (points between -50 and 20),
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table sport_seasons (
+  id uuid primary key default gen_random_uuid(),
+  pelada_id uuid not null references peladas (id) on delete cascade,
+  name text not null,
+  sport_id text not null,
+  starts_at date not null,
+  ends_at date,
+  status text not null default 'draft' check (status in ('draft', 'active', 'finished')),
+  points_win int not null default 3,
+  points_draw int not null default 1,
+  points_participation int not null default 1,
+  created_at timestamptz not null default now()
+);
+
+create table season_standings (
+  season_id uuid not null references sport_seasons (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  games int not null default 0,
+  wins int not null default 0,
+  draws int not null default 0,
+  losses int not null default 0,
+  scored int not null default 0,
+  assists int not null default 0,
+  fair_play int not null default 0,
+  points int not null default 0,
+  primary key (season_id, player_id)
+);
+
+create table commercial_plans (
+  id uuid primary key default gen_random_uuid(),
+  audience text not null check (audience in ('player', 'team', 'establishment')),
+  name text not null,
+  monthly_price numeric(10,2) not null check (monthly_price >= 0),
+  benefits jsonb not null default '[]'::jsonb,
+  highlighted boolean not null default false,
+  active boolean not null default true
+);
+
+create table commercial_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references commercial_plans (id),
+  subscriber_player_id uuid references players (id) on delete cascade,
+  pelada_id uuid references peladas (id) on delete cascade,
+  establishment_id uuid references establishments (id) on delete cascade,
+  provider text,
+  provider_subscription_id text unique,
+  status text not null check (status in ('trial', 'active', 'past_due', 'cancelled')),
+  current_period_end timestamptz not null,
+  created_at timestamptz not null default now(),
+  check (num_nonnulls(subscriber_player_id, pelada_id, establishment_id) = 1)
+);
+
+create table referral_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  owner_player_id uuid not null references players (id) on delete cascade,
+  code text not null unique,
+  reward_credits numeric(10,2) not null default 0,
+  max_uses int,
+  uses int not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table referral_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references referral_campaigns (id) on delete cascade,
+  referred_player_id uuid not null references players (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'qualified', 'rewarded')),
+  created_at timestamptz not null default now(),
+  unique (referred_player_id)
+);
+
+create table moderation_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_player_id uuid not null references players (id),
+  target_type text not null check (target_type in ('player', 'team', 'establishment')),
+  target_id uuid not null,
+  reason text not null check (reason in ('harassment', 'fraud', 'unsafe_content', 'spam', 'other')),
+  details text,
+  status text not null default 'open' check (status in ('open', 'reviewing', 'resolved', 'dismissed')),
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+create table audit_events (
+  id uuid primary key default gen_random_uuid(),
+  actor_player_id uuid references players (id) on delete set null,
+  entity_type text not null check (entity_type in ('player', 'team', 'establishment', 'game', 'payment')),
+  entity_id uuid not null,
+  action text not null,
+  summary text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- Caixa de entrada idempotente usada pela fila offline-first do aplicativo.
+create table client_mutations (
+  id text primary key,
+  auth_user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  aggregate text not null,
+  aggregate_id text not null,
+  operation text not null,
+  payload jsonb not null,
+  client_created_at timestamptz not null,
+  received_at timestamptz not null default now(),
+  processed_at timestamptz,
+  processing_error text
+);
+
+create table payment_settlements (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  source_type text not null check (source_type in ('sale', 'booking', 'fundraising', 'subscription')),
+  source_id text not null,
+  gross_cents int not null check (gross_cents >= 0),
+  provider_fee_cents int not null default 0 check (provider_fee_cents >= 0),
+  platform_fee_cents int not null default 0 check (platform_fee_cents >= 0),
+  net_cents int not null check (net_cents >= 0),
+  status text not null default 'pending' check (status in ('pending', 'settled', 'refunded')),
+  settled_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (source_type, source_id)
+);
+
+alter table game_checkin_passes enable row level security;
+alter table reliability_events enable row level security;
+alter table sport_seasons enable row level security;
+alter table season_standings enable row level security;
+alter table commercial_plans enable row level security;
+alter table commercial_subscriptions enable row level security;
+alter table referral_campaigns enable row level security;
+alter table referral_redemptions enable row level security;
+alter table moderation_reports enable row level security;
+alter table audit_events enable row level security;
+alter table client_mutations enable row level security;
+alter table payment_settlements enable row level security;
+
+create policy "checkin_pass_involved" on game_checkin_passes for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+create policy "checkin_pass_self_insert" on game_checkin_passes for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "reliability_authenticated_read" on reliability_events for select using (auth.uid() is not null);
+create policy "reliability_admin_write" on reliability_events for insert with check (
+  game_id is not null and exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "seasons_members_read" on sport_seasons for select using (is_member_of_pelada(pelada_id));
+create policy "seasons_admin_write" on sport_seasons for all using (is_admin_of_pelada(pelada_id));
+create policy "season_standings_members_read" on season_standings for select using (
+  exists (select 1 from sport_seasons s where s.id = season_id and is_member_of_pelada(s.pelada_id))
+);
+create policy "season_standings_admin_write" on season_standings for all using (
+  exists (select 1 from sport_seasons s where s.id = season_id and is_admin_of_pelada(s.pelada_id))
+);
+
+create policy "commercial_plans_public" on commercial_plans for select using (active);
+create policy "subscriptions_involved" on commercial_subscriptions for select using (
+  (subscriber_player_id is not null and exists (select 1 from players p where p.id = subscriber_player_id and p.auth_user_id = auth.uid()))
+  or (pelada_id is not null and is_admin_of_pelada(pelada_id))
+  or (establishment_id is not null and can_operate_establishment(establishment_id))
+);
+
+create policy "referrals_owner" on referral_campaigns for select using (
+  exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
+);
+create policy "referrals_owner_write" on referral_campaigns for insert with check (
+  exists (select 1 from players p where p.id = owner_player_id and p.auth_user_id = auth.uid())
+);
+create policy "referral_redemptions_involved" on referral_redemptions for select using (
+  exists (select 1 from players p where p.id = referred_player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from referral_campaigns c join players p on p.id = c.owner_player_id where c.id = campaign_id and p.auth_user_id = auth.uid())
+);
+
+create policy "moderation_reporter_insert" on moderation_reports for insert with check (
+  exists (select 1 from players p where p.id = reporter_player_id and p.auth_user_id = auth.uid())
+);
+create policy "moderation_reporter_read" on moderation_reports for select using (
+  exists (select 1 from players p where p.id = reporter_player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "audit_involved_read" on audit_events for select using (
+  actor_player_id is not null and exists (select 1 from players p where p.id = actor_player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "client_mutations_self" on client_mutations for all using (auth_user_id = auth.uid()) with check (auth_user_id = auth.uid());
+create policy "payment_settlements_operator" on payment_settlements for select using (can_operate_establishment(establishment_id));
+
+create or replace function issue_game_checkin_pass(p_game_id uuid, p_player_id uuid, p_token text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_id uuid;
+begin
+  if not exists (select 1 from players p where p.id = p_player_id and p.auth_user_id = auth.uid()) then raise exception 'not_authorized'; end if;
+  if not exists (select 1 from attendances a where a.game_id = p_game_id and a.player_id = p_player_id and a.status = 'confirmed') then raise exception 'not_confirmed'; end if;
+  insert into game_checkin_passes (game_id, player_id, token_hash)
+  values (p_game_id, p_player_id, encode(digest(p_token, 'sha256'), 'hex'))
+  on conflict (game_id, player_id) do update set token_hash = excluded.token_hash, issued_at = now(), redeemed_at = null, redeemed_by = null
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+grant execute on function issue_game_checkin_pass(uuid, uuid, text) to authenticated;
+
+-- A validação real do ingresso é atômica: compara somente o hash, marca presença e
+-- impede reuso. A função pode ser chamada por um admin do time do jogo.
+create or replace function redeem_game_checkin(p_game_id uuid, p_player_id uuid, p_token text, p_redeemed_by uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from players p where p.id = p_redeemed_by and p.auth_user_id = auth.uid()) then
+    raise exception 'invalid_actor';
+  end if;
+  if not exists (select 1 from games g where g.id = p_game_id and is_admin_of_pelada(g.pelada_id)) then
+    raise exception 'not_authorized';
+  end if;
+  update game_checkin_passes
+    set redeemed_at = now(), redeemed_by = p_redeemed_by
+    where game_id = p_game_id and player_id = p_player_id and redeemed_at is null
+      and token_hash = encode(digest(p_token, 'sha256'), 'hex');
+  if not found then return false; end if;
+  update attendances set checked_in = true, no_show = false where game_id = p_game_id and player_id = p_player_id;
+  insert into reliability_events (entity_type, entity_id, game_id, kind, points, note)
+    values ('player', p_player_id, p_game_id, 'checked_in', 2, 'Check-in confirmado por QR Code');
+  return true;
+end;
+$$;
+grant execute on function redeem_game_checkin(uuid, uuid, text, uuid) to authenticated;
+
+-- Cria o perfil mínimo junto com o cadastro do Supabase Auth, inclusive quando a
+-- confirmação de e-mail impede o cliente de ter sessão imediatamente.
+create or replace function handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into players (auth_user_id, name, phone, preferred_position, favorite_sports)
+  values (
+    new.id,
+    coalesce(nullif(new.raw_user_meta_data->>'name', ''), split_part(new.email, '@', 1), 'Novo jogador'),
+    nullif(new.raw_user_meta_data->>'phone', ''),
+    case when new.raw_user_meta_data->>'preferred_position' = 'goalkeeper' then 'goalkeeper' else 'line' end,
+    coalesce((select array_agg(value::text) from jsonb_array_elements_text(coalesce(new.raw_user_meta_data->'favorite_sports', '["futebol"]'::jsonb))), array['futebol']::text[])
+  )
+  on conflict (auth_user_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure handle_new_auth_user();

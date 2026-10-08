@@ -18,6 +18,7 @@ import { colors, spacing } from '@/constants/theme';
 import { drawMethodLabel, formatGameDateLong } from '@/lib/format';
 import { isPlayerSuspended } from '@/lib/punishment';
 import { useAppStore } from '@/store/useAppStore';
+import { useProStore } from '@/store/useProStore';
 import type { Attendance, DrawMethod } from '@/types';
 
 export default function GameDetailScreen() {
@@ -47,6 +48,7 @@ export default function GameDetailScreen() {
   const setGameMatchMinutes = useAppStore((s) => s.setGameMatchMinutes);
   const setGameGoalLimit = useAppStore((s) => s.setGameGoalLimit);
   const addGuest = useAppStore((s) => s.addGuest);
+  const recordReliability = useProStore((s) => s.recordReliability);
 
   const [editingLimit, setEditingLimit] = useState(false);
   const [limitDraft, setLimitDraft] = useState(String(game?.maxPlayers ?? ''));
@@ -102,6 +104,12 @@ export default function GameDetailScreen() {
         <Ionicons name="location" size={14} color={colors.textMuted} />
         <Text style={styles.metaText}>{field?.name ?? 'Local a definir'} · reserva de {game.durationMinutes ?? 90} min</Text>
       </View>
+
+      <Pressable style={styles.matchDay} onPress={() => router.push(`/jogo/${game.id}/dia-do-jogo`)}>
+        <View style={styles.matchDayIcon}><Ionicons name="flash" size={21} color={colors.bg} /></View>
+        <View style={{ flex: 1 }}><Text style={styles.matchDayTitle}>Central do dia do jogo</Text><Text style={styles.matchDayText}>Campo, chamada, pagamentos, check-in, sorteio e partida em um só fluxo.</Text></View>
+        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+      </Pressable>
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
@@ -330,7 +338,10 @@ export default function GameDetailScreen() {
                   {a.noShow ? (
                     <Badge label="Falta registrada" color={colors.danger} />
                   ) : (
-                    <Pressable onPress={() => registerPunishment(game.peladaId, a.playerId, game.id, 'no_show')}>
+                    <Pressable onPress={() => {
+                      registerPunishment(game.peladaId, a.playerId, game.id, 'no_show');
+                      recordReliability({ entityType: 'player', entityId: a.playerId, gameId: game.id, kind: 'no_show', points: -18, note: 'Confirmou presença e não compareceu' });
+                    }}>
                       <Text style={styles.linkDanger}>marcar falta</Text>
                     </Pressable>
                   )}
@@ -405,6 +416,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
+  matchDay: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, marginBottom: spacing.lg, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
+  matchDayIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  matchDayTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  matchDayText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

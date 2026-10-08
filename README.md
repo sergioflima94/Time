@@ -31,9 +31,11 @@ Sem nenhuma configuração adicional, o app roda inteiro com **dados de exemplo*
 os fluxos — chamada, sorteio, cronômetro, avaliações, punições, admin — sem precisar
 de internet ou conta em nenhum serviço.
 
-Assim que o Supabase for configurado (próxima seção), a ideia é trocar as chamadas
-das stores por queries reais ao Supabase (o cliente já está pronto em
-`src/lib/supabase.ts`, exportando `isMockMode` para você saber qual modo está ativo).
+Quando o Supabase é configurado, login e cadastro já usam o Auth real. Os módulos da
+Operação Pro também possuem uma fila offline idempotente (`client_mutations`) para
+entregar alterações ao backend. Os domínios legados ainda preservam as stores locais
+para a demonstração continuar funcionando sem internet; a migração pode ser feita
+gradualmente, agregado por agregado, sem interromper o aplicativo.
 
 ### Contas de demonstração
 
@@ -71,15 +73,14 @@ telas normalmente — é tudo local, não afeta ninguém além do seu próprio a
    EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
    ```
 5. Reinicie o `npm run start`. Com essas variáveis definidas, `isMockMode` vira
-   `false` e o cliente Supabase (`src/lib/supabase.ts`) fica pronto para uso.
+   `false`, login/cadastro usam Supabase Auth e a fila Pro passa a enviar eventos para
+   `client_mutations`.
 6. Em **Authentication**, habilite o provedor de e-mail/senha (ou o de sua
    preferência) para o cadastro de jogadores.
 
-> Nesta primeira entrega, as telas continuam usando as stores mockadas mesmo com o
-> Supabase configurado — o próximo passo é migrar cada ação das stores
-> (`src/store/useAppStore.ts`) para chamadas reais via `supabase.from(...)`, e trocar
-> o cronômetro/fila de rodízio para usar **Supabase Realtime** para sincronizar entre
-> os aparelhos de todos os jogadores em tempo real.
+> As telas históricas ainda usam as stores persistidas do aparelho. A autenticação e
+> a caixa de entrada idempotente já são reais; cronômetro, chamada, comandas e agenda
+> são os próximos agregados a serem conectados a queries/Realtime em uma implantação.
 
 ## Estrutura do projeto
 
@@ -213,6 +214,52 @@ supabase/schema.sql          schema completo + Row Level Security
   remove os selos ativos. Na monetização, o Premium pode oferecer animações, molduras
   e coleções sazonais para o verso da carta, mas nunca cobrar para esconder voto,
   denunciar abuso ou controlar a privacidade.
+
+## Operação Pro — jornada, confiança e monetização
+
+A Home e a Central do esporte possuem um atalho para `app/operacao-pro.tsx`. Essa
+área fecha os ciclos que faltavam entre marcar um jogo, operar o encontro, receber e
+reter o usuário:
+
+- **Central do dia do jogo** (`app/jogo/[id]/dia-do-jogo.tsx`): mostra campo,
+  quórum, pagamentos, check-in, times e partida como uma linha do tempo. O jogador
+  abre seu ingresso; o admin abre a portaria; ambos acessam a comanda sem procurar o
+  recurso em vários menus.
+- **Check-in por QR Code** (`app/checkin/[gameId].tsx` e
+  `app/jogo/[id]/checkin.tsx`): ingresso individual de uso único, leitura por
+  `expo-camera`, fallback manual e lista para o admin. No banco, a função
+  `redeem_game_checkin()` compara apenas o hash do token, registra presença e cria o
+  evento de confiabilidade de forma atômica.
+- **Confiabilidade**: nota separada da habilidade esportiva, baseada em check-in,
+  no-show, atraso, cancelamento tardio e fair play. Assim o app não pune o desempenho
+  do jogador por uma questão operacional.
+- **Temporadas e ranking**: cada time cria temporadas por esporte, configura pontos
+  e acompanha jogos, vitórias, produção ofensiva e fair play.
+- **Inteligência do estabelecimento**: ocupação estimada, líquido conciliado, estoque
+  baixo e recomendações para horários ociosos e clientes recorrentes.
+- **Indicações com deep link** (`pelada://convite/CÓDIGO`): campanha rastreável,
+  limite de uso e recompensa somente depois da primeira conversão paga.
+- **Planos comerciais**: ofertas distintas para Jogador Premium, Time Pro e
+  Estabelecimento Pro. A tela demonstra a contratação, mas a produção só ativa o
+  benefício depois do callback da loja ou webhook do provedor.
+- **Segurança e auditoria**: denúncias, estado da análise e trilha imutável das ações
+  administrativas. Dados sensíveis continuam protegidos por RLS.
+- **Sincronização offline-first**: ações novas entram em `useProStore.syncQueue` e
+  são enviadas idempotentemente para `client_mutations` por
+  `src/lib/platformSync.ts`. Repetir uma tentativa não duplica o evento.
+
+O cadastro passa a usar Supabase Auth quando `.env` está configurado. O trigger
+`handle_new_auth_user()` cria o perfil mínimo mesmo quando a confirmação por e-mail
+impede uma sessão imediata. Sem Supabase, login, QR, ranking, planos e sincronização
+continuam demonstráveis localmente.
+
+### Conciliação e receita da plataforma
+
+`payment_gateway_connections.platform_fee_percent` define a comissão contratada com
+o estabelecimento. Depois que o webhook confirma o pagamento, ele cria uma linha em
+`payment_settlements` separando valor bruto, tarifa do provedor, comissão da
+plataforma e líquido do estabelecimento. A interface usa o líquido conciliado nos
+indicadores — nunca considera o clique do cliente como receita confirmada.
 
 ## Central do esporte — novos módulos
 
@@ -354,17 +401,18 @@ cliente nunca marca uma cobrança real como paga.
   "convidar gente pra entrar na pelada" faz o código de convite (`InvitePeladaSection`)
   aparecer também na aba Jogadores pra qualquer membro, não só no Admin.
 
-## Próximos passos sugeridos
+## Checklist para implantação real
 
-- Migrar as ações da store para Supabase (auth real, dados compartilhados entre
-  jogadores) e ligar o Realtime no cronômetro/fila de rodízio.
-- Notificações push (Expo Notifications) para lembrar da chamada e do resultado do
-  sorteio.
-- Deep link real pro convite (ex.: `pelada://entrar/CODIGO`) abrir `/entrar-pelada`
-  com o código já preenchido, além do fluxo manual atual.
-- MVP da partida (votação pós-jogo), histórico/evolução de nota por jogador, ranking
-  da pelada (artilheiro, mais assíduo), fila de espera com notificação automática de
-  vaga, Pix real com QR Code no rateio, aviso de previsão do tempo, modo temporada.
+- Aplicar `supabase/schema.sql` em um projeto de homologação e migrar, por agregado,
+  chamada, cronômetro, agenda e comandas para Realtime.
+- Configurar Vault, credenciais e webhooks dos gateways; validar estorno, duplicidade,
+  chargeback e conciliação antes de movimentar dinheiro real.
+- Gerar development builds para câmera, push, AdMob e SDKs SoftPOS; esses recursos não
+  devem ser homologados somente pelo Expo Go.
+- Cadastrar políticas de privacidade, termos, retenção de dados, canal de moderação e
+  responsáveis operacionais antes de abrir cadastro público.
+- Instrumentar falhas, funil de reserva, pagamento, retenção e cancelamento em uma
+  ferramenta de observabilidade sem enviar dados médicos ou segredos.
 
 ## Redesign — decisões tomadas
 

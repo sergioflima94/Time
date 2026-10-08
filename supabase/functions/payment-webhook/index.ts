@@ -75,6 +75,18 @@ serve(async (req) => {
     }
     const { data: paymentId, error } = await serviceClient.rpc('settle_sale_payment_intent', { p_intent_id: intentId });
     if (error) return response({ error: 'Falha ao liquidar cobrança' }, 500);
+    const { data: intent } = await serviceClient.from('sale_payment_intents').select('amount_cents, service_tabs!inner(establishment_id)').eq('id', intentId).single();
+    const { data: connection } = await serviceClient.from('payment_gateway_connections').select('platform_fee_percent').eq('id', connectionId).single();
+    if (intent) {
+      const grossCents = Number(intent.amount_cents);
+      const platformFeeCents = Math.round(grossCents * (Number(connection?.platform_fee_percent ?? 0) / 100));
+      await serviceClient.from('payment_settlements').upsert({
+        establishment_id: intent.service_tabs.establishment_id,
+        source_type: 'sale', source_id: intentId, gross_cents: grossCents,
+        provider_fee_cents: 0, platform_fee_cents: platformFeeCents,
+        net_cents: Math.max(0, grossCents - platformFeeCents), status: 'settled', settled_at: new Date().toISOString(),
+      }, { onConflict: 'source_type,source_id' });
+    }
     return response({ received: true, settled: Boolean(paymentId), paymentId });
   } catch (error) {
     return response({ error: String(error) }, 500);

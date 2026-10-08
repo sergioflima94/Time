@@ -7,12 +7,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { initializeAds } from '@/lib/ads';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function RootLayout() {
   useNotificationNavigation();
+  const initializeAuth = useAuthStore((state) => state.initialize);
   useEffect(() => {
     initializeAds();
-  }, []);
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -31,6 +34,10 @@ export default function RootLayout() {
           <Stack.Screen name="notificacoes" />
           <Stack.Screen name="central" />
           <Stack.Screen name="recursos/[slug]" />
+          <Stack.Screen name="operacao-pro" />
+          <Stack.Screen name="pro/[slug]" />
+          <Stack.Screen name="checkin/[gameId]" />
+          <Stack.Screen name="convite/[code]" />
           <Stack.Screen name="entrar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="criar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="estabelecimento" />
