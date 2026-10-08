@@ -378,9 +378,13 @@ function SchedulesSection() {
   const [time, setTime] = useState('20:00');
   const [maxPlayers, setMaxPlayers] = useState(String(pelada.defaultMaxPlayers));
   const [matchMinutes, setMatchMinutes] = useState(String(pelada.defaultMatchMinutes));
+  const [bookingDurationMinutes, setBookingDurationMinutes] = useState('90');
   const [drawMethod, setDrawMethod] = useState<DrawMethod>('rating');
   const [fieldCost, setFieldCost] = useState('');
   const [goalLimit, setGoalLimit] = useState('');
+  const [autoBookingEnabled, setAutoBookingEnabled] = useState(true);
+  const [bookingMinimumPlayers, setBookingMinimumPlayers] = useState('10');
+  const [bookingResponseMinutes, setBookingResponseMinutes] = useState('30');
 
   function handleAdd() {
     if (!fieldId) return;
@@ -393,9 +397,13 @@ function SchedulesSection() {
       startDate: new Date().toISOString().slice(0, 10),
       maxPlayers: Number(maxPlayers) || pelada.defaultMaxPlayers,
       matchMinutes: Number(matchMinutes) || pelada.defaultMatchMinutes,
+      bookingDurationMinutes: Number(bookingDurationMinutes) || 90,
       drawMethod,
       defaultFieldCost: fieldCost.trim() ? Number(fieldCost.replace(',', '.')) : null,
       matchGoalLimit: goalLimit.trim() ? Number(goalLimit) : null,
+      autoBookingEnabled,
+      bookingMinimumPlayers: Number(bookingMinimumPlayers) || 10,
+      bookingResponseMinutes: Number(bookingResponseMinutes) || 30,
     });
     setOpen(false);
   }
@@ -408,6 +416,17 @@ function SchedulesSection() {
           <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.primary} />
         </Pressable>
       </View>
+
+      {schedules.length > 0 && (
+        <Pressable style={styles.automationBanner} onPress={() => router.push(`/time/${pelada.id}/agendamento-automatico`)}>
+          <View style={styles.automationIcon}><Ionicons name="logo-whatsapp" size={18} color="#07110A" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.automationTitle}>Agendamento automático</Text>
+            <Text style={styles.rowSub}>Mínimo de jogadores, ordem dos campos e sugestões patrocinadas</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      )}
 
       {schedules.map((s) => {
         const field = fields.find((f) => f.id === s.fieldId);
@@ -424,6 +443,7 @@ function SchedulesSection() {
                 {s.defaultFieldCost ? ` · ${formatBRL(s.defaultFieldCost)}` : ''}
               </Text>
               <Text style={styles.rowSub}>Próximo: {formatGameDateShort(next.toISOString())}</Text>
+              {s.autoBookingEnabled && <Text style={styles.autoStatus}>WhatsApp automático · mínimo {s.bookingMinimumPlayers}</Text>}
             </View>
             <Button
               label="Gerar jogo"
@@ -470,6 +490,26 @@ function SchedulesSection() {
             placeholder="Ex: 10"
             keyboardType="number-pad"
           />
+          <TextField
+            label="Duração total da reserva (min)"
+            value={bookingDurationMinutes}
+            onChangeText={setBookingDurationMinutes}
+            placeholder="Ex: 90"
+            keyboardType="number-pad"
+          />
+          <View style={styles.permissionRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.permissionLabel}>Buscar campo automaticamente</Text>
+              <Text style={styles.rowSub}>Dispara WhatsApp quando a chamada atingir o mínimo.</Text>
+            </View>
+            <Switch value={autoBookingEnabled} onValueChange={setAutoBookingEnabled} trackColor={{ true: colors.primary }} />
+          </View>
+          {autoBookingEnabled && (
+            <View style={styles.linkForm}>
+              <View style={{ flex: 1 }}><TextField label="Mínimo de jogadores" value={bookingMinimumPlayers} onChangeText={setBookingMinimumPlayers} keyboardType="number-pad" /></View>
+              <View style={{ flex: 1 }}><TextField label="Prazo de resposta (min)" value={bookingResponseMinutes} onChangeText={setBookingResponseMinutes} keyboardType="number-pad" /></View>
+            </View>
+          )}
           <TextField
             label="Custo da quadra (opcional, para rateio)"
             value={fieldCost}
@@ -737,5 +777,35 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 11,
     marginTop: 2,
+  },
+  automationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(37,211,102,0.35)',
+    backgroundColor: 'rgba(37,211,102,0.08)',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginVertical: spacing.sm,
+  },
+  automationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#25D366',
+  },
+  automationTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  autoStatus: {
+    color: '#25D366',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 3,
   },
 });

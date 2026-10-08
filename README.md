@@ -400,6 +400,27 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   time já está lá). Bloqueia conflito: não dá pra reservar o mesmo campo com horário
   sobreposto a uma reserva existente, single ou fixa (`findBookingConflicts`, considera
   fixo x fixo, fixo x avulsa no mesmo dia da semana, e avulsa x avulsa só na mesma data).
+- ✅ **Agendamento automático por mínimo de jogadores + Evolution Go**
+  (`BookingAutomationCard`, `app/time/[id]/agendamento-automatico.tsx` e
+  `supabase/functions/{request-field-booking,evolution-go-webhook}`): cada agenda define
+  se a automação está ativa, o mínimo de confirmados e o prazo de resposta. O admin
+  ordena campos preferidos; ao atingir o mínimo, o backend solicita o primeiro horário
+  realmente disponível por WhatsApp. O dono responde `SIM BJ-XXXX` ou `NÃO BJ-XXXX`.
+  O aceite passa por `respond_game_booking_request`, que bloqueia a solicitação, confere
+  conflito novamente, cria a reserva e muda o campo do jogo numa única transação; depois
+  todos os membros com telefone recebem a confirmação. A recusa oferece próximo campo ou
+  enquete. A tela do jogo contém botões de resposta somente como **modo apresentação**;
+  em produção a autoridade é o webhook.
+- ✅ **Enquete de novos horários**: quando o campo recusa, o admin gera opções a partir
+  das janelas publicadas em `field_availabilities`, já removendo reservas conflitantes.
+  Cada membro vota uma vez e pode trocar seu voto. O admin escolhe a opção vencedora,
+  atualiza o horário do jogo e abre uma nova solicitação ao campo. O dono publica dias,
+  faixa de horário, tamanho do bloco e preço em **Estabelecimento → Agendamento**.
+- ✅ **Campos patrocinados sem esconder publicidade**: `field_promotions` fornece as
+  sugestões monetizadas do BoraJogo. Elas aparecem com selo **Patrocinado**, depois da
+  lista definida pelo time, e só entram na lista principal quando o admin adiciona. O
+  modelo recomendado é taxa fixa por reserva confirmada, complementado por assinatura
+  do estabelecimento para agenda, automação e relatórios.
 - ✅ **Página pública do estabelecimento** (`app/estabelecimento/publico/[id].tsx`): link
   compartilhável — gerenciado numa página própria do dono, `[id]/publico.tsx` (acessível
   pelo card "Página pública" do grid de navegação em `[id]/index.tsx`, junto com
@@ -486,6 +507,52 @@ cliente chama por `supabase.functions.invoke(...)`.
 4. Sem Supabase configurado (modo mock) ou se a função falhar, o app cai automaticamente
    num gerador de emblema de exemplo (`api.dicebear.com`, grátis, sem chave) — assim dá
    pra testar o fluxo inteiro sem precisar de conta na OpenAI.
+
+### Configurar Evolution Go e WhatsApp
+
+1. Suba uma instância da [Evolution Go](https://github.com/evolution-foundation/evolution-go),
+   conclua a ativação/licenciamento e conecte o número pelo QR Code.
+2. Aplique `supabase/schema.sql` e publique:
+   `supabase functions deploy trigger-auto-booking --no-verify-jwt`,
+   `supabase functions deploy request-field-booking` e
+   `supabase functions deploy evolution-go-webhook --no-verify-jwt` e
+   `supabase functions deploy expire-booking-requests --no-verify-jwt`.
+3. Grave os segredos somente no backend:
+   `supabase secrets set EVOLUTION_GO_URL=https://... EVOLUTION_GO_API_KEY=... EVOLUTION_GO_WEBHOOK_SECRET=... BOOKING_AUTOMATION_WEBHOOK_SECRET=... BOOKING_AUTOMATION_CRON_SECRET=...`.
+4. Configure o webhook da instância para a categoria `MESSAGE` apontando para
+   `https://PROJECT.supabase.co/functions/v1/evolution-go-webhook?secret=SEGREDO`.
+5. Em **Database → Webhooks**, crie um webhook para INSERT/UPDATE de `attendances`, URL
+   `https://PROJECT.supabase.co/functions/v1/trigger-auto-booking`, com o header
+   `x-automation-secret` igual ao segredo do passo 3.
+6. No painel do estabelecimento, cadastre o WhatsApp comercial e ative o consentimento.
+   O número é normalizado para DDI + DDD + número. Nunca coloque a chave da Evolution em
+   `EXPO_PUBLIC_*`, AsyncStorage ou no bundle do aplicativo.
+7. A Evolution Go usa uma sessão baseada no WhatsApp Web. Para operação comercial em
+   escala, mantenha a integração atrás de um provedor e considere a API oficial WhatsApp
+   Cloud como alternativa para reduzir risco de desconexão/bloqueio. A licença da
+   Evolution Go também exige uma notificação visível aos administradores informando seu uso.
+
+Agende `expire-booking-requests` no Supabase Cron a cada cinco minutos, enviando o header
+`x-cron-secret`. Solicitações vencidas deixam de bloquear novas tentativas e o admin recebe
+um aviso para tentar o próximo campo ou abrir a enquete.
+
+Mensagens interativas não são necessárias: os comandos são texto simples com código de
+correlação. O webhook aceita apenas o telefone cadastrado do estabelecimento, ignora
+mensagens enviadas pela própria instância e usa o ID da mensagem como idempotência.
+
+#### Roteiro de apresentação (modo demonstração)
+
+1. Abra **Agenda → jogo de quinta**: a chamada já tem 15/15 e mostra a solicitação
+   `BJ-7F2K` enviada à Arena Society Central.
+2. Toque em **NÃO BJ-7F2K** para representar a resposta do dono do campo.
+3. Escolha **Perguntar outros horários ao time**, vote numa opção e mostre a contagem.
+4. Como admin, toque em **Escolher**: o jogo muda de horário e envia uma nova solicitação.
+5. Em uma sessão limpa, toque em **SIM BJ-7F2K**: a reserva é confirmada e o time é avisado.
+6. Em **Admin → Agendamento automático**, mostre mínimo, prazo, ordem dos campos e a
+   sugestão patrocinada. Em **Dono do campo → Agendamento**, mostre as janelas publicadas.
+
+Os botões SIM/NÃO só existem no modo mock para a demonstração não depender de internet.
+Com Supabase configurado, a mesma mudança de estado vem exclusivamente do webhook.
 
 ### Configurar gateways de consumo
 

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { FreeAgentInvitesSection } from '@/components/FreeAgentInvitesSection';
@@ -37,6 +37,7 @@ export default function PerfilScreen() {
   const punishments = useAppStore(useShallow((s) => s.punishments.filter((p) => p.playerId === currentPlayerId)));
   const setPlayerPhoto = useAppStore((s) => s.setPlayerPhoto);
   const setPlayerCardBackground = useAppStore((s) => s.setPlayerCardBackground);
+  const setPlayerWhatsAppOptIn = useAppStore((s) => s.setPlayerWhatsAppOptIn);
   const renewPremium = useAppStore((s) => s.renewPremium);
   const cancelPremiumAutoRenew = useAppStore((s) => s.cancelPremiumAutoRenew);
   const logout = useAuthStore((s) => s.logout);
@@ -105,6 +106,18 @@ export default function PerfilScreen() {
 
       <FreeAgentInvitesSection playerId={currentPlayerId} />
       <FreeAgentSection player={player} />
+
+      <Card style={styles.section}>
+        <View style={styles.whatsappRow}>
+          <View style={styles.whatsappIcon}><Ionicons name="logo-whatsapp" size={18} color="#07110A" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Avisos do time no WhatsApp</Text>
+            <Text style={styles.bgHint}>Receba confirmação de campo e convites para enquetes. Você pode desligar quando quiser.</Text>
+          </View>
+          <Switch value={player.whatsappOptIn ?? false} onValueChange={(value) => setPlayerWhatsAppOptIn(currentPlayerId, value)} trackColor={{ true: '#25D366' }} />
+        </View>
+        {!player.phone && <Text style={styles.lockNotice}>Adicione um telefone em Editar perfil para ativar os avisos.</Text>}
+      </Card>
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Plano de fundo da carta</Text>
@@ -325,6 +338,19 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontSize: 11,
     marginTop: spacing.xs,
+  },
+  whatsappRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  whatsappIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#25D366',
   },
   goalGroupRow: {
     flexDirection: 'row',

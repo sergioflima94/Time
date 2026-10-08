@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { NearbyFreeAgentsSection } from '@/components/NearbyFreeAgentsSection';
+import { BookingAutomationCard } from '@/components/BookingAutomationCard';
 import { PaymentSplitSection } from '@/components/PaymentSplitSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -99,7 +100,7 @@ export default function GameDetailScreen() {
       <Text style={styles.date}>{formatGameDateLong(game.scheduledAt)}</Text>
       <View style={styles.metaRow}>
         <Ionicons name="location" size={14} color={colors.textMuted} />
-        <Text style={styles.metaText}>{field?.name ?? 'Local a definir'}</Text>
+        <Text style={styles.metaText}>{field?.name ?? 'Local a definir'} · reserva de {game.durationMinutes ?? 90} min</Text>
       </View>
 
       <Card style={styles.section}>
@@ -209,6 +210,8 @@ export default function GameDetailScreen() {
           />
         )}
       </Card>
+
+      <BookingAutomationCard gameId={game.id} isAdmin={isAdmin} />
 
       <PaymentSplitSection
         gameId={game.id}

@@ -20,6 +20,9 @@ import {
   MOCK_ESTABLISHMENTS,
   MOCK_ESTABLISHMENT_STAFF,
   MOCK_FIELD_BOOKINGS,
+  MOCK_FIELD_AVAILABILITIES,
+  MOCK_FIELD_PROMOTIONS,
+  MOCK_GAME_BOOKING_REQUESTS,
   MOCK_FIELDS,
   MOCK_FRIENDSHIPS,
   MOCK_GAMES,
@@ -38,6 +41,7 @@ import {
   MOCK_PUNISHMENTS,
   MOCK_RATINGS,
   MOCK_SCHEDULES,
+  MOCK_SCHEDULE_FIELD_PREFERENCES,
   MOCK_SALE_PAYMENTS,
   MOCK_SALE_PAYMENT_ALLOCATIONS,
   MOCK_SALE_PAYMENT_INTENTS,
@@ -47,8 +51,13 @@ import {
   MOCK_TAB_PARTICIPANTS,
   MOCK_TEAMS,
   MOCK_TEAM_PLAYERS,
+  MOCK_TEAM_AVAILABILITY_POLLS,
+  MOCK_TEAM_AVAILABILITY_POLL_OPTIONS,
+  MOCK_TEAM_AVAILABILITY_POLL_VOTES,
+  MOCK_WHATSAPP_DELIVERIES,
 } from '@/lib/mockData';
 import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures, normalizeChampionshipBudget } from '@/lib/championship';
+import { createBookingCode, findAlternativeSlots, nextBookingCandidate, normalizeWhatsAppPhone } from '@/lib/bookingAutomation';
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
@@ -81,13 +90,16 @@ import type {
   EstablishmentPayoutMethod,
   EstablishmentStaff,
   Field,
+  FieldAvailability,
   FieldBooking,
   FieldBookingRecurrence,
+  FieldPromotion,
   Friendship,
   FreeAgentInvite,
   FriendlyMatch,
   FriendlyMatchGoal,
   Game,
+  GameBookingRequest,
   GameStatus,
   GeoPoint,
   Goal,
@@ -111,6 +123,7 @@ import type {
   Rating,
   RecurrenceType,
   Schedule,
+  ScheduleFieldPreference,
   SalePayment,
   SalePaymentAllocation,
   SalePaymentIntent,
@@ -121,9 +134,13 @@ import type {
   ServiceTabStatus,
   TabParticipant,
   Team,
+  TeamAvailabilityPoll,
+  TeamAvailabilityPollOption,
+  TeamAvailabilityPollVote,
   TeamChallenge,
   TeamPlayer,
   WaitingPlayer,
+  WhatsAppDelivery,
 } from '@/types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -188,6 +205,14 @@ interface AppState {
   championshipMatches: ChampionshipMatch[];
   championshipGoals: ChampionshipGoal[];
   fieldBookings: FieldBooking[];
+  fieldAvailabilities: FieldAvailability[];
+  fieldPromotions: FieldPromotion[];
+  scheduleFieldPreferences: ScheduleFieldPreference[];
+  gameBookingRequests: GameBookingRequest[];
+  teamAvailabilityPolls: TeamAvailabilityPoll[];
+  teamAvailabilityPollOptions: TeamAvailabilityPollOption[];
+  teamAvailabilityPollVotes: TeamAvailabilityPollVote[];
+  whatsAppDeliveries: WhatsAppDelivery[];
   teamChallenges: TeamChallenge[];
   friendlyMatches: FriendlyMatch[];
   friendlyMatchGoals: FriendlyMatchGoal[];
@@ -297,14 +322,36 @@ interface AppState {
     startDate: string;
     maxPlayers: number;
     matchMinutes: number;
+    bookingDurationMinutes: number;
     drawMethod: DrawMethod;
     defaultFieldCost: number | null;
     matchGoalLimit: number | null;
+    autoBookingEnabled?: boolean;
+    bookingMinimumPlayers?: number;
+    bookingResponseMinutes?: number;
   }) => Schedule;
   addGameFromSchedule: (scheduleId: string, scheduledAt: string) => Game;
   updateGameMaxPlayers: (gameId: string, maxPlayers: number) => void;
   setDrawMethod: (gameId: string, method: DrawMethod) => void;
   promoteFromWaitlist: (gameId: string) => void;
+
+  // agendamento automático + WhatsApp + enquete de disponibilidade
+  updateScheduleBookingAutomation: (
+    scheduleId: string,
+    input: { enabled: boolean; minimumPlayers: number; responseMinutes: number },
+  ) => void;
+  addScheduleFieldPreference: (scheduleId: string, fieldId: string, source?: ScheduleFieldPreference['source']) => void;
+  moveScheduleFieldPreference: (preferenceId: string, direction: 'up' | 'down') => void;
+  removeScheduleFieldPreference: (preferenceId: string) => void;
+  addFieldAvailability: (fieldId: string, input: { dayOfWeek: number; startTime: string; endTime: string; slotMinutes: number; price: number | null }) => FieldAvailability;
+  removeFieldAvailability: (availabilityId: string) => void;
+  triggerGameBookingAutomation: (gameId: string) => GameBookingRequest | null;
+  respondGameBookingRequest: (requestId: string, accepted: boolean) => void;
+  tryNextPreferredField: (gameId: string) => GameBookingRequest | null;
+  createGameAvailabilityPoll: (gameId: string) => TeamAvailabilityPoll | null;
+  voteGameAvailabilityPoll: (pollId: string, optionId: string, playerId: string) => void;
+  finalizeGameAvailabilityPoll: (pollId: string, optionId: string) => GameBookingRequest | null;
+  updateEstablishmentWhatsApp: (establishmentId: string, phone: string | null, optIn: boolean) => void;
 
   addAdmin: (peladaId: string, playerId: string) => void;
   removeAdmin: (peladaId: string, playerId: string) => void;
@@ -325,6 +372,7 @@ interface AppState {
   markNotificationsSeen: () => void;
 
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
+  setPlayerWhatsAppOptIn: (playerId: string, optIn: boolean) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
   updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null; sportId: string }) => void;
@@ -477,6 +525,14 @@ export const useAppStore = create<AppState>()(
       championshipMatches: MOCK_CHAMPIONSHIP_MATCHES,
       championshipGoals: MOCK_CHAMPIONSHIP_GOALS,
       fieldBookings: MOCK_FIELD_BOOKINGS,
+      fieldAvailabilities: MOCK_FIELD_AVAILABILITIES,
+      fieldPromotions: MOCK_FIELD_PROMOTIONS,
+      scheduleFieldPreferences: MOCK_SCHEDULE_FIELD_PREFERENCES,
+      gameBookingRequests: MOCK_GAME_BOOKING_REQUESTS,
+      teamAvailabilityPolls: MOCK_TEAM_AVAILABILITY_POLLS,
+      teamAvailabilityPollOptions: MOCK_TEAM_AVAILABILITY_POLL_OPTIONS,
+      teamAvailabilityPollVotes: MOCK_TEAM_AVAILABILITY_POLL_VOTES,
+      whatsAppDeliveries: MOCK_WHATSAPP_DELIVERIES,
       teamChallenges: [],
       friendlyMatches: [],
       friendlyMatchGoals: [],
@@ -545,6 +601,7 @@ export const useAppStore = create<AppState>()(
 
           return { attendances, games };
         });
+        get().triggerGameBookingAutomation(gameId);
       },
 
       addGuest: (gameId, name) => {
@@ -949,6 +1006,8 @@ export const useAppStore = create<AppState>()(
           name: input.name,
           payoutMethod: input.payoutMethod,
           pixKey: input.payoutMethod === 'pix' ? input.pixKey : null,
+          whatsappPhone: null,
+          whatsappOptIn: false,
           accessCode: uid().toUpperCase(),
           createdAt: nowIso(),
         };
@@ -1371,7 +1430,7 @@ export const useAppStore = create<AppState>()(
           const otherProgram = state.classPrograms.find((row) => row.id === session.programId);
           return otherProgram?.fieldId === program.fieldId && session.status !== 'cancelled' && overlaps(new Date(session.startsAt), new Date(session.endsAt));
         });
-        const gameConflict = state.games.some((game) => game.fieldId === program.fieldId && game.status !== 'cancelled' && overlaps(new Date(game.scheduledAt), new Date(new Date(game.scheduledAt).getTime() + Math.max(60, game.matchMinutes) * 60_000)));
+        const gameConflict = state.games.some((game) => game.fieldId === program.fieldId && game.status !== 'cancelled' && overlaps(new Date(game.scheduledAt), new Date(new Date(game.scheduledAt).getTime() + (game.durationMinutes ?? 90) * 60_000)));
         const championshipConflict = state.championshipMatches.some((match) => match.fieldId === program.fieldId && match.scheduledAt && match.status !== 'finished' && overlaps(new Date(match.scheduledAt), new Date(new Date(match.scheduledAt).getTime() + program.durationMinutes * 60_000)));
         if (classConflict || gameConflict || championshipConflict) return null;
         const session: ClassSession = { id: uid(), programId, startsAt: start.toISOString(), endsAt: end.toISOString(), status: 'open', cancellationReason: null };
@@ -1758,9 +1817,13 @@ export const useAppStore = create<AppState>()(
           endDate: null,
           maxPlayers: input.maxPlayers,
           matchMinutes: input.matchMinutes,
+          bookingDurationMinutes: input.bookingDurationMinutes,
           drawMethod: input.drawMethod,
           defaultFieldCost: input.defaultFieldCost,
           matchGoalLimit: input.matchGoalLimit,
+          autoBookingEnabled: input.autoBookingEnabled ?? false,
+          bookingMinimumPlayers: Math.max(2, input.bookingMinimumPlayers ?? input.maxPlayers),
+          bookingResponseMinutes: Math.max(5, input.bookingResponseMinutes ?? 30),
           active: true,
           createdBy: get().currentPlayerId,
         };
@@ -1780,6 +1843,7 @@ export const useAppStore = create<AppState>()(
           maxPlayers: schedule.maxPlayers,
           playersPerTeam: 6,
           matchMinutes: schedule.matchMinutes,
+          durationMinutes: schedule.bookingDurationMinutes ?? 90,
           drawMethod: schedule.drawMethod,
           rotationMode: 'teams',
           status: 'open',
@@ -1814,6 +1878,292 @@ export const useAppStore = create<AppState>()(
             ),
           };
         });
+      },
+
+      updateScheduleBookingAutomation: (scheduleId, input) => {
+        set((state) => ({
+          schedules: state.schedules.map((schedule) =>
+            schedule.id === scheduleId
+              ? {
+                  ...schedule,
+                  autoBookingEnabled: input.enabled,
+                  bookingMinimumPlayers: Math.max(2, input.minimumPlayers),
+                  bookingResponseMinutes: Math.max(5, input.responseMinutes),
+                }
+              : schedule,
+          ),
+        }));
+      },
+
+      addScheduleFieldPreference: (scheduleId, fieldId, source = 'team') => {
+        set((state) => {
+          if (state.scheduleFieldPreferences.some((row) => row.scheduleId === scheduleId && row.fieldId === fieldId)) return {};
+          const priority = Math.max(0, ...state.scheduleFieldPreferences.filter((row) => row.scheduleId === scheduleId).map((row) => row.priority)) + 1;
+          return {
+            scheduleFieldPreferences: [
+              ...state.scheduleFieldPreferences,
+              { id: uid(), scheduleId, fieldId, priority, source, createdAt: nowIso() },
+            ],
+          };
+        });
+      },
+
+      moveScheduleFieldPreference: (preferenceId, direction) => {
+        set((state) => {
+          const target = state.scheduleFieldPreferences.find((row) => row.id === preferenceId);
+          if (!target) return {};
+          const ordered = state.scheduleFieldPreferences
+            .filter((row) => row.scheduleId === target.scheduleId)
+            .sort((a, b) => a.priority - b.priority);
+          const index = ordered.findIndex((row) => row.id === preferenceId);
+          const swapIndex = direction === 'up' ? index - 1 : index + 1;
+          if (index < 0 || swapIndex < 0 || swapIndex >= ordered.length) return {};
+          const swap = ordered[swapIndex];
+          return {
+            scheduleFieldPreferences: state.scheduleFieldPreferences.map((row) => {
+              if (row.id === target.id) return { ...row, priority: swap.priority };
+              if (row.id === swap.id) return { ...row, priority: target.priority };
+              return row;
+            }),
+          };
+        });
+      },
+
+      removeScheduleFieldPreference: (preferenceId) => {
+        set((state) => ({ scheduleFieldPreferences: state.scheduleFieldPreferences.filter((row) => row.id !== preferenceId) }));
+      },
+
+      addFieldAvailability: (fieldId, input) => {
+        const availability: FieldAvailability = { id: uid(), fieldId, ...input, active: true };
+        set((state) => ({ fieldAvailabilities: [...state.fieldAvailabilities, availability] }));
+        return availability;
+      },
+
+      removeFieldAvailability: (availabilityId) => {
+        set((state) => ({ fieldAvailabilities: state.fieldAvailabilities.filter((row) => row.id !== availabilityId) }));
+      },
+
+      triggerGameBookingAutomation: (gameId) => {
+        const state = get();
+        const game = state.games.find((row) => row.id === gameId);
+        const schedule = state.schedules.find((row) => row.id === game?.scheduleId);
+        const pelada = state.peladas.find((row) => row.id === game?.peladaId);
+        if (!game || !schedule || !pelada || !schedule.autoBookingEnabled) return null;
+        const confirmed = state.attendances.filter((row) => row.gameId === gameId && row.status === 'confirmed').length;
+        if (confirmed < schedule.bookingMinimumPlayers) return null;
+        if (state.gameBookingRequests.some((row) => row.gameId === gameId && ['awaiting_owner', 'accepted'].includes(row.status))) return null;
+
+        const attemptedFieldIds = state.gameBookingRequests.filter((row) => row.gameId === gameId).map((row) => row.fieldId);
+        const candidate = nextBookingCandidate(
+          game,
+          pelada.sportId,
+          state.fields,
+          state.scheduleFieldPreferences,
+          state.fieldPromotions,
+          attemptedFieldIds,
+          state.fieldAvailabilities,
+          state.fieldBookings,
+        );
+        if (!candidate) return null;
+
+        const now = new Date();
+        const request: GameBookingRequest = {
+          id: uid(),
+          gameId,
+          scheduleId: schedule.id,
+          fieldId: candidate.fieldId,
+          preferenceId: candidate.preferenceId,
+          source: candidate.source,
+          attempt: attemptedFieldIds.length + 1,
+          code: createBookingCode(),
+          requestedAt: now.toISOString(),
+          requestedStartAt: game.scheduledAt,
+          durationMinutes: game.durationMinutes ?? 90,
+          status: 'awaiting_owner',
+          sentAt: now.toISOString(),
+          respondedAt: null,
+          expiresAt: new Date(now.getTime() + schedule.bookingResponseMinutes * 60_000).toISOString(),
+          providerMessageId: `demo-${uid()}`,
+          responseMessageId: null,
+          failureReason: null,
+        };
+        const field = state.fields.find((row) => row.id === candidate.fieldId);
+        const establishment = state.establishments.find((row) => row.id === field?.establishmentId);
+        const phone = normalizeWhatsAppPhone(establishment?.whatsappPhone);
+        const delivery: WhatsAppDelivery = {
+          id: uid(),
+          bookingRequestId: request.id,
+          pollId: null,
+          toPlayerId: establishment?.ownerPlayerId ?? null,
+          phone,
+          kind: 'field_request',
+          status: phone && establishment?.whatsappOptIn ? 'sent' : 'skipped',
+          preview: `${pelada.name} solicita ${field?.name ?? 'o campo'} em ${new Date(game.scheduledAt).toLocaleString('pt-BR')}. Responda SIM ${request.code} ou NÃO ${request.code}.`,
+          providerMessageId: phone && establishment?.whatsappOptIn ? request.providerMessageId : null,
+          createdAt: now.toISOString(),
+          sentAt: phone && establishment?.whatsappOptIn ? now.toISOString() : null,
+        };
+        set((current) => ({
+          gameBookingRequests: [...current.gameBookingRequests, request],
+          whatsAppDeliveries: [...current.whatsAppDeliveries, delivery],
+        }));
+        return request;
+      },
+
+      respondGameBookingRequest: (requestId, accepted) => {
+        const snapshot = get();
+        const request = snapshot.gameBookingRequests.find((row) => row.id === requestId);
+        const game = snapshot.games.find((row) => row.id === request?.gameId);
+        const field = snapshot.fields.find((row) => row.id === request?.fieldId);
+        const pelada = snapshot.peladas.find((row) => row.id === game?.peladaId);
+        if (!request || !game || !field || !pelada || request.status !== 'awaiting_owner') return;
+        const start = new Date(request.requestedStartAt);
+        const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+        const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+        const conflicts = findBookingConflicts(snapshot.fieldBookings, {
+          fieldId: field.id,
+          recurrence: 'single',
+          dayOfWeek: null,
+          date,
+          time,
+          durationMinutes: request.durationMinutes,
+        });
+        const responseAt = nowIso();
+        const finalAccepted = accepted && conflicts.length === 0;
+        const ownerResponseId = `demo-response-${uid()}`;
+        set((state) => {
+          const deliveries: WhatsAppDelivery[] = [];
+          if (finalAccepted) {
+            const memberIds = state.memberships.filter((row) => row.peladaId === pelada.id && row.active).map((row) => row.playerId);
+            for (const playerId of memberIds) {
+              const player = state.players.find((row) => row.id === playerId);
+              const phone = player?.whatsappOptIn ? normalizeWhatsAppPhone(player.phone) : null;
+              deliveries.push({
+                id: uid(), bookingRequestId: request.id, pollId: null, toPlayerId: playerId, phone,
+                kind: 'game_confirmed', status: phone ? 'sent' : 'skipped',
+                preview: `Jogo confirmado! ${pelada.name} joga em ${field.name}, ${start.toLocaleString('pt-BR')}.`,
+                providerMessageId: phone ? `demo-${uid()}` : null, createdAt: responseAt, sentAt: phone ? responseAt : null,
+              });
+            }
+          } else if (!accepted) {
+            const admins = state.memberships.filter((row) => row.peladaId === pelada.id && row.active && row.role === 'admin');
+            for (const admin of admins) {
+              const player = state.players.find((row) => row.id === admin.playerId);
+              const phone = player?.whatsappOptIn ? normalizeWhatsAppPhone(player.phone) : null;
+              deliveries.push({
+                id: uid(), bookingRequestId: request.id, pollId: null, toPlayerId: admin.playerId, phone,
+                kind: 'booking_declined', status: phone ? 'sent' : 'skipped',
+                preview: `${field.name} recusou ${request.code}. No app: tente o próximo campo ou abra uma enquete de horários.`,
+                providerMessageId: phone ? `demo-${uid()}` : null, createdAt: responseAt, sentAt: phone ? responseAt : null,
+              });
+            }
+          }
+          const booking: FieldBooking | null = finalAccepted && field.establishmentId ? {
+            id: uid(), fieldId: field.id, establishmentId: field.establishmentId, peladaId: pelada.id,
+            teamName: pelada.name, recurrence: 'single', dayOfWeek: null, date, time,
+            durationMinutes: request.durationMinutes, notes: `Confirmado automaticamente pelo WhatsApp (${request.code})`,
+            createdBy: game.createdBy, createdAt: responseAt,
+          } : null;
+          return {
+            gameBookingRequests: state.gameBookingRequests.map((row) => row.id === request.id ? {
+              ...row,
+              status: finalAccepted ? 'accepted' : accepted ? 'conflict' : 'declined',
+              respondedAt: responseAt,
+              responseMessageId: ownerResponseId,
+              failureReason: accepted && !finalAccepted ? 'O horário ficou ocupado antes da confirmação.' : null,
+            } : row),
+            games: finalAccepted ? state.games.map((row) => row.id === game.id ? { ...row, fieldId: field.id } : row) : state.games,
+            fieldBookings: booking ? [...state.fieldBookings, booking] : state.fieldBookings,
+            whatsAppDeliveries: [...state.whatsAppDeliveries, ...deliveries],
+          };
+        });
+      },
+
+      tryNextPreferredField: (gameId) => get().triggerGameBookingAutomation(gameId),
+
+      createGameAvailabilityPoll: (gameId) => {
+        const state = get();
+        const game = state.games.find((row) => row.id === gameId);
+        const schedule = state.schedules.find((row) => row.id === game?.scheduleId);
+        const pelada = state.peladas.find((row) => row.id === game?.peladaId);
+        if (!game || !schedule || !pelada) return null;
+        const preferredFieldIds = state.scheduleFieldPreferences
+          .filter((row) => row.scheduleId === schedule.id)
+          .sort((a, b) => a.priority - b.priority)
+          .map((row) => row.fieldId);
+        const promotedFieldIds = state.fieldPromotions.filter((row) => row.active && row.sportId === pelada.sportId).map((row) => row.fieldId);
+        const fieldIds = [...new Set([...preferredFieldIds, ...promotedFieldIds])];
+        const slots = findAlternativeSlots(fieldIds, game.scheduledAt, game.durationMinutes ?? 90, state.fieldAvailabilities, state.fieldBookings, 4);
+        if (slots.length === 0) return null;
+        const createdAt = nowIso();
+        const poll: TeamAvailabilityPoll = {
+          id: uid(), gameId, peladaId: pelada.id, question: 'Qual destes horários você consegue jogar?', status: 'open',
+          createdBy: state.currentPlayerId, createdAt, closesAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(), selectedOptionId: null,
+        };
+        const options: TeamAvailabilityPollOption[] = slots.map((slot) => {
+          const field = state.fields.find((row) => row.id === slot.fieldId);
+          return { id: uid(), pollId: poll.id, fieldId: slot.fieldId, startsAt: slot.startsAt, label: `${field?.name ?? 'Campo'} · ${new Date(slot.startsAt).toLocaleString('pt-BR')}` };
+        });
+        const deliveries: WhatsAppDelivery[] = state.memberships.filter((row) => row.peladaId === pelada.id && row.active).map((member) => {
+          const player = state.players.find((row) => row.id === member.playerId);
+          const phone = player?.whatsappOptIn ? normalizeWhatsAppPhone(player.phone) : null;
+          return {
+            id: uid(), bookingRequestId: null, pollId: poll.id, toPlayerId: member.playerId, phone,
+            kind: 'poll_invite' as const, status: phone ? 'sent' as const : 'skipped' as const,
+            preview: `${pelada.name}: ${poll.question} Abra o app para votar.`, providerMessageId: phone ? `demo-${uid()}` : null,
+            createdAt, sentAt: phone ? createdAt : null,
+          };
+        });
+        set((current) => ({
+          teamAvailabilityPolls: [...current.teamAvailabilityPolls, poll],
+          teamAvailabilityPollOptions: [...current.teamAvailabilityPollOptions, ...options],
+          whatsAppDeliveries: [...current.whatsAppDeliveries, ...deliveries],
+        }));
+        return poll;
+      },
+
+      voteGameAvailabilityPoll: (pollId, optionId, playerId) => {
+        set((state) => {
+          const existing = state.teamAvailabilityPollVotes.find((row) => row.pollId === pollId && row.playerId === playerId);
+          if (existing) return { teamAvailabilityPollVotes: state.teamAvailabilityPollVotes.map((row) => row.id === existing.id ? { ...row, optionId, createdAt: nowIso() } : row) };
+          return { teamAvailabilityPollVotes: [...state.teamAvailabilityPollVotes, { id: uid(), pollId, optionId, playerId, createdAt: nowIso() }] };
+        });
+      },
+
+      finalizeGameAvailabilityPoll: (pollId, optionId) => {
+        const state = get();
+        const poll = state.teamAvailabilityPolls.find((row) => row.id === pollId && row.status === 'open');
+        const option = state.teamAvailabilityPollOptions.find((row) => row.id === optionId && row.pollId === pollId);
+        const game = state.games.find((row) => row.id === poll?.gameId);
+        const schedule = state.schedules.find((row) => row.id === game?.scheduleId);
+        if (!poll || !option || !game || !schedule) return null;
+        set((current) => ({
+          teamAvailabilityPolls: current.teamAvailabilityPolls.map((row) => row.id === pollId ? { ...row, status: 'closed', selectedOptionId: optionId } : row),
+          games: current.games.map((row) => row.id === game.id ? { ...row, scheduledAt: option.startsAt, fieldId: option.fieldId } : row),
+          gameBookingRequests: current.gameBookingRequests.map((row) => row.gameId === game.id && row.status === 'awaiting_owner' ? { ...row, status: 'cancelled' } : row),
+        }));
+        const now = new Date();
+        const request: GameBookingRequest = {
+          id: uid(), gameId: game.id, scheduleId: schedule.id, fieldId: option.fieldId, preferenceId: null, source: 'team',
+          attempt: state.gameBookingRequests.filter((row) => row.gameId === game.id).length + 1, code: createBookingCode(), requestedAt: now.toISOString(),
+          requestedStartAt: option.startsAt, durationMinutes: game.durationMinutes ?? 90, status: 'awaiting_owner', sentAt: now.toISOString(), respondedAt: null,
+          expiresAt: new Date(now.getTime() + schedule.bookingResponseMinutes * 60_000).toISOString(), providerMessageId: `demo-${uid()}`, responseMessageId: null, failureReason: null,
+        };
+        const field = state.fields.find((row) => row.id === option.fieldId);
+        const establishment = state.establishments.find((row) => row.id === field?.establishmentId);
+        const phone = normalizeWhatsAppPhone(establishment?.whatsappPhone);
+        const delivery: WhatsAppDelivery = {
+          id: uid(), bookingRequestId: request.id, pollId, toPlayerId: establishment?.ownerPlayerId ?? null, phone,
+          kind: 'field_request', status: phone && establishment?.whatsappOptIn ? 'sent' : 'skipped',
+          preview: `${state.peladas.find((row) => row.id === poll.peladaId)?.name ?? 'Time'} solicita ${field?.name ?? 'o campo'} em ${new Date(option.startsAt).toLocaleString('pt-BR')}. Responda SIM ${request.code} ou NÃO ${request.code}.`,
+          providerMessageId: phone ? request.providerMessageId : null, createdAt: now.toISOString(), sentAt: phone ? now.toISOString() : null,
+        };
+        set((current) => ({ gameBookingRequests: [...current.gameBookingRequests, request], whatsAppDeliveries: [...current.whatsAppDeliveries, delivery] }));
+        return request;
+      },
+
+      updateEstablishmentWhatsApp: (establishmentId, phone, optIn) => {
+        set((state) => ({ establishments: state.establishments.map((row) => row.id === establishmentId ? { ...row, whatsappPhone: normalizeWhatsAppPhone(phone), whatsappOptIn: optIn } : row) }));
       },
 
       addAdmin: (peladaId, playerId) => {
@@ -1898,6 +2248,10 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           players: state.players.map((p) => (p.id === state.currentPlayerId ? { ...p, ...input } : p)),
         }));
+      },
+
+      setPlayerWhatsAppOptIn: (playerId, optIn) => {
+        set((state) => ({ players: state.players.map((player) => player.id === playerId ? { ...player, whatsappOptIn: optIn } : player) }));
       },
 
       setPlayerPhoto: (playerId, photoUrl) => {
@@ -2076,6 +2430,14 @@ export const useAppStore = create<AppState>()(
         championshipMatches: state.championshipMatches,
         championshipGoals: state.championshipGoals,
         fieldBookings: state.fieldBookings,
+        fieldAvailabilities: state.fieldAvailabilities,
+        fieldPromotions: state.fieldPromotions,
+        scheduleFieldPreferences: state.scheduleFieldPreferences,
+        gameBookingRequests: state.gameBookingRequests,
+        teamAvailabilityPolls: state.teamAvailabilityPolls,
+        teamAvailabilityPollOptions: state.teamAvailabilityPollOptions,
+        teamAvailabilityPollVotes: state.teamAvailabilityPollVotes,
+        whatsAppDeliveries: state.whatsAppDeliveries,
         teamChallenges: state.teamChallenges,
         friendlyMatches: state.friendlyMatches,
         friendlyMatchGoals: state.friendlyMatchGoals,

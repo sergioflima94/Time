@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EstablishmentSwitcher } from '@/components/EstablishmentSwitcher';
@@ -25,6 +25,7 @@ export default function EstablishmentDashboardScreen() {
     useShallow((s) => s.establishments.filter((e) => e.ownerPlayerId === currentPlayerId)),
   );
   const updateEstablishment = useAppStore((s) => s.updateEstablishment);
+  const updateEstablishmentWhatsApp = useAppStore((s) => s.updateEstablishmentWhatsApp);
 
   const allFields = useAppStore((s) => s.fields);
   const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.establishmentId === id)));
@@ -43,6 +44,8 @@ export default function EstablishmentDashboardScreen() {
   const [name, setName] = useState(establishment?.name ?? '');
   const [payoutMethod, setPayoutMethod] = useState<EstablishmentPayoutMethod>(establishment?.payoutMethod ?? 'pix');
   const [pixKey, setPixKey] = useState(establishment?.pixKey ?? '');
+  const [whatsappPhone, setWhatsappPhone] = useState(establishment?.whatsappPhone ?? '');
+  const [whatsappOptIn, setWhatsappOptIn] = useState(establishment?.whatsappOptIn ?? false);
 
   if (!establishment) {
     return (
@@ -121,6 +124,24 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
         <NavCard icon="card" label="Pagamentos" sub={gatewayConnection ? 'Gateway conectado' : 'Escolher gateway'} onPress={() => router.push(`/estabelecimento/${establishment.id}/pagamentos`)} />
       </View>
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Reservas por WhatsApp</Text>
+            <Text style={styles.textMuted}>Receba pedidos automáticos quando um time atingir o mínimo de jogadores.</Text>
+          </View>
+          <Switch value={whatsappOptIn} onValueChange={setWhatsappOptIn} trackColor={{ true: '#25D366' }} />
+        </View>
+        <TextField label="WhatsApp comercial" value={whatsappPhone} onChangeText={setWhatsappPhone} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+        <Button
+          label="Salvar WhatsApp"
+          variant="outline"
+          onPress={() => updateEstablishmentWhatsApp(establishment.id, whatsappPhone, whatsappOptIn)}
+        />
+        <Text style={styles.textMuted}>Respostas aceitas: SIM CÓDIGO ou NÃO CÓDIGO. A chave da Evolution Go fica somente no backend.</Text>
+        <Text style={styles.providerNotice}>Integração de mensageria fornecida por Evolution Go.</Text>
+      </Card>
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
@@ -292,6 +313,16 @@ const styles = StyleSheet.create({
   hint: {
     color: colors.textFaint,
     fontSize: 12,
+  },
+  textMuted: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  providerNotice: {
+    color: colors.textFaint,
+    fontSize: 10,
+    textAlign: 'center',
   },
   codeBox: {
     borderWidth: 1,

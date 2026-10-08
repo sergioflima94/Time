@@ -21,6 +21,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="jogo/[id]" />
           <Stack.Screen name="time/[id]" />
+          <Stack.Screen name="time/[id]/agendamento-automatico" />
           <Stack.Screen name="desafio/[matchId]" />
           <Stack.Screen name="jogador/[id]" />
           <Stack.Screen name="notificacoes" />

@@ -15,9 +15,12 @@ import type {
   Establishment,
   EstablishmentStaff,
   Field,
+  FieldAvailability,
   FieldBooking,
+  FieldPromotion,
   Friendship,
   Game,
+  GameBookingRequest,
   Goal,
   MatchTurn,
   Payment,
@@ -31,6 +34,7 @@ import type {
   Punishment,
   Rating,
   Schedule,
+  ScheduleFieldPreference,
   SalePayment,
   SalePaymentAllocation,
   SalePaymentIntent,
@@ -40,7 +44,11 @@ import type {
   ServiceTab,
   TabParticipant,
   Team,
+  TeamAvailabilityPoll,
+  TeamAvailabilityPollOption,
+  TeamAvailabilityPollVote,
   TeamPlayer,
+  WhatsAppDelivery,
 } from '@/types';
 
 const now = new Date();
@@ -66,8 +74,8 @@ const MY_LOCATION = { latitude: -23.588, longitude: -46.6577 };
 const THURSDAY_NIGHT = [{ weekday: 4, startTime: '19:00', endTime: '23:00' }];
 
 export const MOCK_PLAYERS: Player[] = [
-  { id: 'p1', authUserId: 'auth-1', name: 'Você', nickname: null, avatarUrl: null, cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: MY_LOCATION, locationUpdatedAt: iso(now), createdAt: iso(now) },
-  { id: 'p2', authUserId: null, name: 'Bruno Silva', nickname: 'Brunão', avatarUrl: demoPhoto(12), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumActiveUntil, premiumAutoRenew: true, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol', 'volei'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
+  { id: 'p1', authUserId: 'auth-1', name: 'Você', nickname: null, avatarUrl: null, cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: '11988880001', whatsappOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: MY_LOCATION, locationUpdatedAt: iso(now), createdAt: iso(now) },
+  { id: 'p2', authUserId: null, name: 'Bruno Silva', nickname: 'Brunão', avatarUrl: demoPhoto(12), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumActiveUntil, premiumAutoRenew: true, isGuest: false, phone: '11988880002', whatsappOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol', 'volei'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p3', authUserId: null, name: 'Carlos Eduardo', nickname: 'Cadu', avatarUrl: demoPhoto(13), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumExpired, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'goalkeeper', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p4', authUserId: null, name: 'Diego Alves', nickname: null, avatarUrl: demoPhoto(14), cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p5', authUserId: null, name: 'Eduardo Santos', nickname: 'Duda', avatarUrl: demoPhoto(15), cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
@@ -140,6 +148,8 @@ export const MOCK_ESTABLISHMENTS: Establishment[] = [
     name: 'Arena Society Central',
     payoutMethod: 'pix',
     pixKey: 'arena.central@pix.com.br',
+    whatsappPhone: '5511988880002',
+    whatsappOptIn: true,
     accessCode: 'ARENA-CENTRAL',
     createdAt: iso(now),
   },
@@ -151,6 +161,8 @@ export const MOCK_ESTABLISHMENTS: Establishment[] = [
     name: 'Complexo Esportivo Vila Nova',
     payoutMethod: 'pix',
     pixKey: 'vilanova.esportes@pix.com.br',
+    whatsappPhone: '5511988880001',
+    whatsappOptIn: true,
     accessCode: 'VILA-NOVA',
     createdAt: iso(now),
   },
@@ -164,6 +176,20 @@ export const MOCK_FIELDS: Field[] = [
   { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', createdBy: 'p1' },
   { id: 'f4', peladaId: null, name: 'Quadra 3 - Basquete', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'basquete', createdBy: 'p1' },
   { id: 'f5', peladaId: null, name: 'Arena de Areia - Futevôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futvolei', createdBy: 'p1' },
+  { id: 'f6', peladaId: null, name: 'Quadra 4 - Futsal', address: 'Av. Vila Nova, 500', notes: 'Vestiário e estacionamento inclusos', establishmentId: 'est2', sportId: 'futebol', createdBy: 'p1' },
+];
+
+export const MOCK_FIELD_AVAILABILITIES: FieldAvailability[] = [
+  { id: 'fa1', fieldId: 'f1', dayOfWeek: 4, startTime: '19:00', endTime: '23:00', slotMinutes: 60, price: 240, active: true },
+  { id: 'fa2', fieldId: 'f1', dayOfWeek: 5, startTime: '18:00', endTime: '22:00', slotMinutes: 60, price: 240, active: true },
+  { id: 'fa3', fieldId: 'f2', dayOfWeek: 4, startTime: '18:00', endTime: '23:00', slotMinutes: 60, price: 220, active: true },
+  { id: 'fa4', fieldId: 'f6', dayOfWeek: 3, startTime: '19:00', endTime: '23:00', slotMinutes: 60, price: 180, active: true },
+  { id: 'fa5', fieldId: 'f6', dayOfWeek: 4, startTime: '20:00', endTime: '23:00', slotMinutes: 60, price: 200, active: true },
+  { id: 'fa6', fieldId: 'f3', dayOfWeek: 6, startTime: '08:00', endTime: '16:00', slotMinutes: 90, price: 160, active: true },
+];
+
+export const MOCK_FIELD_PROMOTIONS: FieldPromotion[] = [
+  { id: 'fp1', fieldId: 'f6', sportId: 'futebol', label: 'Patrocinado · primeira reserva com 10% de desconto', pricePerConfirmedBooking: 8, active: true, startsAt: iso(now), endsAt: null },
 ];
 
 // Horário fixo de exemplo: toda semana, sábado 08h, o time da "Vôlei da Empresa" já
@@ -298,9 +324,13 @@ export const MOCK_SCHEDULES: Schedule[] = [
     endDate: null,
     maxPlayers: 16,
     matchMinutes: 10,
+    bookingDurationMinutes: 90,
     drawMethod: 'rating',
     defaultFieldCost: 240,
     matchGoalLimit: 2,
+    autoBookingEnabled: true,
+    bookingMinimumPlayers: 15,
+    bookingResponseMinutes: 30,
     active: true,
     createdBy: 'p1',
   },
@@ -318,6 +348,7 @@ export const MOCK_GAMES: Game[] = [
     maxPlayers: 16,
     playersPerTeam: 6,
     matchMinutes: 10,
+    durationMinutes: 90,
     drawMethod: 'rating',
     rotationMode: 'teams',
     status: 'open',
@@ -325,6 +356,27 @@ export const MOCK_GAMES: Game[] = [
     matchGoalLimit: 2,
     createdBy: 'p1',
     createdAt: iso(now),
+  },
+];
+
+export const MOCK_GAME_BOOKING_REQUESTS: GameBookingRequest[] = [
+  {
+    id: 'gbr1', gameId: 'g1', scheduleId: 's1', fieldId: 'f1', preferenceId: 'sfp1', source: 'team', attempt: 1,
+    code: 'BJ-7F2K', requestedAt: iso(now), requestedStartAt: iso(nextGameDate), durationMinutes: 90,
+    status: 'awaiting_owner', sentAt: iso(now), respondedAt: null,
+    expiresAt: iso(new Date(now.getTime() + 30 * 60_000)), providerMessageId: 'demo-evolution-001', responseMessageId: null, failureReason: null,
+  },
+];
+
+export const MOCK_TEAM_AVAILABILITY_POLLS: TeamAvailabilityPoll[] = [];
+export const MOCK_TEAM_AVAILABILITY_POLL_OPTIONS: TeamAvailabilityPollOption[] = [];
+export const MOCK_TEAM_AVAILABILITY_POLL_VOTES: TeamAvailabilityPollVote[] = [];
+
+export const MOCK_WHATSAPP_DELIVERIES: WhatsAppDelivery[] = [
+  {
+    id: 'wad1', bookingRequestId: 'gbr1', pollId: null, toPlayerId: 'p2', phone: '5511988880002', kind: 'field_request', status: 'sent',
+    preview: `Pelada dos Amigos solicita Arena Society Central em ${nextGameDate.toLocaleString('pt-BR')}. Responda SIM BJ-7F2K ou NÃO BJ-7F2K.`,
+    providerMessageId: 'demo-evolution-001', createdAt: iso(now), sentAt: iso(now),
   },
 ];
 
@@ -387,6 +439,11 @@ export const MOCK_CHAMPIONSHIPS: Championship[] = [
     createdBy: 'p2',
     createdAt: iso(now),
   },
+];
+
+export const MOCK_SCHEDULE_FIELD_PREFERENCES: ScheduleFieldPreference[] = [
+  { id: 'sfp1', scheduleId: 's1', fieldId: 'f1', priority: 1, source: 'team', createdAt: iso(now) },
+  { id: 'sfp2', scheduleId: 's1', fieldId: 'f2', priority: 2, source: 'team', createdAt: iso(now) },
 ];
 
 export const MOCK_CHAMPIONSHIP_BUDGETS: ChampionshipBudget[] = [

@@ -23,6 +23,8 @@ export interface Player {
   nickname: string | null;
   avatarUrl: string | null;
   phone: string | null;
+  /** Opt-in para mensagens transacionais do time no WhatsApp. */
+  whatsappOptIn?: boolean;
   preferredPosition: PlayerPosition;
   /** Esportes favoritos (SportIds de src/constants/sports.ts) — jogador multi-esporte, pode marcar mais de um. */
   favoriteSports: string[];
@@ -161,6 +163,18 @@ export interface FieldBooking {
   createdAt: string;
 }
 
+/** Janela recorrente que o estabelecimento oferece para reservas pelo app. */
+export interface FieldAvailability {
+  id: UUID;
+  fieldId: UUID;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotMinutes: number;
+  price: number | null;
+  active: boolean;
+}
+
 export type EstablishmentPayoutMethod = 'pix' | 'in_person';
 
 /**
@@ -174,6 +188,10 @@ export interface Establishment {
   payoutMethod: EstablishmentPayoutMethod;
   /** Chave Pix pra receber — obrigatória quando payoutMethod = 'pix'. */
   pixKey: string | null;
+  /** WhatsApp comercial que recebe pedidos automáticos de reserva. */
+  whatsappPhone: string | null;
+  /** Consentimento explícito para receber solicitações transacionais. */
+  whatsappOptIn: boolean;
   /** Código curto que o admin de uma pelada usa pra vincular um campo a este estabelecimento. */
   accessCode: string;
   createdAt: string;
@@ -441,13 +459,123 @@ export interface Schedule {
   endDate: string | null;
   maxPlayers: number;
   matchMinutes: number;
+  /** Tempo total reservado no campo; diferente da duração de cada rodada. */
+  bookingDurationMinutes: number;
   drawMethod: DrawMethod;
   /** Custo padrão da quadra, usado para calcular o rateio ("vaquinha") de cada jogo gerado. null = sem rateio. */
   defaultFieldCost: number | null;
   /** Limite de gols de cada rodada: quem chegar primeiro vence, mesmo antes do tempo acabar. null = só por tempo. */
   matchGoalLimit: number | null;
+  /** Ao atingir este número de confirmados, inicia a busca por campo. */
+  autoBookingEnabled: boolean;
+  bookingMinimumPlayers: number;
+  /** Tempo que o dono do campo tem para responder antes de a solicitação expirar. */
+  bookingResponseMinutes: number;
   active: boolean;
   createdBy: UUID;
+}
+
+export type FieldPreferenceSource = 'team' | 'sponsored';
+
+/** Ordem de tentativa dos campos para uma agenda específica. */
+export interface ScheduleFieldPreference {
+  id: UUID;
+  scheduleId: UUID;
+  fieldId: UUID;
+  priority: number;
+  source: FieldPreferenceSource;
+  createdAt: string;
+}
+
+/** Oferta patrocinada. Nunca ultrapassa preferências do time sem ação do admin. */
+export interface FieldPromotion {
+  id: UUID;
+  fieldId: UUID;
+  sportId: string;
+  label: string;
+  pricePerConfirmedBooking: number;
+  active: boolean;
+  startsAt: string;
+  endsAt: string | null;
+}
+
+export type BookingRequestStatus =
+  | 'awaiting_owner'
+  | 'accepted'
+  | 'declined'
+  | 'expired'
+  | 'conflict'
+  | 'cancelled';
+
+/** Uma tentativa de reservar um campo para um jogo. */
+export interface GameBookingRequest {
+  id: UUID;
+  gameId: UUID;
+  scheduleId: UUID;
+  fieldId: UUID;
+  preferenceId: UUID | null;
+  source: FieldPreferenceSource;
+  attempt: number;
+  code: string;
+  requestedAt: string;
+  requestedStartAt: string;
+  durationMinutes: number;
+  status: BookingRequestStatus;
+  sentAt: string | null;
+  respondedAt: string | null;
+  expiresAt: string;
+  providerMessageId: string | null;
+  responseMessageId: string | null;
+  failureReason: string | null;
+}
+
+export type TeamPollStatus = 'open' | 'closed' | 'cancelled';
+
+/** Enquete criada quando o horário original não está disponível. */
+export interface TeamAvailabilityPoll {
+  id: UUID;
+  gameId: UUID;
+  peladaId: UUID;
+  question: string;
+  status: TeamPollStatus;
+  createdBy: UUID;
+  createdAt: string;
+  closesAt: string;
+  selectedOptionId: UUID | null;
+}
+
+export interface TeamAvailabilityPollOption {
+  id: UUID;
+  pollId: UUID;
+  fieldId: UUID;
+  startsAt: string;
+  label: string;
+}
+
+export interface TeamAvailabilityPollVote {
+  id: UUID;
+  pollId: UUID;
+  optionId: UUID;
+  playerId: UUID;
+  createdAt: string;
+}
+
+export type WhatsAppDeliveryKind = 'field_request' | 'game_confirmed' | 'booking_declined' | 'poll_invite';
+export type WhatsAppDeliveryStatus = 'queued' | 'sent' | 'skipped' | 'failed';
+
+/** Espelho de auditoria das mensagens; o segredo do provedor nunca fica aqui. */
+export interface WhatsAppDelivery {
+  id: UUID;
+  bookingRequestId: UUID | null;
+  pollId: UUID | null;
+  toPlayerId: UUID | null;
+  phone: string | null;
+  kind: WhatsAppDeliveryKind;
+  status: WhatsAppDeliveryStatus;
+  preview: string;
+  providerMessageId: string | null;
+  createdAt: string;
+  sentAt: string | null;
 }
 
 export type GameStatus =
@@ -478,6 +606,8 @@ export interface Game {
   maxPlayers: number;
   playersPerTeam: number; // ex.: 5 linha + 1 goleiro = 6
   matchMinutes: number; // duração de cada "rodada" antes da troca
+  /** Duração total do encontro/reserva no campo. */
+  durationMinutes: number;
   drawMethod: DrawMethod;
   rotationMode: RotationMode;
   status: GameStatus;

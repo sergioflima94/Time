@@ -22,9 +22,12 @@ export default function EstablishmentBookingsScreen() {
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === establishmentId));
   const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.establishmentId === establishmentId)));
   const bookings = useAppStore(useShallow((s) => s.fieldBookings.filter((b) => b.establishmentId === establishmentId)));
+  const availabilities = useAppStore(useShallow((s) => s.fieldAvailabilities.filter((row) => fields.some((field) => field.id === row.fieldId))));
   const peladas = useAppStore((s) => s.peladas);
   const addFieldBooking = useAppStore((s) => s.addFieldBooking);
   const removeFieldBooking = useAppStore((s) => s.removeFieldBooking);
+  const addFieldAvailability = useAppStore((s) => s.addFieldAvailability);
+  const removeFieldAvailability = useAppStore((s) => s.removeFieldAvailability);
 
   const [open, setOpen] = useState(false);
   const [fieldId, setFieldId] = useState(fields[0]?.id ?? '');
@@ -38,6 +41,12 @@ export default function EstablishmentBookingsScreen() {
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+  const [availabilityFieldId, setAvailabilityFieldId] = useState(fields[0]?.id ?? '');
+  const [availabilityDay, setAvailabilityDay] = useState(4);
+  const [availabilityStart, setAvailabilityStart] = useState('18:00');
+  const [availabilityEnd, setAvailabilityEnd] = useState('23:00');
+  const [availabilityPrice, setAvailabilityPrice] = useState('');
 
   const fieldOf = (fid: string) => fields.find((f) => f.id === fid);
   const sportOf = (sportId: string) => SPORTS.find((s) => s.id === sportId) ?? SPORTS[0];
@@ -89,6 +98,37 @@ export default function EstablishmentBookingsScreen() {
         <Text style={styles.headerTitle}>📅 Agendamento</Text>
       </View>
       {establishment && <Text style={styles.subtitle}>{establishment.name}</Text>}
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Horários oferecidos no app</Text>
+          <Pressable onPress={() => setAvailabilityOpen((value) => !value)}><Ionicons name={availabilityOpen ? 'close' : 'add-circle'} size={22} color={colors.primary} /></Pressable>
+        </View>
+        <Text style={styles.hint}>Essas janelas alimentam sugestões, automações e enquetes sem prometer um horário já ocupado.</Text>
+        {availabilities.map((slot) => {
+          const field = fieldOf(slot.fieldId);
+          return (
+            <View key={slot.id} style={styles.row}>
+              <View style={{ flex: 1 }}><Text style={styles.rowName}>{field?.name}</Text><Text style={styles.hint}>{WEEKDAY_LABELS[slot.dayOfWeek]} · {slot.startTime}–{slot.endTime} · blocos de {slot.slotMinutes} min{slot.price ? ` · R$ ${slot.price.toFixed(2).replace('.', ',')}` : ''}</Text></View>
+              <Pressable onPress={() => removeFieldAvailability(slot.id)}><Ionicons name="trash-outline" size={18} color={colors.danger} /></Pressable>
+            </View>
+          );
+        })}
+        {availabilityOpen && fields.length > 0 && (
+          <View style={styles.form}>
+            <Text style={styles.hint}>Campo</Text>
+            <View style={styles.sportsGrid}>{fields.map((field) => <Pressable key={field.id} onPress={() => setAvailabilityFieldId(field.id)} style={[styles.sportChip, availabilityFieldId === field.id && { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.12)' }]}><Text style={[styles.sportChipText, availabilityFieldId === field.id && { color: colors.primary }]}>{field.name}</Text></Pressable>)}</View>
+            <Text style={styles.hint}>Dia da semana</Text>
+            <View style={styles.sportsGrid}>{WEEKDAY_LABELS.map((label, index) => <Pressable key={label} onPress={() => setAvailabilityDay(index)} style={[styles.sportChip, availabilityDay === index && { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.12)' }]}><Text style={[styles.sportChipText, availabilityDay === index && { color: colors.primary }]}>{label.slice(0, 3)}</Text></Pressable>)}</View>
+            <View style={styles.row3}>
+              <View style={styles.thirdInput}><TextField label="Início" value={availabilityStart} onChangeText={setAvailabilityStart} /></View>
+              <View style={styles.thirdInput}><TextField label="Fim" value={availabilityEnd} onChangeText={setAvailabilityEnd} /></View>
+              <View style={styles.thirdInput}><TextField label="Preço" value={availabilityPrice} onChangeText={setAvailabilityPrice} keyboardType="decimal-pad" /></View>
+            </View>
+            <Button label="Publicar disponibilidade" onPress={() => { if (!availabilityFieldId) return; addFieldAvailability(availabilityFieldId, { dayOfWeek: availabilityDay, startTime: availabilityStart, endTime: availabilityEnd, slotMinutes: 60, price: availabilityPrice.trim() ? Number(availabilityPrice.replace(',', '.')) : null }); setAvailabilityOpen(false); }} />
+          </View>
+        )}
+      </Card>
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>

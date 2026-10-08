@@ -79,6 +79,8 @@ create table establishments (
   name text not null,
   payout_method text not null default 'in_person' check (payout_method in ('pix', 'in_person')),
   pix_key text,
+  whatsapp_phone text,
+  whatsapp_opt_in boolean not null default false,
   -- código curto que um admin de pelada usa pra vincular um campo a este estabelecimento
   access_code text not null unique,
   created_at timestamptz not null default now()
@@ -138,11 +140,26 @@ create table schedules (
   end_date date,
   max_players int not null default 16,
   match_minutes int not null default 10,
+  booking_duration_minutes int not null default 90 check (booking_duration_minutes >= 30),
   draw_method text not null default 'rating' check (draw_method in ('arrival', 'random', 'rating')),
   default_field_cost numeric(10, 2),
   match_goal_limit int,
+  auto_booking_enabled boolean not null default false,
+  booking_minimum_players int not null default 10 check (booking_minimum_players >= 2),
+  booking_response_minutes int not null default 30 check (booking_response_minutes >= 5),
   active boolean not null default true,
   created_by uuid not null references players (id)
+);
+
+create table schedule_field_preferences (
+  id uuid primary key default gen_random_uuid(),
+  schedule_id uuid not null references schedules (id) on delete cascade,
+  field_id uuid not null references fields (id) on delete cascade,
+  priority int not null,
+  source text not null default 'team' check (source in ('team', 'sponsored')),
+  created_at timestamptz not null default now(),
+  unique (schedule_id, field_id),
+  unique (schedule_id, priority)
 );
 
 create table games (
@@ -154,6 +171,7 @@ create table games (
   max_players int not null default 16,
   players_per_team int not null default 6,
   match_minutes int not null default 10,
+  duration_minutes int not null default 90 check (duration_minutes >= 30),
   draw_method text not null default 'rating' check (draw_method in ('arrival', 'random', 'rating')),
   -- "teams": sorteia todos os times de uma vez e eles se revezam em bloco (fila de rodízio
   -- normal). "players": sorteia só o 1º confronto; o resto vira bolsa de jogadores avulsos
@@ -505,6 +523,28 @@ create table establishment_staff (
   unique (establishment_id, player_id)
 );
 
+create table field_availabilities (
+  id uuid primary key default gen_random_uuid(),
+  field_id uuid not null references fields (id) on delete cascade,
+  day_of_week int not null check (day_of_week between 0 and 6),
+  start_time text not null,
+  end_time text not null,
+  slot_minutes int not null default 60 check (slot_minutes >= 15),
+  price numeric(10, 2),
+  active boolean not null default true
+);
+
+create table field_promotions (
+  id uuid primary key default gen_random_uuid(),
+  field_id uuid not null references fields (id) on delete cascade,
+  sport_id text not null check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  label text not null,
+  price_per_confirmed_booking numeric(10, 2) not null default 0,
+  active boolean not null default true,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz
+);
+
 -- Premissas privadas de precificação. Os resultados (ponto de equilíbrio, sugestão e
 -- lucro) são derivados no app para continuarem auditáveis e fáceis de recalcular.
 create table championship_budgets (
@@ -772,6 +812,78 @@ create table class_programs (
   created_at timestamptz not null default now()
 );
 
+create table game_booking_requests (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  schedule_id uuid not null references schedules (id) on delete cascade,
+  field_id uuid not null references fields (id),
+  preference_id uuid references schedule_field_preferences (id) on delete set null,
+  source text not null default 'team' check (source in ('team', 'sponsored')),
+  attempt int not null default 1,
+  code text not null unique,
+  requested_at timestamptz not null default now(),
+  requested_start_at timestamptz not null,
+  duration_minutes int not null,
+  status text not null default 'awaiting_owner' check (status in ('awaiting_owner', 'accepted', 'declined', 'expired', 'conflict', 'cancelled')),
+  sent_at timestamptz,
+  responded_at timestamptz,
+  expires_at timestamptz not null,
+  provider_message_id text,
+  response_message_id text unique,
+  failure_reason text
+);
+
+create unique index one_live_booking_request_per_game
+  on game_booking_requests (game_id)
+  where status in ('awaiting_owner', 'accepted');
+
+create table team_availability_polls (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  pelada_id uuid not null references peladas (id) on delete cascade,
+  question text not null,
+  status text not null default 'open' check (status in ('open', 'closed', 'cancelled')),
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  closes_at timestamptz not null,
+  selected_option_id uuid
+);
+
+create table team_availability_poll_options (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references team_availability_polls (id) on delete cascade,
+  field_id uuid not null references fields (id),
+  starts_at timestamptz not null,
+  label text not null
+);
+
+alter table team_availability_polls
+  add constraint team_poll_selected_option_fk foreign key (selected_option_id) references team_availability_poll_options (id) on delete set null;
+
+create table team_availability_poll_votes (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references team_availability_polls (id) on delete cascade,
+  option_id uuid not null references team_availability_poll_options (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (poll_id, player_id)
+);
+
+create table whatsapp_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  booking_request_id uuid references game_booking_requests (id) on delete cascade,
+  poll_id uuid references team_availability_polls (id) on delete cascade,
+  to_player_id uuid references players (id) on delete set null,
+  phone text,
+  whatsapp_opt_in boolean not null default false,
+  kind text not null check (kind in ('field_request', 'game_confirmed', 'booking_declined', 'poll_invite')),
+  status text not null default 'queued' check (status in ('queued', 'sent', 'skipped', 'failed')),
+  preview text not null,
+  provider_message_id text unique,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+
 create table class_sessions (
   id uuid primary key default gen_random_uuid(),
   program_id uuid not null references class_programs (id) on delete cascade,
@@ -866,6 +978,66 @@ select
 from ratings
 group by rated_player_id;
 
+-- Confirma a resposta recebida pelo webhook com lock e nova checagem de conflito.
+-- A Edge Function usa service_role; o cliente móvel nunca chama esta função diretamente.
+create or replace function respond_game_booking_request(
+  p_request_id uuid,
+  p_accepted boolean,
+  p_response_message_id text
+) returns text as $$
+declare
+  r game_booking_requests%rowtype;
+  g games%rowtype;
+  f fields%rowtype;
+  p peladas%rowtype;
+  has_conflict boolean;
+begin
+  select * into r from game_booking_requests where id = p_request_id for update;
+  if not found then return 'not_found'; end if;
+  if r.status <> 'awaiting_owner' then return r.status; end if;
+  if exists (select 1 from game_booking_requests where response_message_id = p_response_message_id) then return r.status; end if;
+
+  if not p_accepted then
+    update game_booking_requests set status = 'declined', responded_at = now(), response_message_id = p_response_message_id where id = r.id;
+    return 'declined';
+  end if;
+
+  select * into g from games where id = r.game_id for update;
+  select * into f from fields where id = r.field_id;
+  select * into p from peladas where id = g.pelada_id;
+
+  select exists (
+    select 1 from field_bookings b
+    where b.field_id = r.field_id
+      and (
+        (b.recurrence = 'single' and b.date = (r.requested_start_at at time zone 'America/Sao_Paulo')::date)
+        or (b.recurrence = 'weekly' and b.day_of_week = extract(dow from r.requested_start_at at time zone 'America/Sao_Paulo'))
+      )
+      and b.time::time < ((r.requested_start_at at time zone 'America/Sao_Paulo')::time + make_interval(mins => r.duration_minutes))
+      and (b.time::time + make_interval(mins => b.duration_minutes)) > (r.requested_start_at at time zone 'America/Sao_Paulo')::time
+  ) into has_conflict;
+
+  if has_conflict then
+    update game_booking_requests set status = 'conflict', responded_at = now(), response_message_id = p_response_message_id,
+      failure_reason = 'O horário ficou ocupado antes da confirmação.' where id = r.id;
+    return 'conflict';
+  end if;
+
+  insert into field_bookings (field_id, establishment_id, pelada_id, team_name, recurrence, day_of_week, date, time, duration_minutes, notes, created_by)
+  values (
+    r.field_id, f.establishment_id, g.pelada_id, p.name, 'single', null,
+    (r.requested_start_at at time zone 'America/Sao_Paulo')::date,
+    to_char(r.requested_start_at at time zone 'America/Sao_Paulo', 'HH24:MI'),
+    r.duration_minutes, 'Confirmado automaticamente pelo WhatsApp (' || r.code || ')', g.created_by
+  );
+  update games set field_id = r.field_id where id = g.id;
+  update game_booking_requests set status = 'accepted', responded_at = now(), response_message_id = p_response_message_id where id = r.id;
+  return 'accepted';
+end;
+$$ language plpgsql security definer set search_path = public;
+
+revoke all on function respond_game_booking_request(uuid, boolean, text) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------
 -- Row Level Security
 -- ---------------------------------------------------------------------
@@ -875,8 +1047,16 @@ alter table pelada_memberships enable row level security;
 alter table establishments enable row level security;
 alter table fields enable row level security;
 alter table field_bookings enable row level security;
+alter table field_availabilities enable row level security;
+alter table field_promotions enable row level security;
 alter table schedules enable row level security;
+alter table schedule_field_preferences enable row level security;
 alter table games enable row level security;
+alter table game_booking_requests enable row level security;
+alter table team_availability_polls enable row level security;
+alter table team_availability_poll_options enable row level security;
+alter table team_availability_poll_votes enable row level security;
+alter table whatsapp_deliveries enable row level security;
 alter table attendances enable row level security;
 alter table teams enable row level security;
 alter table team_players enable row level security;
@@ -1016,6 +1196,12 @@ create function can_operate_establishment(p_establishment_id uuid) returns boole
   );
 $$ language sql security definer stable;
 
+create policy "field_availabilities_select_all" on field_availabilities for select using (true);
+create policy "field_availabilities_write_owner" on field_availabilities for all using (
+  exists (select 1 from fields f where f.id = field_id and is_establishment_owner(f.establishment_id))
+);
+create policy "field_promotions_select_active" on field_promotions for select using (active);
+
 create policy "establishment_staff_select_team" on establishment_staff for select using (can_operate_establishment(establishment_id));
 create policy "establishment_staff_write_owner" on establishment_staff for all using (is_establishment_owner(establishment_id));
 
@@ -1130,8 +1316,48 @@ create policy "makeup_credits_write_staff" on makeup_credits for all using (
 create policy "schedules_select_members" on schedules for select using (is_member_of_pelada(pelada_id));
 create policy "schedules_write_admins" on schedules for all using (is_admin_of_pelada(pelada_id));
 
+create policy "schedule_field_preferences_select_members" on schedule_field_preferences for select using (
+  exists (select 1 from schedules s where s.id = schedule_id and is_member_of_pelada(s.pelada_id))
+);
+create policy "schedule_field_preferences_write_admins" on schedule_field_preferences for all using (
+  exists (select 1 from schedules s where s.id = schedule_id and is_admin_of_pelada(s.pelada_id))
+);
+
 create policy "games_select_members" on games for select using (is_member_of_pelada(pelada_id));
 create policy "games_write_admins" on games for all using (is_admin_of_pelada(pelada_id));
+
+create policy "game_booking_requests_select_involved" on game_booking_requests for select using (
+  exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
+  or exists (select 1 from fields f where f.id = field_id and is_establishment_owner(f.establishment_id))
+);
+create policy "game_booking_requests_write_admins" on game_booking_requests for all using (
+  exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "team_polls_select_members" on team_availability_polls for select using (is_member_of_pelada(pelada_id));
+create policy "team_polls_write_admins" on team_availability_polls for all using (is_admin_of_pelada(pelada_id));
+create policy "team_poll_options_select_members" on team_availability_poll_options for select using (
+  exists (select 1 from team_availability_polls p where p.id = poll_id and is_member_of_pelada(p.pelada_id))
+);
+create policy "team_poll_options_write_admins" on team_availability_poll_options for all using (
+  exists (select 1 from team_availability_polls p where p.id = poll_id and is_admin_of_pelada(p.pelada_id))
+);
+create policy "team_poll_votes_select_members" on team_availability_poll_votes for select using (
+  exists (select 1 from team_availability_polls p where p.id = poll_id and is_member_of_pelada(p.pelada_id))
+);
+create policy "team_poll_votes_insert_self" on team_availability_poll_votes for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "team_poll_votes_update_self" on team_availability_poll_votes for update using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "whatsapp_deliveries_select_involved" on whatsapp_deliveries for select using (
+  exists (select 1 from players p where p.id = to_player_id and p.auth_user_id = auth.uid())
+  or exists (
+    select 1 from game_booking_requests r join games g on g.id = r.game_id
+    where r.id = booking_request_id and is_admin_of_pelada(g.pelada_id)
+  )
+);
 
 create policy "attendances_select_members" on attendances for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
