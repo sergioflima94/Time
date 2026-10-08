@@ -196,6 +196,7 @@ export default function TimeDetailScreen() {
 
       <View style={styles.actionsRow}>
         <Button label="Ver agenda" small variant="secondary" onPress={handleAgenda} />
+        <Button label="Vaquinhas" small variant="secondary" onPress={() => router.push(`/time/${pelada.id}/vaquinhas`)} />
         {isAdmin && <Button label="Administrar" small onPress={handleManage} />}
       </View>
 
@@ -561,6 +562,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },

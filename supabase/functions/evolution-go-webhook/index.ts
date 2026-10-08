@@ -3,6 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { sendWhatsAppText } from '../_shared/whatsapp.ts';
 
 const digits = (value: string | null | undefined) => (value ?? '').replace(/\D/g, '');
 const normalizePhone = (value: string | null | undefined) => {
@@ -41,22 +42,21 @@ serve(async (req) => {
 
     const { data: game } = await service.from('games').select('*').eq('id', request.game_id).single();
     const { data: pelada } = await service.from('peladas').select('*').eq('id', game.pelada_id).single();
-    const evolutionUrl = Deno.env.get('EVOLUTION_GO_URL')!;
-    const evolutionKey = Deno.env.get('EVOLUTION_GO_API_KEY')!;
     if (result === 'accepted') {
       const { data: members } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', pelada.id).eq('active', true);
       await Promise.all((members ?? []).map(async (member: any) => {
         const phone = member.players?.phone;
         if (!phone || !member.players?.whatsapp_opt_in) return;
         const message = `Jogo confirmado! ${pelada.name} joga em ${field.name}, ${new Date(request.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`;
-        await sendText(evolutionUrl, evolutionKey, normalizePhone(phone), message, `confirmed-${request.id}-${member.player_id}`);
+        await sendWhatsAppText(normalizePhone(phone), message, `confirmed-${request.id}-${member.player_id}`, establishment.messaging_provider ?? 'automatic');
       }));
     } else if (result === 'declined') {
       const { data: admins } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', pelada.id).eq('role', 'admin').eq('active', true);
-      await Promise.all((admins ?? []).map((admin: any) => admin.players?.phone && admin.players?.whatsapp_opt_in ? sendText(
-        evolutionUrl, evolutionKey, normalizePhone(admin.players.phone),
+      await Promise.all((admins ?? []).map((admin: any) => admin.players?.phone && admin.players?.whatsapp_opt_in ? sendWhatsAppText(
+        normalizePhone(admin.players.phone),
         `${field.name} recusou ${request.code}. Abra o BoraJogo para tentar outro horário, o próximo campo ou criar uma enquete com o time.`,
         `declined-${request.id}-${admin.player_id}`,
+        establishment.messaging_provider ?? 'automatic',
       ) : Promise.resolve()));
     }
     return ok();
@@ -65,12 +65,5 @@ serve(async (req) => {
     return new Response('error', { status: 500 });
   }
 });
-
-async function sendText(baseUrl: string, apiKey: string, number: string, text: string, id: string) {
-  return fetch(`${baseUrl.replace(/\/$/, '')}/send/text`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey },
-    body: JSON.stringify({ number, text, id, delay: 500, formatJid: true }),
-  });
-}
 
 function ok() { return new Response(JSON.stringify({ received: true }), { headers: { 'Content-Type': 'application/json' } }); }

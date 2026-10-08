@@ -10,11 +10,13 @@ import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { WEEKDAY_LABELS } from '@/lib/format';
+import { recommendFields } from '@/lib/bookingAutomation';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function AutoBookingSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const pelada = useAppStore((state) => state.peladas.find((row) => row.id === id));
+  const currentPlayer = useAppStore((state) => state.players.find((row) => row.id === state.currentPlayerId));
   const schedules = useAppStore((state) => state.schedules);
   const fields = useAppStore((state) => state.fields);
   const establishments = useAppStore((state) => state.establishments);
@@ -32,13 +34,17 @@ export default function AutoBookingSettingsScreen() {
   const [enabled, setEnabled] = useState(schedule?.autoBookingEnabled ?? false);
   const [minimum, setMinimum] = useState(String(schedule?.bookingMinimumPlayers ?? 10));
   const [responseMinutes, setResponseMinutes] = useState(String(schedule?.bookingResponseMinutes ?? 30));
+  const [pollQuorumPercent, setPollQuorumPercent] = useState(String(schedule?.pollQuorumPercent ?? 50));
+  const [pollReminderMinutes, setPollReminderMinutes] = useState(String(schedule?.pollReminderMinutes ?? 120));
 
   const ordered = useMemo(
     () => preferences.filter((row) => row.scheduleId === schedule?.id).sort((a, b) => a.priority - b.priority),
     [preferences, schedule?.id],
   );
   const compatibleFields = fields.filter((field) => field.sportId === pelada?.sportId && field.establishmentId);
-  const availableToAdd = compatibleFields.filter((field) => !ordered.some((row) => row.fieldId === field.id));
+  const recommendations = recommendFields(pelada?.sportId ?? '', compatibleFields, availabilities, currentPlayer?.location ?? null);
+  const recommendationByField = new Map(recommendations.map((row) => [row.fieldId, row]));
+  const availableToAdd = compatibleFields.filter((field) => !ordered.some((row) => row.fieldId === field.id)).sort((a, b) => (recommendationByField.get(b.id)?.score ?? 0) - (recommendationByField.get(a.id)?.score ?? 0));
   const activePromotions = promotions.filter((row) => row.active && row.sportId === pelada?.sportId);
 
   function chooseSchedule(nextId: string) {
@@ -47,6 +53,8 @@ export default function AutoBookingSettingsScreen() {
     setEnabled(next?.autoBookingEnabled ?? false);
     setMinimum(String(next?.bookingMinimumPlayers ?? 10));
     setResponseMinutes(String(next?.bookingResponseMinutes ?? 30));
+    setPollQuorumPercent(String(next?.pollQuorumPercent ?? 50));
+    setPollReminderMinutes(String(next?.pollReminderMinutes ?? 120));
   }
 
   function save() {
@@ -55,6 +63,8 @@ export default function AutoBookingSettingsScreen() {
       enabled,
       minimumPlayers: Number(minimum) || 2,
       responseMinutes: Number(responseMinutes) || 30,
+      pollQuorumPercent: Number(pollQuorumPercent) || 50,
+      pollReminderMinutes: Number(pollReminderMinutes) || 120,
     });
   }
 
@@ -96,6 +106,10 @@ export default function AutoBookingSettingsScreen() {
               <View style={{ flex: 1 }}><TextField label="Mínimo de jogadores" value={minimum} onChangeText={setMinimum} keyboardType="number-pad" /></View>
               <View style={{ flex: 1 }}><TextField label="Resposta em até (min)" value={responseMinutes} onChangeText={setResponseMinutes} keyboardType="number-pad" /></View>
             </View>
+            <View style={styles.formRow}>
+              <View style={{ flex: 1 }}><TextField label="Quórum da enquete (%)" value={pollQuorumPercent} onChangeText={setPollQuorumPercent} keyboardType="number-pad" /></View>
+              <View style={{ flex: 1 }}><TextField label="Lembrar após (min)" value={pollReminderMinutes} onChangeText={setPollReminderMinutes} keyboardType="number-pad" /></View>
+            </View>
             <Button label="Salvar automação" onPress={save} />
           </Card>
 
@@ -125,7 +139,7 @@ export default function AutoBookingSettingsScreen() {
             {ordered.length === 0 && <Text style={styles.empty}>Nenhum campo preferido. Adicione pelo menos um.</Text>}
             {availableToAdd.length > 0 && <Text style={styles.smallLabel}>Adicionar campo</Text>}
             <View style={styles.chips}>
-              {availableToAdd.map((field) => <Pressable key={field.id} style={styles.addChip} onPress={() => addPreference(schedule.id, field.id)}><Ionicons name="add" size={16} color={colors.primary} /><Text style={styles.addChipText}>{field.name}</Text></Pressable>)}
+              {availableToAdd.map((field) => { const recommendation = recommendationByField.get(field.id); return <Pressable key={field.id} style={styles.recommendation} onPress={() => addPreference(schedule.id, field.id)}><View style={{ flex: 1 }}><Text style={styles.addChipText}>{field.name}</Text><Text style={styles.slotText}>{recommendation?.reasons.join(' · ')}</Text></View><Badge label={`${recommendation?.score ?? 0}/100`} color={colors.secondary} /><Ionicons name="add-circle" size={20} color={colors.primary} /></Pressable>; })}
             </View>
           </Card>
 
@@ -137,7 +151,7 @@ export default function AutoBookingSettingsScreen() {
               const alreadyAdded = ordered.some((row) => row.fieldId === promotion.fieldId);
               return (
                 <View key={promotion.id} style={styles.promotion}>
-                  <View style={{ flex: 1 }}><Text style={styles.fieldName}>{field?.name}</Text><Text style={styles.promoText}>{promotion.label}</Text></View>
+                  <View style={{ flex: 1 }}><Text style={styles.fieldName}>{field?.name}</Text><Text style={styles.promoText}>{promotion.label}</Text><Text style={styles.hint}>{recommendationByField.get(promotion.fieldId)?.reasons.join(' · ')}</Text></View>
                   {alreadyAdded ? <Badge label="Na sua lista" color={colors.primary} /> : <Button label="Adicionar" small variant="outline" onPress={() => addPreference(schedule.id, promotion.fieldId, 'sponsored')} />}
                 </View>
               );
@@ -173,6 +187,7 @@ const styles = StyleSheet.create({
   smallLabel: { color: colors.textFaint, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   addChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   addChipText: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  recommendation: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, padding: spacing.md },
   promotion: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: 'rgba(212,175,55,0.09)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.28)' },
   promoText: { color: colors.gold, fontSize: 11, marginTop: 2 },
 });

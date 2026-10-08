@@ -22,12 +22,17 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
   const options = useAppStore((state) => state.teamAvailabilityPollOptions);
   const votes = useAppStore((state) => state.teamAvailabilityPollVotes);
   const deliveries = useAppStore((state) => state.whatsAppDeliveries);
+  const deposits = useAppStore((state) => state.bookingDeposits);
   const respond = useAppStore((state) => state.respondGameBookingRequest);
   const tryNext = useAppStore((state) => state.tryNextPreferredField);
   const createPoll = useAppStore((state) => state.createGameAvailabilityPoll);
   const vote = useAppStore((state) => state.voteGameAvailabilityPoll);
   const finalizePoll = useAppStore((state) => state.finalizeGameAvailabilityPoll);
   const trigger = useAppStore((state) => state.triggerGameBookingAutomation);
+  const sendReminder = useAppStore((state) => state.sendGameAvailabilityPollReminder);
+  const createDeposit = useAppStore((state) => state.createBookingDeposit);
+  const confirmDeposit = useAppStore((state) => state.confirmBookingDeposit);
+  const cancelBooking = useAppStore((state) => state.cancelConfirmedBooking);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   if (!game || !schedule?.autoBookingEnabled) return null;
@@ -38,6 +43,7 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
   const pollOptions = options.filter((row) => row.pollId === activePoll?.id);
   const myVote = votes.find((row) => row.pollId === activePoll?.id && row.playerId === currentPlayerId);
   const lastDelivery = deliveries.filter((row) => row.bookingRequestId === latest?.id && row.kind === 'field_request').at(-1);
+  const deposit = deposits.find((row) => row.bookingRequestId === latest?.id && !['cancelled'].includes(row.status));
 
   function handleNext() {
     const next = tryNext(gameId);
@@ -91,6 +97,16 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
 
       {latest?.status === 'accepted' && <View style={styles.success}><Ionicons name="checkmark-circle" size={20} color={colors.primary} /><Text style={styles.successText}>Campo confirmado e time avisado pelo WhatsApp.</Text></View>}
 
+      {latest?.status === 'accepted' && (establishment?.reservationDepositPercent ?? 0) > 0 && (
+        <View style={styles.depositBox}>
+          <View style={styles.rowBetween}><Text style={styles.actionTitle}>Sinal da reserva</Text><Badge label={deposit?.status === 'paid' ? 'Pago' : deposit?.status === 'refunded' ? 'Reembolsado' : deposit?.status === 'retained' ? 'Retido' : 'Pendente'} color={deposit?.status === 'paid' ? colors.primary : deposit?.status === 'refunded' ? colors.secondary : colors.warning} /></View>
+          <Text style={styles.help}>{establishment?.reservationDepositPercent}% para garantir o horário · reembolso de {establishment?.cancellationRefundPercent ?? 100}% até {establishment?.cancellationRefundHours ?? 24}h antes.</Text>
+          {!deposit && <Button label="Gerar Pix do sinal" small onPress={() => createDeposit(latest.id, currentPlayerId, 'pix')} />}
+          {deposit?.status === 'pending' && <><Text style={styles.code}>{deposit.pixCopyPaste}</Text><Button label={`Simular sinal pago · ${formatBRL(deposit.amountCents / 100)}`} small onPress={() => confirmDeposit(deposit.id)} /></>}
+          {isAdmin && ['pending', 'paid'].includes(deposit?.status ?? '') && <Button label="Cancelar reserva" small variant="danger" onPress={() => { const result = cancelBooking(latest.id); setFeedback(result.refunded ? 'Reserva cancelada e sinal marcado para reembolso.' : result.retained ? 'Reserva cancelada fora da política; sinal retido.' : 'Reserva cancelada.'); }} />}
+        </View>
+      )}
+
       {isAdmin && ['declined', 'conflict', 'expired'].includes(latest?.status ?? '') && !activePoll && (
         <View style={styles.actions}>
           <Text style={styles.actionTitle}>O horário não deu certo. Como deseja continuar?</Text>
@@ -103,6 +119,7 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
         <View style={styles.poll}>
           <View style={styles.rowBetween}><Text style={styles.pollTitle}>Enquete aberta</Text><Badge label="Time votando" color={colors.secondary} /></View>
           <Text style={styles.help}>{activePoll.question}</Text>
+          <View style={styles.rowBetween}><Text style={styles.help}>Quórum: {new Set(votes.filter((row) => row.pollId === activePoll.id).map((row) => row.playerId)).size}/{activePoll.quorumRequired ?? 1} pessoas</Text>{isAdmin && <Button label="Lembrar quem não votou" small variant="ghost" onPress={() => setFeedback(`${sendReminder(activePoll.id)} lembrete(s) enviado(s).`)} />}</View>
           {pollOptions.map((option) => {
             const count = votes.filter((row) => row.optionId === option.id).length;
             const selected = myVote?.optionId === option.id;
@@ -114,7 +131,7 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
                   <Text style={styles.help}>{count} voto{count === 1 ? '' : 's'}{availability?.price ? ` · ${formatBRL(availability.price)}` : ''}</Text>
                 </Pressable>
                 {selected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-                {isAdmin && <Button label="Escolher" small variant="ghost" onPress={() => finalizePoll(activePoll.id, option.id)} />}
+                {isAdmin && <Button label="Escolher" small variant="ghost" disabled={new Set(votes.filter((row) => row.pollId === activePoll.id).map((row) => row.playerId)).size < (activePoll.quorumRequired ?? 1)} onPress={() => finalizePoll(activePoll.id, option.id)} />}
               </View>
             );
           })}
@@ -170,4 +187,6 @@ const styles = StyleSheet.create({
   progressFill: { height: 7, borderRadius: 4, backgroundColor: colors.primary },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   error: { color: colors.danger, fontSize: 12, marginTop: spacing.xs },
+  depositBox: { gap: spacing.sm, backgroundColor: 'rgba(234,179,8,0.08)', borderWidth: 1, borderColor: 'rgba(234,179,8,0.25)', borderRadius: 12, padding: spacing.md },
+  code: { color: colors.text, fontSize: 10, lineHeight: 14 },
 });

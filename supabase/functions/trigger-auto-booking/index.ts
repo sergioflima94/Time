@@ -3,9 +3,8 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { sendWhatsAppText } from '../_shared/whatsapp.ts';
 
-const digits = (value: string | null) => (value ?? '').replace(/\D/g, '');
-const phone = (value: string | null) => { const clean = digits(value); return clean.startsWith('55') ? clean : `55${clean}`; };
 const code = () => `BJ-${crypto.randomUUID().replace(/-/g, '').slice(0, 4).toUpperCase()}`;
 
 serve(async (req) => {
@@ -59,15 +58,10 @@ serve(async (req) => {
       return response({ created: true, sent: false, requestId: booking.id });
     }
     const text = `${pelada.name} solicita ${chosen.field.name} em ${new Date(game.scheduled_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${game.duration_minutes} min.\n\nResponda SIM ${requestCode} ou NÃO ${requestCode}.`;
-    const sent = await fetch(`${Deno.env.get('EVOLUTION_GO_URL')!.replace(/\/$/, '')}/send/text`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', apikey: Deno.env.get('EVOLUTION_GO_API_KEY')! },
-      body: JSON.stringify({ number: phone(establishment.whatsapp_phone), text, id: `booking-${booking.id}`, delay: 500, formatJid: true }),
-    });
-    const body = await sent.json().catch(() => ({}));
-    const messageId = body?.data?.Info?.ID ?? body?.data?.key?.id ?? `booking-${booking.id}`;
-    await service.from('game_booking_requests').update({ sent_at: sent.ok ? new Date().toISOString() : null, provider_message_id: sent.ok ? messageId : null, failure_reason: sent.ok ? null : JSON.stringify(body) }).eq('id', booking.id);
-    await service.from('whatsapp_deliveries').insert({ booking_request_id: booking.id, to_player_id: establishment.owner_player_id, phone: phone(establishment.whatsapp_phone), kind: 'field_request', status: sent.ok ? 'sent' : 'failed', preview: text, provider_message_id: sent.ok ? messageId : null, sent_at: sent.ok ? new Date().toISOString() : null });
-    return response({ created: true, sent: sent.ok, requestId: booking.id });
+    const sent = await sendWhatsAppText(establishment.whatsapp_phone, text, `booking-${booking.id}`, establishment.messaging_provider ?? 'automatic');
+    await service.from('game_booking_requests').update({ sent_at: sent.ok ? new Date().toISOString() : null, provider_message_id: sent.messageId, failure_reason: sent.error }).eq('id', booking.id);
+    await service.from('whatsapp_deliveries').insert({ booking_request_id: booking.id, to_player_id: establishment.owner_player_id, phone: establishment.whatsapp_phone, kind: 'field_request', status: sent.ok ? 'sent' : 'failed', preview: text, provider_message_id: sent.messageId, sent_at: sent.ok ? new Date().toISOString() : null, provider: sent.provider, fallback_from_provider: sent.fallbackFrom });
+    return response({ created: true, sent: sent.ok, provider: sent.provider, fallbackFrom: sent.fallbackFrom, requestId: booking.id });
   } catch (error) {
     console.error(error);
     return response({ error: String(error) }, 500);

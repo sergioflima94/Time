@@ -42,12 +42,37 @@ serve(async (req) => {
       if (!intentId && body?.txid) {
         const { data } = await serviceClient.from('sale_payment_intents').select('id').eq('external_id', body.txid).maybeSingle();
         intentId = data?.id ?? null;
+        if (!intentId) {
+          const { data: contribution } = await serviceClient.from('fundraising_contributions').select('id').eq('external_id', body.txid).maybeSingle();
+          if (contribution?.id) intentId = `fundraising:${contribution.id}`;
+        }
+        if (!intentId) {
+          const { data: deposit } = await serviceClient.from('booking_deposits').select('id').eq('external_id', body.txid).maybeSingle();
+          if (deposit?.id) intentId = `booking_deposit:${deposit.id}`;
+        }
       }
     } else {
       return response({ error: 'Provider não suportado neste webhook' }, 400);
     }
 
     if (!paid || !intentId) return response({ received: true, settled: false });
+    if (intentId.startsWith('fundraising:')) {
+      const contributionId = intentId.slice('fundraising:'.length);
+      const paidAt = new Date().toISOString();
+      const { data: contribution, error: contributionError } = await serviceClient.from('fundraising_contributions').update({ status: 'paid', paid_at: paidAt }).eq('id', contributionId).eq('status', 'pending').select('campaign_id').single();
+      if (contributionError) return response({ error: 'Falha ao confirmar contribuição' }, 500);
+      const { data: campaign } = await serviceClient.from('fundraising_campaigns').select('target_amount').eq('id', contribution.campaign_id).single();
+      const { data: rows } = await serviceClient.from('fundraising_contributions').select('amount').eq('campaign_id', contribution.campaign_id).eq('status', 'paid');
+      const raised = (rows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+      if (campaign && raised >= Number(campaign.target_amount)) await serviceClient.from('fundraising_campaigns').update({ status: 'funded' }).eq('id', contribution.campaign_id).eq('status', 'active');
+      return response({ received: true, settled: true, kind: 'fundraising', contributionId });
+    }
+    if (intentId.startsWith('booking_deposit:')) {
+      const depositId = intentId.slice('booking_deposit:'.length);
+      const { error: depositError } = await serviceClient.from('booking_deposits').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', depositId).eq('status', 'pending');
+      if (depositError) return response({ error: 'Falha ao confirmar sinal' }, 500);
+      return response({ received: true, settled: true, kind: 'booking_deposit', depositId });
+    }
     const { data: paymentId, error } = await serviceClient.rpc('settle_sale_payment_intent', { p_intent_id: intentId });
     if (error) return response({ error: 'Falha ao liquidar cobrança' }, 500);
     return response({ received: true, settled: Boolean(paymentId), paymentId });

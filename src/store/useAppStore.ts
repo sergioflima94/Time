@@ -22,9 +22,13 @@ import {
   MOCK_FIELD_BOOKINGS,
   MOCK_FIELD_AVAILABILITIES,
   MOCK_FIELD_PROMOTIONS,
+  MOCK_BOOKING_DEPOSITS,
   MOCK_GAME_BOOKING_REQUESTS,
   MOCK_FIELDS,
   MOCK_FRIENDSHIPS,
+  MOCK_FUNDRAISING_CAMPAIGNS,
+  MOCK_FUNDRAISING_CONTRIBUTIONS,
+  MOCK_FUNDRAISING_EXPENSES,
   MOCK_GAMES,
   MOCK_GOALS,
   MOCK_MATCH_TURNS,
@@ -69,6 +73,7 @@ import type {
   Attendance,
   AttendanceStatus,
   AvailabilitySlot,
+  BookingDeposit,
   CashShift,
   ClassAttendance,
   ClassAttendanceStatus,
@@ -95,6 +100,10 @@ import type {
   FieldBookingRecurrence,
   FieldPromotion,
   Friendship,
+  FundraisingCampaign,
+  FundraisingCategory,
+  FundraisingContribution,
+  FundraisingExpense,
   FreeAgentInvite,
   FriendlyMatch,
   FriendlyMatchGoal,
@@ -207,12 +216,16 @@ interface AppState {
   fieldBookings: FieldBooking[];
   fieldAvailabilities: FieldAvailability[];
   fieldPromotions: FieldPromotion[];
+  bookingDeposits: BookingDeposit[];
   scheduleFieldPreferences: ScheduleFieldPreference[];
   gameBookingRequests: GameBookingRequest[];
   teamAvailabilityPolls: TeamAvailabilityPoll[];
   teamAvailabilityPollOptions: TeamAvailabilityPollOption[];
   teamAvailabilityPollVotes: TeamAvailabilityPollVote[];
   whatsAppDeliveries: WhatsAppDelivery[];
+  fundraisingCampaigns: FundraisingCampaign[];
+  fundraisingContributions: FundraisingContribution[];
+  fundraisingExpenses: FundraisingExpense[];
   teamChallenges: TeamChallenge[];
   friendlyMatches: FriendlyMatch[];
   friendlyMatchGoals: FriendlyMatchGoal[];
@@ -338,7 +351,7 @@ interface AppState {
   // agendamento automático + WhatsApp + enquete de disponibilidade
   updateScheduleBookingAutomation: (
     scheduleId: string,
-    input: { enabled: boolean; minimumPlayers: number; responseMinutes: number },
+    input: { enabled: boolean; minimumPlayers: number; responseMinutes: number; pollQuorumPercent?: number; pollReminderMinutes?: number },
   ) => void;
   addScheduleFieldPreference: (scheduleId: string, fieldId: string, source?: ScheduleFieldPreference['source']) => void;
   moveScheduleFieldPreference: (preferenceId: string, direction: 'up' | 'down') => void;
@@ -351,7 +364,21 @@ interface AppState {
   createGameAvailabilityPoll: (gameId: string) => TeamAvailabilityPoll | null;
   voteGameAvailabilityPoll: (pollId: string, optionId: string, playerId: string) => void;
   finalizeGameAvailabilityPoll: (pollId: string, optionId: string) => GameBookingRequest | null;
+  sendGameAvailabilityPollReminder: (pollId: string) => number;
+  createBookingDeposit: (requestId: string, payerPlayerId: string, method: PaymentMethod) => BookingDeposit | null;
+  confirmBookingDeposit: (depositId: string) => void;
+  cancelConfirmedBooking: (requestId: string) => { refunded: boolean; retained: boolean };
   updateEstablishmentWhatsApp: (establishmentId: string, phone: string | null, optIn: boolean) => void;
+  updateEstablishmentBookingPolicy: (establishmentId: string, input: { depositPercent: number; refundHours: number; refundPercent: number; messagingProvider: NonNullable<Establishment['messagingProvider']> }) => void;
+  createFieldPromotion: (fieldId: string, input: { label: string; pricePerConfirmedBooking: number; campaignBudget: number | null }) => FieldPromotion | null;
+  setFieldPromotionActive: (promotionId: string, active: boolean) => void;
+
+  // vaquinhas do time (separadas do rateio da quadra)
+  createFundraisingCampaign: (peladaId: string, input: { title: string; description: string | null; category: FundraisingCategory; targetAmount: number; suggestedAmount: number | null; deadline: string | null; payoutPlayerId: string; allowAnonymous: boolean }) => FundraisingCampaign;
+  createFundraisingContribution: (campaignId: string, input: { paidByPlayerId: string; creditedPlayerId: string; amount: number; method: PaymentMethod; anonymous: boolean; message: string | null }) => FundraisingContribution | null;
+  confirmFundraisingContribution: (contributionId: string) => void;
+  addFundraisingExpense: (campaignId: string, title: string, amount: number, recordedBy: string, receiptUrl?: string | null) => FundraisingExpense | null;
+  closeFundraisingCampaign: (campaignId: string) => void;
 
   addAdmin: (peladaId: string, playerId: string) => void;
   removeAdmin: (peladaId: string, playerId: string) => void;
@@ -527,12 +554,16 @@ export const useAppStore = create<AppState>()(
       fieldBookings: MOCK_FIELD_BOOKINGS,
       fieldAvailabilities: MOCK_FIELD_AVAILABILITIES,
       fieldPromotions: MOCK_FIELD_PROMOTIONS,
+      bookingDeposits: MOCK_BOOKING_DEPOSITS,
       scheduleFieldPreferences: MOCK_SCHEDULE_FIELD_PREFERENCES,
       gameBookingRequests: MOCK_GAME_BOOKING_REQUESTS,
       teamAvailabilityPolls: MOCK_TEAM_AVAILABILITY_POLLS,
       teamAvailabilityPollOptions: MOCK_TEAM_AVAILABILITY_POLL_OPTIONS,
       teamAvailabilityPollVotes: MOCK_TEAM_AVAILABILITY_POLL_VOTES,
       whatsAppDeliveries: MOCK_WHATSAPP_DELIVERIES,
+      fundraisingCampaigns: MOCK_FUNDRAISING_CAMPAIGNS,
+      fundraisingContributions: MOCK_FUNDRAISING_CONTRIBUTIONS,
+      fundraisingExpenses: MOCK_FUNDRAISING_EXPENSES,
       teamChallenges: [],
       friendlyMatches: [],
       friendlyMatchGoals: [],
@@ -1008,6 +1039,10 @@ export const useAppStore = create<AppState>()(
           pixKey: input.payoutMethod === 'pix' ? input.pixKey : null,
           whatsappPhone: null,
           whatsappOptIn: false,
+          messagingProvider: 'automatic',
+          reservationDepositPercent: 0,
+          cancellationRefundHours: 24,
+          cancellationRefundPercent: 100,
           accessCode: uid().toUpperCase(),
           createdAt: nowIso(),
         };
@@ -1824,6 +1859,8 @@ export const useAppStore = create<AppState>()(
           autoBookingEnabled: input.autoBookingEnabled ?? false,
           bookingMinimumPlayers: Math.max(2, input.bookingMinimumPlayers ?? input.maxPlayers),
           bookingResponseMinutes: Math.max(5, input.bookingResponseMinutes ?? 30),
+          pollQuorumPercent: 50,
+          pollReminderMinutes: 120,
           active: true,
           createdBy: get().currentPlayerId,
         };
@@ -1889,6 +1926,8 @@ export const useAppStore = create<AppState>()(
                   autoBookingEnabled: input.enabled,
                   bookingMinimumPlayers: Math.max(2, input.minimumPlayers),
                   bookingResponseMinutes: Math.max(5, input.responseMinutes),
+                  pollQuorumPercent: Math.min(100, Math.max(1, input.pollQuorumPercent ?? schedule.pollQuorumPercent ?? 50)),
+                  pollReminderMinutes: Math.max(15, input.pollReminderMinutes ?? schedule.pollReminderMinutes ?? 120),
                 }
               : schedule,
           ),
@@ -2096,9 +2135,11 @@ export const useAppStore = create<AppState>()(
         const slots = findAlternativeSlots(fieldIds, game.scheduledAt, game.durationMinutes ?? 90, state.fieldAvailabilities, state.fieldBookings, 4);
         if (slots.length === 0) return null;
         const createdAt = nowIso();
+        const activeMemberCount = state.memberships.filter((row) => row.peladaId === pelada.id && row.active).length;
         const poll: TeamAvailabilityPoll = {
           id: uid(), gameId, peladaId: pelada.id, question: 'Qual destes horários você consegue jogar?', status: 'open',
           createdBy: state.currentPlayerId, createdAt, closesAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(), selectedOptionId: null,
+          quorumRequired: Math.max(1, Math.ceil(activeMemberCount * (schedule.pollQuorumPercent ?? 50) / 100)), reminderSentAt: null,
         };
         const options: TeamAvailabilityPollOption[] = slots.map((slot) => {
           const field = state.fields.find((row) => row.id === slot.fieldId);
@@ -2136,7 +2177,8 @@ export const useAppStore = create<AppState>()(
         const option = state.teamAvailabilityPollOptions.find((row) => row.id === optionId && row.pollId === pollId);
         const game = state.games.find((row) => row.id === poll?.gameId);
         const schedule = state.schedules.find((row) => row.id === game?.scheduleId);
-        if (!poll || !option || !game || !schedule) return null;
+        const uniqueVoters = new Set(state.teamAvailabilityPollVotes.filter((row) => row.pollId === pollId).map((row) => row.playerId)).size;
+        if (!poll || !option || !game || !schedule || uniqueVoters < (poll.quorumRequired ?? 1)) return null;
         set((current) => ({
           teamAvailabilityPolls: current.teamAvailabilityPolls.map((row) => row.id === pollId ? { ...row, status: 'closed', selectedOptionId: optionId } : row),
           games: current.games.map((row) => row.id === game.id ? { ...row, scheduledAt: option.startsAt, fieldId: option.fieldId } : row),
@@ -2164,6 +2206,164 @@ export const useAppStore = create<AppState>()(
 
       updateEstablishmentWhatsApp: (establishmentId, phone, optIn) => {
         set((state) => ({ establishments: state.establishments.map((row) => row.id === establishmentId ? { ...row, whatsappPhone: normalizeWhatsAppPhone(phone), whatsappOptIn: optIn } : row) }));
+      },
+
+      sendGameAvailabilityPollReminder: (pollId) => {
+        const state = get();
+        const poll = state.teamAvailabilityPolls.find((row) => row.id === pollId && row.status === 'open');
+        if (!poll) return 0;
+        const voters = new Set(state.teamAvailabilityPollVotes.filter((row) => row.pollId === pollId).map((row) => row.playerId));
+        const now = nowIso();
+        const deliveries: WhatsAppDelivery[] = state.memberships
+          .filter((row) => row.peladaId === poll.peladaId && row.active && !voters.has(row.playerId))
+          .map((member) => {
+            const player = state.players.find((row) => row.id === member.playerId);
+            const phone = player?.whatsappOptIn ? normalizeWhatsAppPhone(player.phone) : null;
+            return {
+              id: uid(), bookingRequestId: null, pollId, toPlayerId: member.playerId, phone,
+              kind: 'poll_reminder' as const, status: phone ? 'sent' as const : 'skipped' as const,
+              preview: `Lembrete: vote na enquete de horário do seu time no BoraJogo.`, providerMessageId: phone ? `demo-${uid()}` : null,
+              createdAt: now, sentAt: phone ? now : null, provider: phone ? 'evolution_go' as const : 'in_app' as const, fallbackFromProvider: null,
+            };
+          });
+        set((current) => ({
+          teamAvailabilityPolls: current.teamAvailabilityPolls.map((row) => row.id === pollId ? { ...row, reminderSentAt: now } : row),
+          whatsAppDeliveries: [...current.whatsAppDeliveries, ...deliveries],
+        }));
+        return deliveries.filter((row) => row.status === 'sent').length;
+      },
+
+      createBookingDeposit: (requestId, payerPlayerId, method) => {
+        const state = get();
+        const request = state.gameBookingRequests.find((row) => row.id === requestId && row.status === 'accepted');
+        const field = state.fields.find((row) => row.id === request?.fieldId);
+        const establishment = state.establishments.find((row) => row.id === field?.establishmentId);
+        const game = state.games.find((row) => row.id === request?.gameId);
+        if (!request || !field || !establishment || !game) return null;
+        const existing = state.bookingDeposits.find((row) => row.bookingRequestId === requestId && !['cancelled', 'refunded'].includes(row.status));
+        if (existing) return existing;
+        const start = new Date(request.requestedStartAt);
+        const availability = state.fieldAvailabilities.find((row) => row.fieldId === field.id && row.dayOfWeek === start.getDay() && row.active);
+        const baseAmount = availability?.price ?? game.fieldCost ?? 0;
+        const amountCents = Math.round(baseAmount * Math.max(0, establishment.reservationDepositPercent ?? 0));
+        if (amountCents <= 0) return null;
+        const connection = state.paymentGatewayConnections.find((row) => row.establishmentId === establishment.id && row.status === 'connected');
+        const provider = connection?.provider ?? 'manual_pix';
+        if (method === 'card' && !connection?.cardEnabled) return null;
+        const id = uid();
+        const deposit: BookingDeposit = {
+          id, bookingRequestId: request.id, payerPlayerId, amountCents, provider, method, status: 'pending',
+          externalId: `demo-booking-${id}`, pixCopyPaste: method === 'pix' ? demoPixCode(provider, id, amountCents) : null,
+          checkoutUrl: method === 'card' ? `https://checkout.demo/${provider}/booking/${id}` : null,
+          dueAt: new Date(Date.now() + 30 * 60_000).toISOString(), paidAt: null, refundedAt: null, createdAt: nowIso(),
+        };
+        set((current) => ({ bookingDeposits: [...current.bookingDeposits, deposit] }));
+        return deposit;
+      },
+
+      confirmBookingDeposit: (depositId) => {
+        set((state) => ({ bookingDeposits: state.bookingDeposits.map((row) => row.id === depositId && row.status === 'pending' ? { ...row, status: 'paid', paidAt: nowIso() } : row) }));
+      },
+
+      cancelConfirmedBooking: (requestId) => {
+        const state = get();
+        const request = state.gameBookingRequests.find((row) => row.id === requestId && row.status === 'accepted');
+        if (!request) return { refunded: false, retained: false };
+        const field = state.fields.find((row) => row.id === request.fieldId);
+        const establishment = state.establishments.find((row) => row.id === field?.establishmentId);
+        const deposit = state.bookingDeposits.find((row) => row.bookingRequestId === requestId && row.status === 'paid');
+        const hoursUntil = (new Date(request.requestedStartAt).getTime() - Date.now()) / 3_600_000;
+        const refundAllowed = !!deposit && hoursUntil >= (establishment?.cancellationRefundHours ?? 24) && (establishment?.cancellationRefundPercent ?? 100) > 0;
+        set((current) => ({
+          gameBookingRequests: current.gameBookingRequests.map((row) => row.id === requestId ? { ...row, status: 'cancelled', respondedAt: nowIso(), failureReason: 'Reserva cancelada pelo time.' } : row),
+          fieldBookings: current.fieldBookings.filter((row) => !(row.fieldId === request.fieldId && row.peladaId === current.games.find((game) => game.id === request.gameId)?.peladaId && row.notes?.includes(request.code))),
+          bookingDeposits: current.bookingDeposits.map((row) => row.id === deposit?.id ? { ...row, status: refundAllowed ? 'refunded' : 'retained', refundedAt: refundAllowed ? nowIso() : null } : row),
+        }));
+        return { refunded: refundAllowed, retained: !!deposit && !refundAllowed };
+      },
+
+      updateEstablishmentBookingPolicy: (establishmentId, input) => {
+        set((state) => ({ establishments: state.establishments.map((row) => row.id === establishmentId ? {
+          ...row,
+          reservationDepositPercent: Math.min(100, Math.max(0, input.depositPercent)),
+          cancellationRefundHours: Math.max(0, input.refundHours),
+          cancellationRefundPercent: Math.min(100, Math.max(0, input.refundPercent)),
+          messagingProvider: input.messagingProvider,
+        } : row) }));
+      },
+
+      createFieldPromotion: (fieldId, input) => {
+        const state = get();
+        const field = state.fields.find((row) => row.id === fieldId);
+        if (!field?.establishmentId || !input.label.trim()) return null;
+        const promotion: FieldPromotion = {
+          id: uid(), fieldId, sportId: field.sportId, label: input.label.trim(),
+          pricePerConfirmedBooking: Math.max(0, input.pricePerConfirmedBooking), active: true,
+          startsAt: nowIso(), endsAt: null, campaignBudget: input.campaignBudget,
+        };
+        set((current) => ({ fieldPromotions: [...current.fieldPromotions, promotion] }));
+        return promotion;
+      },
+
+      setFieldPromotionActive: (promotionId, active) => {
+        set((state) => ({ fieldPromotions: state.fieldPromotions.map((row) => row.id === promotionId ? { ...row, active } : row) }));
+      },
+
+      createFundraisingCampaign: (peladaId, input) => {
+        const campaign: FundraisingCampaign = {
+          id: uid(), peladaId, title: input.title.trim(), description: input.description,
+          category: input.category, targetAmount: Math.max(1, input.targetAmount), suggestedAmount: input.suggestedAmount,
+          deadline: input.deadline, imageUrl: null, status: 'active', allowAnonymous: input.allowAnonymous,
+          payoutPlayerId: input.payoutPlayerId, createdBy: get().currentPlayerId, createdAt: nowIso(), closedAt: null,
+        };
+        set((state) => ({ fundraisingCampaigns: [...state.fundraisingCampaigns, campaign] }));
+        return campaign;
+      },
+
+      createFundraisingContribution: (campaignId, input) => {
+        const state = get();
+        const campaign = state.fundraisingCampaigns.find((row) => row.id === campaignId && row.status === 'active');
+        if (!campaign || input.amount <= 0) return null;
+        const establishment = state.establishments.find((row) => row.ownerPlayerId === campaign.payoutPlayerId);
+        const connection = state.paymentGatewayConnections.find((row) => row.establishmentId === establishment?.id && row.status === 'connected');
+        const provider = connection?.provider ?? 'manual_pix';
+        if (input.method === 'card' && !connection?.cardEnabled) return null;
+        const id = uid();
+        const contribution: FundraisingContribution = {
+          id, campaignId, paidByPlayerId: input.paidByPlayerId, creditedPlayerId: input.creditedPlayerId,
+          amount: input.amount, method: input.method, provider, status: input.method === 'cash' ? 'paid' : 'pending',
+          anonymous: input.anonymous, message: input.message?.trim() || null, externalId: `demo-fund-${id}`,
+          pixCopyPaste: input.method === 'pix' ? demoPixCode(provider, id, Math.round(input.amount * 100)) : null,
+          checkoutUrl: input.method === 'card' ? `https://checkout.demo/${provider}/fund/${id}` : null,
+          createdAt: nowIso(), paidAt: input.method === 'cash' ? nowIso() : null,
+        };
+        set((current) => ({ fundraisingContributions: [...current.fundraisingContributions, contribution] }));
+        return contribution;
+      },
+
+      confirmFundraisingContribution: (contributionId) => {
+        set((state) => {
+          const contribution = state.fundraisingContributions.find((row) => row.id === contributionId && row.status === 'pending');
+          if (!contribution) return {};
+          const contributions = state.fundraisingContributions.map((row) => row.id === contributionId ? { ...row, status: 'paid' as const, paidAt: nowIso() } : row);
+          const campaign = state.fundraisingCampaigns.find((row) => row.id === contribution.campaignId);
+          const raised = contributions.filter((row) => row.campaignId === contribution.campaignId && row.status === 'paid').reduce((sum, row) => sum + row.amount, 0);
+          return {
+            fundraisingContributions: contributions,
+            fundraisingCampaigns: state.fundraisingCampaigns.map((row) => row.id === campaign?.id && raised >= row.targetAmount ? { ...row, status: 'funded' as const } : row),
+          };
+        });
+      },
+
+      addFundraisingExpense: (campaignId, title, amount, recordedBy, receiptUrl = null) => {
+        if (!title.trim() || amount <= 0) return null;
+        const expense: FundraisingExpense = { id: uid(), campaignId, title: title.trim(), amount, receiptUrl, recordedBy, createdAt: nowIso() };
+        set((state) => ({ fundraisingExpenses: [...state.fundraisingExpenses, expense] }));
+        return expense;
+      },
+
+      closeFundraisingCampaign: (campaignId) => {
+        set((state) => ({ fundraisingCampaigns: state.fundraisingCampaigns.map((row) => row.id === campaignId ? { ...row, status: 'closed', closedAt: nowIso() } : row) }));
       },
 
       addAdmin: (peladaId, playerId) => {
@@ -2432,12 +2632,16 @@ export const useAppStore = create<AppState>()(
         fieldBookings: state.fieldBookings,
         fieldAvailabilities: state.fieldAvailabilities,
         fieldPromotions: state.fieldPromotions,
+        bookingDeposits: state.bookingDeposits,
         scheduleFieldPreferences: state.scheduleFieldPreferences,
         gameBookingRequests: state.gameBookingRequests,
         teamAvailabilityPolls: state.teamAvailabilityPolls,
         teamAvailabilityPollOptions: state.teamAvailabilityPollOptions,
         teamAvailabilityPollVotes: state.teamAvailabilityPollVotes,
         whatsAppDeliveries: state.whatsAppDeliveries,
+        fundraisingCampaigns: state.fundraisingCampaigns,
+        fundraisingContributions: state.fundraisingContributions,
+        fundraisingExpenses: state.fundraisingExpenses,
         teamChallenges: state.teamChallenges,
         friendlyMatches: state.friendlyMatches,
         friendlyMatchGoals: state.friendlyMatchGoals,

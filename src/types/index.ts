@@ -132,6 +132,11 @@ export interface Field {
   establishmentId: UUID | null;
   /** Esporte jogado nesse campo (SportId de src/constants/sports.ts). Campo de pelada herda o esporte dela; campo próprio do estabelecimento escolhe o esporte na hora de cadastrar — assim um estabelecimento pode ter campos de esportes diferentes. */
   sportId: string;
+  /** Localização aproximada para ordenar sugestões. Nunca substitui o endereço público. */
+  location?: GeoPoint | null;
+  /** Indicadores públicos consolidados do estabelecimento. */
+  averageRating?: number | null;
+  cancellationRate?: number;
   createdBy: UUID;
 }
 
@@ -192,6 +197,12 @@ export interface Establishment {
   whatsappPhone: string | null;
   /** Consentimento explícito para receber solicitações transacionais. */
   whatsappOptIn: boolean;
+  /** Ordem de envio: Evolution Go e, se falhar, Meta Cloud API. */
+  messagingProvider?: 'automatic' | 'evolution_go' | 'meta_cloud';
+  /** Política comercial aplicada ao aceite de uma reserva automática. */
+  reservationDepositPercent?: number;
+  cancellationRefundHours?: number;
+  cancellationRefundPercent?: number;
   /** Código curto que o admin de uma pelada usa pra vincular um campo a este estabelecimento. */
   accessCode: string;
   createdAt: string;
@@ -471,6 +482,10 @@ export interface Schedule {
   bookingMinimumPlayers: number;
   /** Tempo que o dono do campo tem para responder antes de a solicitação expirar. */
   bookingResponseMinutes: number;
+  /** Percentual de membros ativos que precisa votar antes de escolher um novo horário. */
+  pollQuorumPercent?: number;
+  /** Minutos depois da abertura para lembrar quem ainda não votou. */
+  pollReminderMinutes?: number;
   active: boolean;
   createdBy: UUID;
 }
@@ -497,6 +512,28 @@ export interface FieldPromotion {
   active: boolean;
   startsAt: string;
   endsAt: string | null;
+  /** Limite comercial opcional; a cobrança real é conciliada no backend. */
+  campaignBudget?: number | null;
+}
+
+export type BookingDepositStatus = 'pending' | 'paid' | 'refunded' | 'retained' | 'cancelled';
+
+/** Sinal de reserva. O dinheiro vai direto ao gateway conectado pelo estabelecimento. */
+export interface BookingDeposit {
+  id: UUID;
+  bookingRequestId: UUID;
+  payerPlayerId: UUID;
+  amountCents: number;
+  provider: PaymentGatewayProvider;
+  method: PaymentMethod;
+  status: BookingDepositStatus;
+  externalId: string | null;
+  pixCopyPaste: string | null;
+  checkoutUrl: string | null;
+  dueAt: string;
+  paidAt: string | null;
+  refundedAt: string | null;
+  createdAt: string;
 }
 
 export type BookingRequestStatus =
@@ -542,6 +579,9 @@ export interface TeamAvailabilityPoll {
   createdAt: string;
   closesAt: string;
   selectedOptionId: UUID | null;
+  /** Quantidade mínima de jogadores únicos que precisam votar. */
+  quorumRequired: number;
+  reminderSentAt: string | null;
 }
 
 export interface TeamAvailabilityPollOption {
@@ -560,7 +600,7 @@ export interface TeamAvailabilityPollVote {
   createdAt: string;
 }
 
-export type WhatsAppDeliveryKind = 'field_request' | 'game_confirmed' | 'booking_declined' | 'poll_invite';
+export type WhatsAppDeliveryKind = 'field_request' | 'game_confirmed' | 'booking_declined' | 'poll_invite' | 'poll_reminder';
 export type WhatsAppDeliveryStatus = 'queued' | 'sent' | 'skipped' | 'failed';
 
 /** Espelho de auditoria das mensagens; o segredo do provedor nunca fica aqui. */
@@ -576,6 +616,64 @@ export interface WhatsAppDelivery {
   providerMessageId: string | null;
   createdAt: string;
   sentAt: string | null;
+  provider?: 'evolution_go' | 'meta_cloud' | 'in_app';
+  fallbackFromProvider?: 'evolution_go' | 'meta_cloud' | null;
+}
+
+// =========================================================================
+// Vaquinhas do time — independentes do rateio da quadra.
+// =========================================================================
+
+export type FundraisingCategory = 'equipment' | 'event' | 'travel' | 'uniform' | 'prize' | 'other';
+export type FundraisingStatus = 'draft' | 'active' | 'funded' | 'closed' | 'cancelled';
+export type FundraisingContributionStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+
+export interface FundraisingCampaign {
+  id: UUID;
+  peladaId: UUID;
+  title: string;
+  description: string | null;
+  category: FundraisingCategory;
+  targetAmount: number;
+  suggestedAmount: number | null;
+  deadline: string | null;
+  imageUrl: string | null;
+  status: FundraisingStatus;
+  allowAnonymous: boolean;
+  payoutPlayerId: UUID;
+  createdBy: UUID;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface FundraisingContribution {
+  id: UUID;
+  campaignId: UUID;
+  /** Quem efetuou o pagamento. */
+  paidByPlayerId: UUID;
+  /** Pessoa que recebe o crédito público da contribuição; permite pagar por outra pessoa. */
+  creditedPlayerId: UUID;
+  amount: number;
+  method: PaymentMethod;
+  provider: PaymentGatewayProvider;
+  status: FundraisingContributionStatus;
+  anonymous: boolean;
+  message: string | null;
+  externalId: string | null;
+  pixCopyPaste: string | null;
+  checkoutUrl: string | null;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+export interface FundraisingExpense {
+  id: UUID;
+  campaignId: UUID;
+  title: string;
+  amount: number;
+  receiptUrl: string | null;
+  recordedBy: UUID;
+  createdAt: string;
 }
 
 export type GameStatus =

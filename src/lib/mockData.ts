@@ -18,7 +18,11 @@ import type {
   FieldAvailability,
   FieldBooking,
   FieldPromotion,
+  BookingDeposit,
   Friendship,
+  FundraisingCampaign,
+  FundraisingContribution,
+  FundraisingExpense,
   Game,
   GameBookingRequest,
   Goal,
@@ -150,6 +154,10 @@ export const MOCK_ESTABLISHMENTS: Establishment[] = [
     pixKey: 'arena.central@pix.com.br',
     whatsappPhone: '5511988880002',
     whatsappOptIn: true,
+    messagingProvider: 'automatic',
+    reservationDepositPercent: 20,
+    cancellationRefundHours: 12,
+    cancellationRefundPercent: 100,
     accessCode: 'ARENA-CENTRAL',
     createdAt: iso(now),
   },
@@ -163,20 +171,24 @@ export const MOCK_ESTABLISHMENTS: Establishment[] = [
     pixKey: 'vilanova.esportes@pix.com.br',
     whatsappPhone: '5511988880001',
     whatsappOptIn: true,
+    messagingProvider: 'automatic',
+    reservationDepositPercent: 25,
+    cancellationRefundHours: 24,
+    cancellationRefundPercent: 100,
     accessCode: 'VILA-NOVA',
     createdAt: iso(now),
   },
 ];
 
 export const MOCK_FIELDS: Field[] = [
-  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', establishmentId: 'est1', sportId: 'futebol', createdBy: 'p1' },
+  { id: 'f1', peladaId: 'pel1', name: 'Arena Society Central', address: 'Rua das Palmeiras, 123', notes: 'Grama sintética, tem estacionamento', establishmentId: 'est1', sportId: 'futebol', location: { latitude: -23.5889, longitude: -46.651 }, averageRating: 4.8, cancellationRate: 0.02, createdBy: 'p1' },
   // Campos próprios do Complexo Esportivo Vila Nova (est2, dono = p1) — um por esporte,
   // sem depender de nenhuma pelada.
-  { id: 'f2', peladaId: null, name: 'Quadra 1 - Society', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futebol', createdBy: 'p1' },
+  { id: 'f2', peladaId: null, name: 'Quadra 1 - Society', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futebol', location: { latitude: -23.596, longitude: -46.645 }, averageRating: 4.6, cancellationRate: 0.01, createdBy: 'p1' },
   { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', createdBy: 'p1' },
   { id: 'f4', peladaId: null, name: 'Quadra 3 - Basquete', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'basquete', createdBy: 'p1' },
   { id: 'f5', peladaId: null, name: 'Arena de Areia - Futevôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futvolei', createdBy: 'p1' },
-  { id: 'f6', peladaId: null, name: 'Quadra 4 - Futsal', address: 'Av. Vila Nova, 500', notes: 'Vestiário e estacionamento inclusos', establishmentId: 'est2', sportId: 'futebol', createdBy: 'p1' },
+  { id: 'f6', peladaId: null, name: 'Quadra 4 - Futsal', address: 'Av. Vila Nova, 500', notes: 'Vestiário e estacionamento inclusos', establishmentId: 'est2', sportId: 'futebol', location: { latitude: -23.596, longitude: -46.645 }, averageRating: 4.7, cancellationRate: 0.01, createdBy: 'p1' },
 ];
 
 export const MOCK_FIELD_AVAILABILITIES: FieldAvailability[] = [
@@ -189,8 +201,10 @@ export const MOCK_FIELD_AVAILABILITIES: FieldAvailability[] = [
 ];
 
 export const MOCK_FIELD_PROMOTIONS: FieldPromotion[] = [
-  { id: 'fp1', fieldId: 'f6', sportId: 'futebol', label: 'Patrocinado · primeira reserva com 10% de desconto', pricePerConfirmedBooking: 8, active: true, startsAt: iso(now), endsAt: null },
+  { id: 'fp1', fieldId: 'f6', sportId: 'futebol', label: 'Patrocinado · primeira reserva com 10% de desconto', pricePerConfirmedBooking: 8, active: true, startsAt: iso(now), endsAt: null, campaignBudget: 240 },
 ];
+
+export const MOCK_BOOKING_DEPOSITS: BookingDeposit[] = [];
 
 // Horário fixo de exemplo: toda semana, sábado 08h, o time da "Vôlei da Empresa" já
 // está reservado na Quadra 2 do Complexo Esportivo Vila Nova.
@@ -331,6 +345,8 @@ export const MOCK_SCHEDULES: Schedule[] = [
     autoBookingEnabled: true,
     bookingMinimumPlayers: 15,
     bookingResponseMinutes: 30,
+    pollQuorumPercent: 50,
+    pollReminderMinutes: 120,
     active: true,
     createdBy: 'p1',
   },
@@ -376,8 +392,33 @@ export const MOCK_WHATSAPP_DELIVERIES: WhatsAppDelivery[] = [
   {
     id: 'wad1', bookingRequestId: 'gbr1', pollId: null, toPlayerId: 'p2', phone: '5511988880002', kind: 'field_request', status: 'sent',
     preview: `Pelada dos Amigos solicita Arena Society Central em ${nextGameDate.toLocaleString('pt-BR')}. Responda SIM BJ-7F2K ou NÃO BJ-7F2K.`,
-    providerMessageId: 'demo-evolution-001', createdAt: iso(now), sentAt: iso(now),
+    providerMessageId: 'demo-evolution-001', createdAt: iso(now), sentAt: iso(now), provider: 'evolution_go', fallbackFromProvider: null,
   },
+];
+
+export const MOCK_FUNDRAISING_CAMPAIGNS: FundraisingCampaign[] = [
+  {
+    id: 'fund1', peladaId: 'pel1', title: 'Bola nova para o time',
+    description: 'Uma bola society resistente para os jogos de quinta.', category: 'equipment',
+    targetAmount: 350, suggestedAmount: 25, deadline: iso(new Date(now.getTime() + 20 * 24 * 60 * 60_000)),
+    imageUrl: null, status: 'active', allowAnonymous: true, payoutPlayerId: 'p1', createdBy: 'p1', createdAt: iso(now), closedAt: null,
+  },
+  {
+    id: 'fund2', peladaId: 'pel1', title: 'Churrasco de sábado',
+    description: 'Carne, carvão, bebidas e gelo para a confraternização.', category: 'event',
+    targetAmount: 600, suggestedAmount: 40, deadline: iso(new Date(now.getTime() + 12 * 24 * 60 * 60_000)),
+    imageUrl: null, status: 'active', allowAnonymous: true, payoutPlayerId: 'p1', createdBy: 'p1', createdAt: iso(now), closedAt: null,
+  },
+];
+
+export const MOCK_FUNDRAISING_CONTRIBUTIONS: FundraisingContribution[] = [
+  { id: 'fc1', campaignId: 'fund1', paidByPlayerId: 'p2', creditedPlayerId: 'p2', amount: 50, method: 'pix', provider: 'manual_pix', status: 'paid', anonymous: false, message: 'Vamos estrear a bola!', externalId: 'demo-fc1', pixCopyPaste: null, checkoutUrl: null, createdAt: iso(now), paidAt: iso(now) },
+  { id: 'fc2', campaignId: 'fund1', paidByPlayerId: 'p3', creditedPlayerId: 'p3', amount: 25, method: 'pix', provider: 'manual_pix', status: 'paid', anonymous: false, message: null, externalId: 'demo-fc2', pixCopyPaste: null, checkoutUrl: null, createdAt: iso(now), paidAt: iso(now) },
+  { id: 'fc3', campaignId: 'fund2', paidByPlayerId: 'p5', creditedPlayerId: 'p5', amount: 80, method: 'pix', provider: 'manual_pix', status: 'paid', anonymous: false, message: 'Eu levo o gelo.', externalId: 'demo-fc3', pixCopyPaste: null, checkoutUrl: null, createdAt: iso(now), paidAt: iso(now) },
+];
+
+export const MOCK_FUNDRAISING_EXPENSES: FundraisingExpense[] = [
+  { id: 'fe1', campaignId: 'fund2', title: 'Reserva do carvão', amount: 45, receiptUrl: null, recordedBy: 'p1', createdAt: iso(now) },
 ];
 
 // 15 confirmados como no exemplo do usuário: 14 amigos + você.

@@ -416,11 +416,25 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   Cada membro vota uma vez e pode trocar seu voto. O admin escolhe a opção vencedora,
   atualiza o horário do jogo e abre uma nova solicitação ao campo. O dono publica dias,
   faixa de horário, tamanho do bloco e preço em **Estabelecimento → Agendamento**.
+- ✅ **Quórum e lembretes da enquete**: cada agenda define o percentual mínimo de
+  membros que precisa votar e depois de quantos minutos lembrar quem ainda não respondeu.
+  Sem quórum o botão de escolha fica bloqueado. No backend,
+  `send-poll-reminders` pode rodar no Cron e envia somente para opt-ins ainda sem voto.
+- ✅ **Sinal, cancelamento e reembolso da reserva**: o estabelecimento configura o
+  percentual do sinal, a antecedência e o percentual reembolsável. Depois do `SIM` do
+  campo, o admin gera a cobrança pelo gateway conectado; cancelar antes do limite marca
+  reembolso, e fora da política marca o sinal como retido. Em produção, a confirmação e
+  o estorno são feitos pelo PSP/webhook, nunca pelo botão do cliente.
 - ✅ **Campos patrocinados sem esconder publicidade**: `field_promotions` fornece as
   sugestões monetizadas do BoraJogo. Elas aparecem com selo **Patrocinado**, depois da
   lista definida pelo time, e só entram na lista principal quando o admin adiciona. O
   modelo recomendado é taxa fixa por reserva confirmada, complementado por assinatura
   do estabelecimento para agenda, automação e relatórios.
+- ✅ **Painel comercial e recomendações** (`[id]/promocoes.tsx` e
+  `recommendFields`): o dono publica campanhas com orçamento e preço por reserva
+  confirmada e acompanha tentativas, conversão e receita estimada. Para o time, campos
+  compatíveis são pontuados por distância aproximada, menor preço, avaliação e taxa de
+  cancelamento; publicidade continua separada e identificada.
 - ✅ **Página pública do estabelecimento** (`app/estabelecimento/publico/[id].tsx`): link
   compartilhável — gerenciado numa página própria do dono, `[id]/publico.tsx` (acessível
   pelo card "Página pública" do grid de navegação em `[id]/index.tsx`, junto com
@@ -475,6 +489,14 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   atualiza a comanda numa transação. Sicoob/Inter exigem certificado mTLS e homologação
   por conta, então o contrato está preparado, mas o adaptador bancário depende das
   credenciais/certificados de cada estabelecimento.
+- ✅ **Vaquinhas do time** (`app/time/[id]/vaquinhas.tsx` e `app/vaquinha/[id].tsx`):
+  campanhas separadas da cota da quadra para bola, churrasco, uniforme, viagem,
+  premiação ou objetivo livre. O admin informa meta, sugestão e prazo; um membro pode
+  contribuir por si ou creditar outra pessoa, via Pix/cartão/dinheiro, com opção de nome
+  anônimo. A tela mostra progresso, saldo, despesas e comprovantes. O recebedor é definido
+  na campanha e o dinheiro liquida direto em sua conta conectada; o BoraJogo não mantém
+  carteira nem custódia. `create-community-payment` reaproveita Mercado Pago/PicPay e o
+  `payment-webhook` confirma tanto contribuições quanto sinais de reserva.
 - ✅ **Caixa e conciliação** (`app/operacao/caixa.tsx`): abertura com fundo inicial,
   fechamento com valor contado e diferença, e visão consolidada de quadras, alimentação
   e aulas. As origens continuam separadas: `Payment` é rateio, `SalePayment` é consumo e
@@ -515,8 +537,10 @@ cliente chama por `supabase.functions.invoke(...)`.
 2. Aplique `supabase/schema.sql` e publique:
    `supabase functions deploy trigger-auto-booking --no-verify-jwt`,
    `supabase functions deploy request-field-booking` e
-   `supabase functions deploy evolution-go-webhook --no-verify-jwt` e
-   `supabase functions deploy expire-booking-requests --no-verify-jwt`.
+   `supabase functions deploy evolution-go-webhook --no-verify-jwt`,
+   `supabase functions deploy meta-whatsapp-webhook --no-verify-jwt`,
+   `supabase functions deploy expire-booking-requests --no-verify-jwt` e
+   `supabase functions deploy send-poll-reminders --no-verify-jwt`.
 3. Grave os segredos somente no backend:
    `supabase secrets set EVOLUTION_GO_URL=https://... EVOLUTION_GO_API_KEY=... EVOLUTION_GO_WEBHOOK_SECRET=... BOOKING_AUTOMATION_WEBHOOK_SECRET=... BOOKING_AUTOMATION_CRON_SECRET=...`.
 4. Configure o webhook da instância para a categoria `MESSAGE` apontando para
@@ -532,9 +556,17 @@ cliente chama por `supabase.functions.invoke(...)`.
    Cloud como alternativa para reduzir risco de desconexão/bloqueio. A licença da
    Evolution Go também exige uma notificação visível aos administradores informando seu uso.
 
+Para contingência oficial, configure também
+`META_WHATSAPP_PHONE_NUMBER_ID`, `META_WHATSAPP_ACCESS_TOKEN`,
+`META_WHATSAPP_VERIFY_TOKEN` e, opcionalmente, `META_GRAPH_VERSION`. Cadastre
+`meta-whatsapp-webhook` no painel da Meta. Com provedor **Automático**, o backend tenta
+Evolution Go e cai para a Cloud API se houver falha; o log guarda provedor e fallback.
+
 Agende `expire-booking-requests` no Supabase Cron a cada cinco minutos, enviando o header
 `x-cron-secret`. Solicitações vencidas deixam de bloquear novas tentativas e o admin recebe
 um aviso para tentar o próximo campo ou abrir a enquete.
+Agende `send-poll-reminders` a cada 15 minutos com o mesmo header; cada enquete é lembrada
+uma única vez, no prazo configurado pela agenda.
 
 Mensagens interativas não são necessárias: os comandos são texto simples com código de
 correlação. O webhook aceita apenas o telefone cadastrado do estabelecimento, ignora
@@ -558,6 +590,7 @@ Com Supabase configurado, a mesma mudança de estado vem exclusivamente do webho
 
 1. Aplique `supabase/schema.sql` e publique:
    `supabase functions deploy create-sale-payment` e
+   `supabase functions deploy create-community-payment` e
    `supabase functions deploy payment-webhook`.
 2. Configure `PAYMENT_WEBHOOK_URL` com a URL pública de `payment-webhook` e crie um
    `PAYMENT_WEBHOOK_TOKEN` longo/aleatório para a URL cadastrada no PicPay.

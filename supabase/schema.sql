@@ -81,6 +81,10 @@ create table establishments (
   pix_key text,
   whatsapp_phone text,
   whatsapp_opt_in boolean not null default false,
+  messaging_provider text not null default 'automatic' check (messaging_provider in ('automatic', 'evolution_go', 'meta_cloud')),
+  reservation_deposit_percent numeric(5, 2) not null default 0 check (reservation_deposit_percent between 0 and 100),
+  cancellation_refund_hours int not null default 24 check (cancellation_refund_hours >= 0),
+  cancellation_refund_percent numeric(5, 2) not null default 100 check (cancellation_refund_percent between 0 and 100),
   -- código curto que um admin de pelada usa pra vincular um campo a este estabelecimento
   access_code text not null unique,
   created_at timestamptz not null default now()
@@ -98,6 +102,10 @@ create table fields (
   -- esporte jogado nesse campo — campo de pelada herda o esporte dela; campo próprio do
   -- estabelecimento escolhe o esporte no cadastro (permite vários esportes no mesmo estabelecimento).
   sport_id text not null default 'futebol' check (sport_id in ('futebol', 'volei', 'basquete', 'handebol', 'futvolei')),
+  latitude double precision,
+  longitude double precision,
+  average_rating numeric(3, 2) check (average_rating between 0 and 5),
+  cancellation_rate numeric(5, 4) not null default 0 check (cancellation_rate between 0 and 1),
   created_by uuid not null references players (id),
   check (pelada_id is not null or establishment_id is not null)
 );
@@ -147,6 +155,8 @@ create table schedules (
   auto_booking_enabled boolean not null default false,
   booking_minimum_players int not null default 10 check (booking_minimum_players >= 2),
   booking_response_minutes int not null default 30 check (booking_response_minutes >= 5),
+  poll_quorum_percent int not null default 50 check (poll_quorum_percent between 1 and 100),
+  poll_reminder_minutes int not null default 120 check (poll_reminder_minutes >= 15),
   active boolean not null default true,
   created_by uuid not null references players (id)
 );
@@ -542,7 +552,8 @@ create table field_promotions (
   price_per_confirmed_booking numeric(10, 2) not null default 0,
   active boolean not null default true,
   starts_at timestamptz not null default now(),
-  ends_at timestamptz
+  ends_at timestamptz,
+  campaign_budget numeric(10, 2) check (campaign_budget is null or campaign_budget >= 0)
 );
 
 -- Premissas privadas de precificação. Os resultados (ponto de equilíbrio, sugestão e
@@ -846,7 +857,9 @@ create table team_availability_polls (
   created_by uuid not null references players (id),
   created_at timestamptz not null default now(),
   closes_at timestamptz not null,
-  selected_option_id uuid
+  selected_option_id uuid,
+  quorum_required int not null default 1 check (quorum_required >= 1),
+  reminder_sent_at timestamptz
 );
 
 create table team_availability_poll_options (
@@ -876,12 +889,79 @@ create table whatsapp_deliveries (
   to_player_id uuid references players (id) on delete set null,
   phone text,
   whatsapp_opt_in boolean not null default false,
-  kind text not null check (kind in ('field_request', 'game_confirmed', 'booking_declined', 'poll_invite')),
+  kind text not null check (kind in ('field_request', 'game_confirmed', 'booking_declined', 'poll_invite', 'poll_reminder')),
   status text not null default 'queued' check (status in ('queued', 'sent', 'skipped', 'failed')),
   preview text not null,
   provider_message_id text unique,
   created_at timestamptz not null default now(),
-  sent_at timestamptz
+  sent_at timestamptz,
+  provider text check (provider in ('evolution_go', 'meta_cloud', 'in_app')),
+  fallback_from_provider text check (fallback_from_provider in ('evolution_go', 'meta_cloud'))
+);
+
+create table booking_deposits (
+  id uuid primary key default gen_random_uuid(),
+  booking_request_id uuid not null unique references game_booking_requests (id) on delete cascade,
+  payer_player_id uuid not null references players (id),
+  amount_cents int not null check (amount_cents > 0),
+  provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
+  method text not null check (method in ('pix', 'cash', 'card', 'contactless')),
+  status text not null default 'pending' check (status in ('pending', 'paid', 'refunded', 'retained', 'cancelled')),
+  external_id text,
+  pix_copy_paste text,
+  checkout_url text,
+  due_at timestamptz not null,
+  paid_at timestamptz,
+  refunded_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- Vaquinha é distinta do rateio da quadra. O gateway liquida direto para o responsável;
+-- o app só mantém intenção, confirmação por webhook e prestação de contas.
+create table fundraising_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  pelada_id uuid not null references peladas (id) on delete cascade,
+  title text not null,
+  description text,
+  category text not null check (category in ('equipment', 'event', 'travel', 'uniform', 'prize', 'other')),
+  target_amount numeric(10, 2) not null check (target_amount > 0),
+  suggested_amount numeric(10, 2) check (suggested_amount is null or suggested_amount > 0),
+  deadline timestamptz,
+  image_url text,
+  status text not null default 'active' check (status in ('draft', 'active', 'funded', 'closed', 'cancelled')),
+  allow_anonymous boolean not null default true,
+  payout_player_id uuid not null references players (id),
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+create table fundraising_contributions (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references fundraising_campaigns (id) on delete cascade,
+  paid_by_player_id uuid not null references players (id),
+  credited_player_id uuid not null references players (id),
+  amount numeric(10, 2) not null check (amount > 0),
+  method text not null check (method in ('pix', 'cash', 'card', 'contactless')),
+  provider text not null check (provider in ('manual_pix', 'sicoob', 'inter', 'mercado_pago', 'picpay')),
+  status text not null default 'pending' check (status in ('pending', 'paid', 'refunded', 'failed')),
+  anonymous boolean not null default false,
+  message text,
+  external_id text unique,
+  pix_copy_paste text,
+  checkout_url text,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+create table fundraising_expenses (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references fundraising_campaigns (id) on delete cascade,
+  title text not null,
+  amount numeric(10, 2) not null check (amount > 0),
+  receipt_url text,
+  recorded_by uuid not null references players (id),
+  created_at timestamptz not null default now()
 );
 
 create table class_sessions (
@@ -1057,6 +1137,10 @@ alter table team_availability_polls enable row level security;
 alter table team_availability_poll_options enable row level security;
 alter table team_availability_poll_votes enable row level security;
 alter table whatsapp_deliveries enable row level security;
+alter table booking_deposits enable row level security;
+alter table fundraising_campaigns enable row level security;
+alter table fundraising_contributions enable row level security;
+alter table fundraising_expenses enable row level security;
 alter table attendances enable row level security;
 alter table teams enable row level security;
 alter table team_players enable row level security;
@@ -1358,6 +1442,52 @@ create policy "whatsapp_deliveries_select_involved" on whatsapp_deliveries for s
     where r.id = booking_request_id and is_admin_of_pelada(g.pelada_id)
   )
 );
+
+create policy "booking_deposits_select_involved" on booking_deposits for select using (
+  exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
+  or exists (
+    select 1 from game_booking_requests r join games g on g.id = r.game_id
+    where r.id = booking_request_id and is_admin_of_pelada(g.pelada_id)
+  )
+  or exists (
+    select 1 from game_booking_requests r join fields f on f.id = r.field_id
+    where r.id = booking_request_id and is_establishment_owner(f.establishment_id)
+  )
+);
+create policy "booking_deposits_insert_payer_or_admin" on booking_deposits for insert with check (
+  exists (select 1 from players p where p.id = payer_player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from game_booking_requests r join games g on g.id = r.game_id where r.id = booking_request_id and is_admin_of_pelada(g.pelada_id))
+);
+
+create policy "fundraising_campaigns_select_members" on fundraising_campaigns for select using (is_member_of_pelada(pelada_id));
+create policy "fundraising_campaigns_write_admins" on fundraising_campaigns for all using (is_admin_of_pelada(pelada_id));
+create policy "fundraising_contributions_select_self_or_admin" on fundraising_contributions for select using (
+  exists (select 1 from players p where p.id = paid_by_player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_admin_of_pelada(c.pelada_id))
+);
+create policy "fundraising_contributions_insert_self" on fundraising_contributions for insert with check (
+  exists (select 1 from players p where p.id = paid_by_player_id and p.auth_user_id = auth.uid())
+  and exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_member_of_pelada(c.pelada_id))
+);
+create policy "fundraising_expenses_select_members" on fundraising_expenses for select using (
+  exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_member_of_pelada(c.pelada_id))
+);
+create policy "fundraising_expenses_write_admins" on fundraising_expenses for all using (
+  exists (select 1 from fundraising_campaigns c where c.id = campaign_id and is_admin_of_pelada(c.pelada_id))
+);
+
+-- Feed público da vaquinha sem vazar a identidade de quem escolheu anonimato.
+create or replace function fundraising_campaign_feed(p_campaign_id uuid)
+returns table (id uuid, credited_player_id uuid, amount numeric, anonymous boolean, message text, paid_at timestamptz)
+language sql security definer set search_path = public as $$
+  select fc.id, case when fc.anonymous then null else fc.credited_player_id end,
+         fc.amount, fc.anonymous, fc.message, fc.paid_at
+  from fundraising_contributions fc
+  join fundraising_campaigns c on c.id = fc.campaign_id
+  where fc.campaign_id = p_campaign_id and fc.status = 'paid' and is_member_of_pelada(c.pelada_id);
+$$;
+revoke all on function fundraising_campaign_feed(uuid) from public, anon;
+grant execute on function fundraising_campaign_feed(uuid) to authenticated;
 
 create policy "attendances_select_members" on attendances for select using (
   exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))

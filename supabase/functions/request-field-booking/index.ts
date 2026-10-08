@@ -4,16 +4,11 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { sendWhatsAppText } from '../_shared/whatsapp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const digits = (value: string | null) => (value ?? '').replace(/\D/g, '');
-const normalizePhone = (value: string | null) => {
-  const cleaned = digits(value);
-  return cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
 };
 
 serve(async (req) => {
@@ -42,24 +37,15 @@ serve(async (req) => {
     const { data: pelada } = await service.from('peladas').select('name').eq('id', game.pelada_id).single();
     if (!establishment?.whatsapp_opt_in || !establishment.whatsapp_phone) return json({ error: 'Estabelecimento não autorizou o WhatsApp' }, 409);
 
-    const evolutionUrl = Deno.env.get('EVOLUTION_GO_URL');
-    const evolutionKey = Deno.env.get('EVOLUTION_GO_API_KEY');
-    if (!evolutionUrl || !evolutionKey) return json({ error: 'Evolution Go não configurada' }, 500);
     const text = `${pelada.name} solicita ${field.name} em ${new Date(booking.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${booking.duration_minutes} min.\n\nResponda SIM ${booking.code} para confirmar ou NÃO ${booking.code} para recusar.`;
-    const response = await fetch(`${evolutionUrl.replace(/\/$/, '')}/send/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: evolutionKey },
-      body: JSON.stringify({ number: normalizePhone(establishment.whatsapp_phone), text, id: `booking-${booking.id}`, delay: 500, formatJid: true }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) return json({ error: 'Falha ao enviar WhatsApp', details: payload }, 502);
-    const providerMessageId = payload?.data?.Info?.ID ?? payload?.data?.key?.id ?? `booking-${booking.id}`;
-    await service.from('game_booking_requests').update({ sent_at: new Date().toISOString(), provider_message_id: providerMessageId }).eq('id', booking.id);
+    const sent = await sendWhatsAppText(establishment.whatsapp_phone, text, `booking-${booking.id}`, establishment.messaging_provider ?? 'automatic');
+    if (!sent.ok) return json({ error: 'Falha ao enviar WhatsApp', details: sent.error }, 502);
+    await service.from('game_booking_requests').update({ sent_at: new Date().toISOString(), provider_message_id: sent.messageId }).eq('id', booking.id);
     await service.from('whatsapp_deliveries').insert({
-      booking_request_id: booking.id, to_player_id: establishment.owner_player_id, phone: normalizePhone(establishment.whatsapp_phone),
-      kind: 'field_request', status: 'sent', preview: text, provider_message_id: providerMessageId, sent_at: new Date().toISOString(),
+      booking_request_id: booking.id, to_player_id: establishment.owner_player_id, phone: establishment.whatsapp_phone,
+      kind: 'field_request', status: 'sent', preview: text, provider_message_id: sent.messageId, sent_at: new Date().toISOString(), provider: sent.provider, fallback_from_provider: sent.fallbackFrom,
     });
-    return json({ ok: true, providerMessageId });
+    return json({ ok: true, providerMessageId: sent.messageId, provider: sent.provider, fallbackFrom: sent.fallbackFrom });
   } catch (error) {
     return json({ error: String(error) }, 500);
   }

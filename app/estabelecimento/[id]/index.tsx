@@ -26,6 +26,7 @@ export default function EstablishmentDashboardScreen() {
   );
   const updateEstablishment = useAppStore((s) => s.updateEstablishment);
   const updateEstablishmentWhatsApp = useAppStore((s) => s.updateEstablishmentWhatsApp);
+  const updateBookingPolicy = useAppStore((s) => s.updateEstablishmentBookingPolicy);
 
   const allFields = useAppStore((s) => s.fields);
   const fields = useAppStore(useShallow((s) => s.fields.filter((f) => f.establishmentId === id)));
@@ -46,6 +47,10 @@ export default function EstablishmentDashboardScreen() {
   const [pixKey, setPixKey] = useState(establishment?.pixKey ?? '');
   const [whatsappPhone, setWhatsappPhone] = useState(establishment?.whatsappPhone ?? '');
   const [whatsappOptIn, setWhatsappOptIn] = useState(establishment?.whatsappOptIn ?? false);
+  const [messagingProvider, setMessagingProvider] = useState<'automatic' | 'evolution_go' | 'meta_cloud'>(establishment?.messagingProvider ?? 'automatic');
+  const [depositPercent, setDepositPercent] = useState(String(establishment?.reservationDepositPercent ?? 0));
+  const [refundHours, setRefundHours] = useState(String(establishment?.cancellationRefundHours ?? 24));
+  const [refundPercent, setRefundPercent] = useState(String(establishment?.cancellationRefundPercent ?? 100));
 
   if (!establishment) {
     return (
@@ -123,6 +128,7 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="school" label="Aulas" sub={`${classPrograms.length} programas`} onPress={() => router.push({ pathname: '/operacao/aulas', params: { establishmentId: establishment.id } })} />
         <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
         <NavCard icon="card" label="Pagamentos" sub={gatewayConnection ? 'Gateway conectado' : 'Escolher gateway'} onPress={() => router.push(`/estabelecimento/${establishment.id}/pagamentos`)} />
+        <NavCard icon="megaphone" label="Divulgação" sub="Patrocínio e conversão" onPress={() => router.push(`/estabelecimento/${establishment.id}/promocoes`)} />
       </View>
 
       <Card style={styles.section}>
@@ -137,8 +143,22 @@ export default function EstablishmentDashboardScreen() {
         <Button
           label="Salvar WhatsApp"
           variant="outline"
-          onPress={() => updateEstablishmentWhatsApp(establishment.id, whatsappPhone, whatsappOptIn)}
+          onPress={() => {
+            updateEstablishmentWhatsApp(establishment.id, whatsappPhone, whatsappOptIn);
+            updateBookingPolicy(establishment.id, { depositPercent: Number(depositPercent) || 0, refundHours: Number(refundHours) || 0, refundPercent: Number(refundPercent) || 0, messagingProvider });
+          }}
         />
+        <SegmentedControl<'automatic' | 'evolution_go' | 'meta_cloud'>
+          label="Provedor de mensagens"
+          options={[{ value: 'automatic', label: 'Automático' }, { value: 'evolution_go', label: 'Evolution' }, { value: 'meta_cloud', label: 'Meta Cloud' }]}
+          value={messagingProvider}
+          onChange={setMessagingProvider}
+        />
+        <View style={styles.policyRow}>
+          <View style={{ flex: 1 }}><TextField label="Sinal da reserva (%)" value={depositPercent} onChangeText={setDepositPercent} keyboardType="number-pad" /></View>
+          <View style={{ flex: 1 }}><TextField label="Reembolso até (h)" value={refundHours} onChangeText={setRefundHours} keyboardType="number-pad" /></View>
+          <View style={{ flex: 1 }}><TextField label="Reembolso (%)" value={refundPercent} onChangeText={setRefundPercent} keyboardType="number-pad" /></View>
+        </View>
         <Text style={styles.textMuted}>Respostas aceitas: SIM CÓDIGO ou NÃO CÓDIGO. A chave da Evolution Go fica somente no backend.</Text>
         <Text style={styles.providerNotice}>Integração de mensageria fornecida por Evolution Go.</Text>
       </Card>
@@ -324,6 +344,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
   },
+  policyRow: { flexDirection: 'row', gap: spacing.sm },
   codeBox: {
     borderWidth: 1,
     borderColor: colors.cardBorder,

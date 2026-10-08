@@ -1,10 +1,13 @@
 import { findBookingConflicts } from '@/lib/fieldBooking';
+import { distanceKm } from '@/lib/geo';
 import type {
   Field,
   FieldAvailability,
   FieldBooking,
   FieldPromotion,
   Game,
+  GameBookingRequest,
+  GeoPoint,
   ScheduleFieldPreference,
 } from '@/types';
 
@@ -19,6 +22,23 @@ export interface AvailableBookingSlot {
   fieldId: string;
   startsAt: string;
   price: number | null;
+}
+
+export interface FieldRecommendation {
+  fieldId: string;
+  score: number;
+  distanceKm: number | null;
+  price: number | null;
+  rating: number | null;
+  cancellationRate: number;
+  reasons: string[];
+}
+
+export interface PromotionAnalytics {
+  attempts: number;
+  confirmations: number;
+  conversionPercent: number;
+  estimatedRevenue: number;
 }
 
 export function normalizeWhatsAppPhone(value: string | null | undefined): string | null {
@@ -100,6 +120,48 @@ export function rankBookingCandidates(
     }));
 
   return [...teamCandidates, ...sponsored];
+}
+
+/** Ordena sugestões sem esconder publicidade: proximidade, preço, avaliação e confiabilidade. */
+export function recommendFields(
+  sportId: string,
+  fields: Field[],
+  availabilities: FieldAvailability[],
+  origin: GeoPoint | null,
+): FieldRecommendation[] {
+  const compatible = fields.filter((field) => field.sportId === sportId && field.establishmentId);
+  const prices = compatible.flatMap((field) => availabilities.filter((row) => row.fieldId === field.id && row.active && row.price !== null).map((row) => row.price as number));
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices) : 1;
+  return compatible.map((field) => {
+    const priceRows = availabilities.filter((row) => row.fieldId === field.id && row.active && row.price !== null);
+    const price = priceRows.length ? Math.min(...priceRows.map((row) => row.price as number)) : null;
+    const km = origin && field.location ? distanceKm(origin, field.location) : null;
+    const rating = field.averageRating ?? null;
+    const cancellationRate = field.cancellationRate ?? 0;
+    const distanceScore = km === null ? 50 : Math.max(0, 100 - km * 8);
+    const priceScore = price === null ? 45 : maxPrice === minPrice ? 100 : 100 - ((price - minPrice) / (maxPrice - minPrice)) * 100;
+    const ratingScore = rating === null ? 60 : rating / 5 * 100;
+    const reliabilityScore = Math.max(0, 100 - cancellationRate * 400);
+    const score = Math.round(distanceScore * 0.3 + priceScore * 0.3 + ratingScore * 0.25 + reliabilityScore * 0.15);
+    const reasons: string[] = [];
+    if (km !== null) reasons.push(`${km.toFixed(1)} km`);
+    if (price !== null) reasons.push(`a partir de R$ ${price.toFixed(0)}`);
+    if (rating !== null) reasons.push(`${rating.toFixed(1)} ★`);
+    if (cancellationRate <= 0.03) reasons.push('baixa taxa de cancelamento');
+    return { fieldId: field.id, score, distanceKm: km, price, rating, cancellationRate, reasons };
+  }).sort((a, b) => b.score - a.score);
+}
+
+export function computePromotionAnalytics(promotion: FieldPromotion, requests: GameBookingRequest[]): PromotionAnalytics {
+  const related = requests.filter((row) => row.fieldId === promotion.fieldId && row.source === 'sponsored');
+  const confirmations = related.filter((row) => row.status === 'accepted').length;
+  return {
+    attempts: related.length,
+    confirmations,
+    conversionPercent: related.length ? Math.round(confirmations / related.length * 100) : 0,
+    estimatedRevenue: confirmations * promotion.pricePerConfirmedBooking,
+  };
 }
 
 export function nextBookingCandidate(
