@@ -25,6 +25,8 @@ export interface Player {
   phone: string | null;
   /** Opt-in para mensagens transacionais do time no WhatsApp. */
   whatsappOptIn?: boolean;
+  /** Opt-in do Modo Resenha: permite receber selos anônimos e temporários de quem participou do mesmo jogo. */
+  banterOptIn?: boolean;
   preferredPosition: PlayerPosition;
   /** Esportes favoritos (SportIds de src/constants/sports.ts) — jogador multi-esporte, pode marcar mais de um. */
   favoriteSports: string[];
@@ -931,6 +933,23 @@ export interface Championship {
   status: ChampionshipStatus;
   createdBy: UUID;
   createdAt: string;
+}
+
+export type BanterBadgeType = 'drama_king' | 'human_var' | 'hot_blooded';
+
+/**
+ * Voto bem-humorado pós-jogo. O autor existe para impedir duplicidade e abuso,
+ * mas nunca é exposto no resumo público. O selo expira automaticamente em 30 dias.
+ */
+export interface BanterVote {
+  id: UUID;
+  gameId: UUID;
+  peladaId: UUID;
+  voterPlayerId: UUID;
+  targetPlayerId: UUID;
+  badge: BanterBadgeType;
+  createdAt: string;
+  expiresAt: string;
 }
 
 /** Premissas financeiras salvas pelo organizador para precificar a inscrição. */

@@ -203,6 +203,16 @@ supabase/schema.sql          schema completo + Row Level Security
   primeira vez), os jogadores avaliam quem jogou com eles (ataque, defesa,
   velocidade, de 1 a 5). A média vira a nota geral na escala 0-99, estilo carta de
   FIFA, com faixas de bronze/prata/ouro/especial.
+- **Modo Resenha** (`src/lib/banter.ts`): o jogador precisa ativar voluntariamente no
+  Perfil. Depois da partida, apenas quem confirmou e realmente participou pode marcar
+  `😭 Rei do Drama`, `📢 VAR Humano` e `🔥 Sangue Quente`. Os votos são anônimos,
+  expiram em 30 dias, aparecem no verso da carta somente para o próprio jogador e
+  colegas que compartilham uma pelada ativa, e **não alteram a nota geral**. O banco
+  guarda a autoria apenas para deduplicação/moderação; a função
+  `player_banter_summary()` devolve somente contagens agregadas. Desligar o recurso
+  remove os selos ativos. Na monetização, o Premium pode oferecer animações, molduras
+  e coleções sazonais para o verso da carta, mas nunca cobrar para esconder voto,
+  denunciar abuso ou controlar a privacidade.
 
 ## Monetização e pagamentos
 

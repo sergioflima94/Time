@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   CURRENT_PLAYER_ID,
   MOCK_ATTENDANCES,
+  MOCK_BANTER_VOTES,
   MOCK_CHAMPIONSHIP_GOALS,
   MOCK_CHAMPIONSHIP_BUDGETS,
   MOCK_CHAMPIONSHIP_MATCHES,
@@ -61,6 +62,7 @@ import {
   MOCK_WHATSAPP_DELIVERIES,
 } from '@/lib/mockData';
 import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures, normalizeChampionshipBudget } from '@/lib/championship';
+import { banterExpiresAt } from '@/lib/banter';
 import { createBookingCode, findAlternativeSlots, nextBookingCandidate, normalizeWhatsAppPhone } from '@/lib/bookingAutomation';
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
@@ -72,6 +74,8 @@ import type {
   ActivityLike,
   Attendance,
   AttendanceStatus,
+  BanterBadgeType,
+  BanterVote,
   AvailabilitySlot,
   BookingDeposit,
   CashShift,
@@ -162,6 +166,7 @@ function makeGuestPlayer(name: string): Player {
     nickname: null,
     avatarUrl: null,
     phone: null,
+    banterOptIn: false,
     preferredPosition: 'line',
     favoriteSports: ['futebol'],
     cardBackgroundUrl: null,
@@ -193,6 +198,7 @@ interface AppState {
   teams: Team[];
   teamPlayers: TeamPlayer[];
   ratings: Rating[];
+  banterVotes: BanterVote[];
   punishments: Punishment[];
   payments: Payment[];
   matchTurns: MatchTurn[];
@@ -314,6 +320,8 @@ interface AppState {
 
   // avaliações
   submitRating: (rating: Omit<Rating, 'id' | 'createdAt' | 'overall'>) => void;
+  /** Substitui os votos do avaliador para um jogador nesse jogo; rótulos são anônimos e expiram em 30 dias. */
+  setBanterVotesForTarget: (gameId: string, voterPlayerId: string, targetPlayerId: string, badges: BanterBadgeType[]) => void;
 
   // punições
   registerPunishment: (peladaId: string, playerId: string, gameId: string, type: PunishmentType) => void;
@@ -400,6 +408,7 @@ interface AppState {
 
   updateCurrentPlayerProfile: (input: { name: string; nickname: string | null; preferredPosition: Player['preferredPosition']; phone: string | null; favoriteSports: string[] }) => void;
   setPlayerWhatsAppOptIn: (playerId: string, optIn: boolean) => void;
+  setPlayerBanterOptIn: (playerId: string, optIn: boolean) => void;
   setPlayerPhoto: (playerId: string, photoUrl: string) => void;
   setPlayerCardBackground: (playerId: string, cardBackgroundUrl: string | null) => void;
   updatePeladaInfo: (peladaId: string, input: { name: string; description: string | null; sportId: string }) => void;
@@ -532,6 +541,7 @@ export const useAppStore = create<AppState>()(
       teams: MOCK_TEAMS,
       teamPlayers: MOCK_TEAM_PLAYERS,
       ratings: MOCK_RATINGS,
+      banterVotes: MOCK_BANTER_VOTES,
       punishments: MOCK_PUNISHMENTS,
       payments: MOCK_PAYMENTS,
       matchTurns: MOCK_MATCH_TURNS,
@@ -1070,6 +1080,37 @@ export const useAppStore = create<AppState>()(
         };
         set((state) => ({ productCategories: [...state.productCategories, category] }));
         return category;
+      },
+
+      setBanterVotesForTarget: (gameId, voterPlayerId, targetPlayerId, badges) => {
+        set((state) => {
+          if (voterPlayerId === targetPlayerId) return {};
+          const game = state.games.find((row) => row.id === gameId);
+          const target = state.players.find((row) => row.id === targetPlayerId);
+          const eligibleIds = new Set(
+            state.attendances
+              .filter((row) => row.gameId === gameId && row.status === 'confirmed' && !row.noShow)
+              .map((row) => row.playerId),
+          );
+          if (!game || game.status !== 'finished' || !target?.banterOptIn || !eligibleIds.has(voterPlayerId) || !eligibleIds.has(targetPlayerId)) return {};
+
+          const createdAt = nowIso();
+          const uniqueBadges = [...new Set(badges)];
+          const untouched = state.banterVotes.filter(
+            (vote) => !(vote.gameId === gameId && vote.voterPlayerId === voterPlayerId && vote.targetPlayerId === targetPlayerId),
+          );
+          const nextVotes = uniqueBadges.map((badge) => ({
+            id: uid(),
+            gameId,
+            peladaId: game.peladaId,
+            voterPlayerId,
+            targetPlayerId,
+            badge,
+            createdAt,
+            expiresAt: banterExpiresAt(new Date(createdAt)),
+          } satisfies BanterVote));
+          return { banterVotes: [...untouched, ...nextVotes] };
+        });
       },
 
       addProduct: (establishmentId, input) => {
@@ -2454,6 +2495,13 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ players: state.players.map((player) => player.id === playerId ? { ...player, whatsappOptIn: optIn } : player) }));
       },
 
+      setPlayerBanterOptIn: (playerId, optIn) => {
+        set((state) => ({
+          players: state.players.map((player) => player.id === playerId ? { ...player, banterOptIn: optIn } : player),
+          banterVotes: optIn ? state.banterVotes : state.banterVotes.filter((vote) => vote.targetPlayerId !== playerId),
+        }));
+      },
+
       setPlayerPhoto: (playerId, photoUrl) => {
         set((state) => ({
           players: state.players.map((p) => (p.id === playerId ? { ...p, avatarUrl: photoUrl } : p)),
@@ -2610,6 +2658,7 @@ export const useAppStore = create<AppState>()(
         teams: state.teams,
         teamPlayers: state.teamPlayers,
         ratings: state.ratings,
+        banterVotes: state.banterVotes,
         punishments: state.punishments,
         payments: state.payments,
         matchTurns: state.matchTurns,

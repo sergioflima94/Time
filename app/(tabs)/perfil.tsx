@@ -38,6 +38,7 @@ export default function PerfilScreen() {
   const setPlayerPhoto = useAppStore((s) => s.setPlayerPhoto);
   const setPlayerCardBackground = useAppStore((s) => s.setPlayerCardBackground);
   const setPlayerWhatsAppOptIn = useAppStore((s) => s.setPlayerWhatsAppOptIn);
+  const setPlayerBanterOptIn = useAppStore((s) => s.setPlayerBanterOptIn);
   const renewPremium = useAppStore((s) => s.renewPremium);
   const cancelPremiumAutoRenew = useAppStore((s) => s.cancelPremiumAutoRenew);
   const logout = useAuthStore((s) => s.logout);
@@ -117,6 +118,20 @@ export default function PerfilScreen() {
           <Switch value={player.whatsappOptIn ?? false} onValueChange={(value) => setPlayerWhatsAppOptIn(currentPlayerId, value)} trackColor={{ true: '#25D366' }} />
         </View>
         {!player.phone && <Text style={styles.lockNotice}>Adicione um telefone em Editar perfil para ativar os avisos.</Text>}
+      </Card>
+
+      <Card style={styles.section}>
+        <View style={styles.whatsappRow}>
+          <View style={[styles.whatsappIcon, { backgroundColor: '#F59E0B' }]}>
+            <Text style={{ fontSize: 18 }}>😄</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Modo Resenha</Text>
+            <Text style={styles.bgHint}>Aceite selos anônimos de quem jogou com você. Eles duram 30 dias, aparecem só para seus times e não mudam sua nota.</Text>
+          </View>
+          <Switch value={player.banterOptIn ?? false} onValueChange={(value) => setPlayerBanterOptIn(currentPlayerId, value)} trackColor={{ true: '#F59E0B' }} />
+        </View>
+        <Text style={styles.bgHint}>Você pode desligar a qualquer momento; ao desligar, seus selos ativos são removidos.</Text>
       </Card>
 
       <Card style={styles.section}>

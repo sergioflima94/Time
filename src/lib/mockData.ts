@@ -1,5 +1,6 @@
 import type {
   Attendance,
+  BanterVote,
   CashShift,
   ClassAttendance,
   ClassEnrollment,
@@ -78,9 +79,9 @@ const MY_LOCATION = { latitude: -23.588, longitude: -46.6577 };
 const THURSDAY_NIGHT = [{ weekday: 4, startTime: '19:00', endTime: '23:00' }];
 
 export const MOCK_PLAYERS: Player[] = [
-  { id: 'p1', authUserId: 'auth-1', name: 'Você', nickname: null, avatarUrl: null, cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: '11988880001', whatsappOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: MY_LOCATION, locationUpdatedAt: iso(now), createdAt: iso(now) },
-  { id: 'p2', authUserId: null, name: 'Bruno Silva', nickname: 'Brunão', avatarUrl: demoPhoto(12), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumActiveUntil, premiumAutoRenew: true, isGuest: false, phone: '11988880002', whatsappOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol', 'volei'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
-  { id: 'p3', authUserId: null, name: 'Carlos Eduardo', nickname: 'Cadu', avatarUrl: demoPhoto(13), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumExpired, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'goalkeeper', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
+  { id: 'p1', authUserId: 'auth-1', name: 'Você', nickname: null, avatarUrl: null, cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: '11988880001', whatsappOptIn: true, banterOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: MY_LOCATION, locationUpdatedAt: iso(now), createdAt: iso(now) },
+  { id: 'p2', authUserId: null, name: 'Bruno Silva', nickname: 'Brunão', avatarUrl: demoPhoto(12), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumActiveUntil, premiumAutoRenew: true, isGuest: false, phone: '11988880002', whatsappOptIn: true, banterOptIn: true, preferredPosition: 'line', favoriteSports: ['futebol', 'volei'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
+  { id: 'p3', authUserId: null, name: 'Carlos Eduardo', nickname: 'Cadu', avatarUrl: demoPhoto(13), cardBackgroundUrl: null, premiumSince: iso(now), premiumUntil: demoPremiumExpired, premiumAutoRenew: false, isGuest: false, phone: null, banterOptIn: true, preferredPosition: 'goalkeeper', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p4', authUserId: null, name: 'Diego Alves', nickname: null, avatarUrl: demoPhoto(14), cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p5', authUserId: null, name: 'Eduardo Santos', nickname: 'Duda', avatarUrl: demoPhoto(15), cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
   { id: 'p6', authUserId: null, name: 'Fábio Costa', nickname: null, avatarUrl: demoPhoto(17), cardBackgroundUrl: null, premiumSince: null, premiumUntil: null, premiumAutoRenew: false, isGuest: false, phone: null, preferredPosition: 'line', favoriteSports: ['futebol'], freeAgentOptIn: false, freeAgentRadiusKm: null, freeAgentAvailability: [], location: null, locationUpdatedAt: null, createdAt: iso(now) },
@@ -353,8 +354,27 @@ export const MOCK_SCHEDULES: Schedule[] = [
 ];
 
 const nextGameDate = nextWeekday(4, 20, 0);
+const previousGameDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
 export const MOCK_GAMES: Game[] = [
+  {
+    id: 'g0',
+    peladaId: 'pel1',
+    scheduleId: 's1',
+    fieldId: 'f1',
+    scheduledAt: iso(previousGameDate),
+    maxPlayers: 16,
+    playersPerTeam: 6,
+    matchMinutes: 10,
+    durationMinutes: 90,
+    drawMethod: 'rating',
+    rotationMode: 'teams',
+    status: 'finished',
+    fieldCost: 240,
+    matchGoalLimit: 2,
+    createdBy: 'p1',
+    createdAt: iso(previousGameDate),
+  },
   {
     id: 'g1',
     peladaId: 'pel1',
@@ -424,7 +444,7 @@ export const MOCK_FUNDRAISING_EXPENSES: FundraisingExpense[] = [
 // 15 confirmados como no exemplo do usuário: 14 amigos + você.
 const confirmedIds = MOCK_PLAYERS.slice(0, 15).map((p) => p.id);
 
-export const MOCK_ATTENDANCES: Attendance[] = MOCK_PLAYERS.slice(0, 16).map((p, idx) => {
+const currentGameAttendances: Attendance[] = MOCK_PLAYERS.slice(0, 16).map((p, idx) => {
   const isConfirmed = confirmedIds.includes(p.id);
   return {
     id: `att-${p.id}`,
@@ -437,6 +457,20 @@ export const MOCK_ATTENDANCES: Attendance[] = MOCK_PLAYERS.slice(0, 16).map((p, 
     checkedIn: false,
   } satisfies Attendance;
 });
+
+export const MOCK_ATTENDANCES: Attendance[] = [
+  ...MOCK_PLAYERS.slice(0, 4).map((player, index) => ({
+    id: `att-g0-${player.id}`,
+    gameId: 'g0',
+    playerId: player.id,
+    status: 'confirmed' as const,
+    confirmedOrder: index + 1,
+    respondedAt: iso(previousGameDate),
+    noShow: false,
+    checkedIn: true,
+  })),
+  ...currentGameAttendances,
+];
 
 // Rateio do jogo g1: os 5 primeiros confirmados já pagaram, o resto está pendente.
 export const MOCK_PAYMENTS: Payment[] = confirmedIds.map((playerId, idx) => {
@@ -537,6 +571,16 @@ export const MOCK_RATINGS: Rating[] = [
   { id: 'r3', gameId: 'g0', raterPlayerId: 'p4', ratedPlayerId: 'p1', attack: 3, defense: 3, pace: 4, overall: 3.33, createdAt: iso(now) },
   { id: 'r4', gameId: 'g0', raterPlayerId: 'p1', ratedPlayerId: 'p2', attack: 4, defense: 4, pace: 3, overall: 3.67, createdAt: iso(now) },
   { id: 'r5', gameId: 'g0', raterPlayerId: 'p3', ratedPlayerId: 'p8', attack: 2, defense: 5, pace: 3, overall: 3.33, createdAt: iso(now) },
+  { id: 'r6', gameId: 'g0', raterPlayerId: 'p1', ratedPlayerId: 'p3', attack: 3, defense: 5, pace: 3, overall: 3.67, createdAt: iso(now) },
+  { id: 'r7', gameId: 'g0', raterPlayerId: 'p1', ratedPlayerId: 'p4', attack: 4, defense: 3, pace: 4, overall: 3.67, createdAt: iso(now) },
+];
+
+const banterExpiry = iso(new Date(now.getTime() + 18 * 24 * 60 * 60 * 1000));
+export const MOCK_BANTER_VOTES: BanterVote[] = [
+  { id: 'bv1', gameId: 'g0', peladaId: 'pel1', voterPlayerId: 'p1', targetPlayerId: 'p2', badge: 'human_var', createdAt: iso(now), expiresAt: banterExpiry },
+  { id: 'bv2', gameId: 'g0', peladaId: 'pel1', voterPlayerId: 'p3', targetPlayerId: 'p2', badge: 'human_var', createdAt: iso(now), expiresAt: banterExpiry },
+  { id: 'bv3', gameId: 'g0', peladaId: 'pel1', voterPlayerId: 'p4', targetPlayerId: 'p2', badge: 'drama_king', createdAt: iso(now), expiresAt: banterExpiry },
+  { id: 'bv4', gameId: 'g0', peladaId: 'pel1', voterPlayerId: 'p2', targetPlayerId: 'p3', badge: 'hot_blooded', createdAt: iso(now), expiresAt: banterExpiry },
 ];
 
 export const MOCK_FRIENDSHIPS: Friendship[] = [

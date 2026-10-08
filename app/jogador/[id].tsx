@@ -13,6 +13,7 @@ import { Screen } from '@/components/ui/Screen';
 import { colors, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
 import { useFriendshipWith } from '@/hooks/useFriends';
+import { activeBanterSummary } from '@/lib/banter';
 import { computePlayerGoalStats } from '@/lib/goals';
 import { computePlayerOverall } from '@/lib/ratings';
 import { useAppStore } from '@/store/useAppStore';
@@ -25,6 +26,8 @@ export default function JogadorPerfilScreen() {
   const teamPlayers = useAppStore((s) => s.teamPlayers);
   const matchTurns = useAppStore((s) => s.matchTurns);
   const goals = useAppStore((s) => s.goals);
+  const memberships = useAppStore((s) => s.memberships);
+  const banterVotes = useAppStore((s) => s.banterVotes);
   const sendFriendRequest = useAppStore((s) => s.sendFriendRequest);
   const respondFriendRequest = useAppStore((s) => s.respondFriendRequest);
   const removeFriendship = useAppStore((s) => s.removeFriendship);
@@ -55,6 +58,10 @@ export default function JogadorPerfilScreen() {
   const goalStats = computePlayerGoalStats(player.id, teamPlayers, matchTurns, goals);
   const primarySport = getSport(player.favoriteSports[0]);
   const isMe = player.id === currentPlayerId;
+  const myPeladaIds = new Set(memberships.filter((row) => row.active && row.playerId === currentPlayerId).map((row) => row.peladaId));
+  const sharesTeam = memberships.some((row) => row.active && row.playerId === player.id && myPeladaIds.has(row.peladaId));
+  const canSeeBanter = Boolean(player.banterOptIn && (isMe || sharesTeam));
+  const banterBadges = canSeeBanter ? activeBanterSummary(player.id, banterVotes) : [];
 
   const pendingDuel = duelsBetween.find((d) => d.status === 'pending');
   const activeDuel = duelsBetween.find((d) => d.status === 'accepted' && !d.resultRecordedAt);
@@ -99,6 +106,8 @@ export default function JogadorPerfilScreen() {
               overall={overall.overall}
               sportId={player.favoriteSports[0]}
               ratingsCount={overall.ratingsCount}
+              banterVisible={canSeeBanter}
+              banterBadges={banterBadges}
               width={200}
               height={200 * PLAYER_CARD_ASPECT}
             />

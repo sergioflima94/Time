@@ -24,6 +24,8 @@ create table players (
   premium_auto_renew boolean not null default false,
   is_guest boolean not null default false,
   phone text,
+  -- Modo Resenha é sempre opt-in; desligar também remove os selos ativos no app.
+  banter_opt_in boolean not null default false,
   preferred_position text not null default 'line' check (preferred_position in ('goalkeeper', 'line')),
   -- esportes favoritos (multi-esporte) — SportIds de src/constants/sports.ts. Usado como sugestão
   -- de terminologia (gol/ponto) na carta e pra filtrar o pool de jogadores livres por esporte.
@@ -319,6 +321,35 @@ create table ratings (
   unique (game_id, rater_player_id, rated_player_id),
   check (rater_player_id <> rated_player_id)
 );
+
+-- Selos bem-humorados pós-jogo. A autoria fica protegida; o app consome apenas
+-- a soma por selo via player_banter_summary(). Cada voto expira em 30 dias.
+create table banter_votes (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references games (id) on delete cascade,
+  pelada_id uuid not null references peladas (id) on delete cascade,
+  voter_player_id uuid not null references players (id) on delete cascade,
+  target_player_id uuid not null references players (id) on delete cascade,
+  badge text not null check (badge in ('drama_king', 'human_var', 'hot_blooded')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '30 days'),
+  unique (game_id, voter_player_id, target_player_id, badge),
+  check (voter_player_id <> target_player_id),
+  check (expires_at > created_at and expires_at <= created_at + interval '30 days')
+);
+
+create function clear_banter_votes_on_opt_out() returns trigger as $$
+begin
+  if old.banter_opt_in and not new.banter_opt_in then
+    delete from banter_votes where target_player_id = new.id;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create trigger players_clear_banter_votes_on_opt_out
+after update of banter_opt_in on players
+for each row execute function clear_banter_votes_on_opt_out();
 
 -- Rateio ("vaquinha") do custo da quadra: 1 linha por jogador confirmado em jogos com field_cost definido.
 create table payments (
@@ -1152,6 +1183,7 @@ alter table friendships enable row level security;
 alter table activity_likes enable row level security;
 alter table activity_comments enable row level security;
 alter table ratings enable row level security;
+alter table banter_votes enable row level security;
 alter table punishments enable row level security;
 alter table payments enable row level security;
 alter table free_agent_invites enable row level security;
@@ -1271,6 +1303,42 @@ create function is_establishment_owner(p_establishment_id uuid) returns boolean 
     where e.id = p_establishment_id and p.auth_user_id = auth.uid()
   );
 $$ language sql security definer stable;
+
+-- Retorna apenas o placar agregado do Modo Resenha. A identidade de quem votou
+-- nunca sai do banco e o resumo só é visível ao próprio jogador ou a colegas
+-- que compartilham ao menos uma pelada ativa com ele.
+create function player_banter_summary(p_target_player_id uuid)
+returns table (badge text, vote_count bigint) as $$
+declare
+  current_player_id uuid;
+begin
+  select id into current_player_id from players where auth_user_id = auth.uid();
+
+  if current_player_id is null
+    or not exists (select 1 from players where id = p_target_player_id and banter_opt_in)
+    or not (
+      current_player_id = p_target_player_id
+      or exists (
+        select 1
+        from pelada_memberships mine
+        join pelada_memberships theirs on theirs.pelada_id = mine.pelada_id
+        where mine.player_id = current_player_id and mine.active
+          and theirs.player_id = p_target_player_id and theirs.active
+      )
+    ) then
+    return;
+  end if;
+
+  return query
+    select vote.badge, count(*)
+    from banter_votes vote
+    where vote.target_player_id = p_target_player_id and vote.expires_at > now()
+    group by vote.badge;
+end;
+$$ language plpgsql security definer stable set search_path = public;
+
+revoke all on function player_banter_summary(uuid) from public, anon;
+grant execute on function player_banter_summary(uuid) to authenticated;
 
 create function can_operate_establishment(p_establishment_id uuid) returns boolean as $$
   select is_establishment_owner(p_establishment_id) or exists (
@@ -1585,6 +1653,28 @@ create policy "ratings_select_members" on ratings for select using (
 );
 create policy "ratings_insert_self" on ratings for insert with check (
   exists (select 1 from players p where p.id = rater_player_id and p.auth_user_id = auth.uid())
+);
+
+-- A tabela bruta não revela votos de terceiros. Cada jogador só relê/remove o
+-- próprio voto; os demais veem apenas a soma anônima pela função acima.
+create policy "banter_votes_select_own" on banter_votes for select using (
+  exists (select 1 from players p where p.id = voter_player_id and p.auth_user_id = auth.uid())
+);
+create policy "banter_votes_insert_eligible" on banter_votes for insert with check (
+  exists (select 1 from players p where p.id = voter_player_id and p.auth_user_id = auth.uid())
+  and exists (select 1 from players p where p.id = target_player_id and p.banter_opt_in)
+  and exists (
+    select 1
+    from games g
+    join attendances voter on voter.game_id = g.id and voter.player_id = voter_player_id
+    join attendances target on target.game_id = g.id and target.player_id = target_player_id
+    where g.id = game_id and g.pelada_id = pelada_id and g.status = 'finished'
+      and voter.status = 'confirmed' and not voter.no_show
+      and target.status = 'confirmed' and not target.no_show
+  )
+);
+create policy "banter_votes_delete_own" on banter_votes for delete using (
+  exists (select 1 from players p where p.id = voter_player_id and p.auth_user_id = auth.uid())
 );
 
 create policy "punishments_select_members" on punishments for select using (is_member_of_pelada(pelada_id));
