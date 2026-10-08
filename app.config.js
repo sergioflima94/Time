@@ -38,6 +38,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-sharing',
+      'expo-notifications',
       [
         'expo-splash-screen',
         {

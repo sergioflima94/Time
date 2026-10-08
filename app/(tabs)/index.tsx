@@ -53,6 +53,15 @@ export default function AgendaScreen() {
       </View>
       {!adFree && <AdBanner />}
 
+      <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
+        <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={22} color={colors.bg} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.growthCentralTitle}>Central do esporte</Text>
+          <Text style={styles.growthCentralText}>Placar multiesporte, chat, carteira, fidelidade, marketplace, relatórios e loja.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+      </Pressable>
+
       <Card style={styles.perfCard}>
         <View style={styles.perfHeaderRow}>
           <Text style={styles.sectionTitle}>Seu desempenho</Text>
@@ -189,6 +198,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
+  growthCentral: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.lg,
+  },
+  growthCentralIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  growthCentralTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  growthCentralText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
   perfHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

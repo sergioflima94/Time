@@ -5,9 +5,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
+import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { initializeAds } from '@/lib/ads';
 
 export default function RootLayout() {
+  useNotificationNavigation();
   useEffect(() => {
     initializeAds();
   }, []);
@@ -27,6 +29,8 @@ export default function RootLayout() {
           <Stack.Screen name="desafio/[matchId]" />
           <Stack.Screen name="jogador/[id]" />
           <Stack.Screen name="notificacoes" />
+          <Stack.Screen name="central" />
+          <Stack.Screen name="recursos/[slug]" />
           <Stack.Screen name="entrar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="criar-pelada" options={{ presentation: 'modal' }} />
           <Stack.Screen name="estabelecimento" />

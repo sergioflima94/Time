@@ -214,6 +214,52 @@ supabase/schema.sql          schema completo + Row Level Security
   e coleções sazonais para o verso da carta, mas nunca cobrar para esconder voto,
   denunciar abuso ou controlar a privacidade.
 
+## Central do esporte — novos módulos
+
+A Home agora possui um atalho para `app/central.tsx`. A central reúne dez módulos
+funcionais em uma rota dinâmica (`app/recursos/[slug].tsx`), com estado local
+persistido em `src/store/useGrowthStore.ts`. As regras e cálculos reutilizáveis ficam
+em `src/lib/growth.ts`, e os contratos de domínio em `src/types/growth.ts`.
+
+- **Placar multiesporte**: suporta gols/pontos, sets com pontuação-alvo e vantagem de
+  dois pontos, além de períodos/quartos acumulados. Encerrar um segmento cria o
+  próximo automaticamente.
+- **Conversas contextuais**: canais de time, partida, campeonato/capitães e atendimento
+  do estabelecimento. Possui mensagens persistidas, contador de não lidas e opt-in de
+  notificações.
+- **Carteira de créditos**: razão de créditos, débitos, cashback, bônus e estornos. O
+  saldo pode ser usado em reservas, aulas, inscrições, comandas e loja.
+- **Planos e fidelidade**: mensalidades, pacotes de créditos, bônus e vantagens da
+  lanchonete/campo, com validade e saldo de usos.
+- **Equipe operacional**: catálogo e escala de árbitros, mesários, professores e
+  freelancers, incluindo convite, valor por evento e status de pagamento.
+- **Marketplace de horários vagos**: ofertas de última hora, desconto calculado,
+  reserva com créditos e destaque patrocinado explicitamente identificado.
+- **Relatórios Pro**: movimentação financeira, conversão de ofertas, estoque, equipe
+  escalada e receita potencial — base para períodos customizados e exportação contábil.
+- **Documentos e segurança**: termos versionados, aceite individual, contato de
+  emergência, responsável legal e indicação de dados médicos restritos.
+- **Retrospectivas**: cards de craque, recordes, sequências e momentos compartilháveis;
+  temas animados e exportação sem marca d'água são possibilidades Premium.
+- **Loja e aluguel**: venda/aluguel, estoque, retirada associada à reserva e lançamento
+  automático na carteira.
+
+O `supabase/schema.sql` contém as tabelas e políticas RLS correspondentes:
+`multi_sport_scoreboards`, `scoreboard_segments`, `chat_channels`, `chat_participants`,
+`chat_messages`, `wallet_ledger`, `loyalty_plans`, `loyalty_subscriptions`,
+`sports_staff`, `staff_assignments`, `open_slot_offers`, `digital_waivers`,
+`waiver_acceptances`, `sport_highlights`, `commerce_listings`, `rental_orders` e
+`device_push_tokens`.
+
+### Notificações push
+
+`expo-notifications` foi configurado no `app.config.js`. A central permite solicitar
+permissão e dispara uma confirmação local. Para push remoto, salve o Expo Push Token em
+`device_push_tokens` e envie pelo backend/Edge Function. Desde o SDK 53, push remoto do
+`expo-notifications` não funciona no Expo Go do Android; para testar de verdade é
+necessário um **development build**. Referência SDK 57:
+https://docs.expo.dev/versions/v57.0.0/sdk/notifications/
+
 ## Monetização e pagamentos
 
 Assinatura e rateio da quadra ainda usam o fluxo demonstrativo. A operação de consumo

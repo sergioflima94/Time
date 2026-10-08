@@ -1152,6 +1152,181 @@ revoke all on function respond_game_booking_request(uuid, boolean, text) from pu
 -- ---------------------------------------------------------------------
 -- Row Level Security
 -- ---------------------------------------------------------------------
+-- Módulos da Central do Esporte. O app local usa useGrowthStore; estas tabelas
+-- são o contrato de persistência para produção e mantêm cada domínio isolado.
+create table multi_sport_scoreboards (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid references games (id) on delete cascade,
+  sport_id text not null,
+  title text not null,
+  home_name text not null,
+  away_name text not null,
+  score_unit text not null check (score_unit in ('goals', 'points', 'sets', 'quarters')),
+  target_points int,
+  win_by_two boolean not null default false,
+  segments_to_win int,
+  max_segments int,
+  status text not null default 'scheduled' check (status in ('scheduled', 'live', 'finished')),
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now()
+);
+
+create table scoreboard_segments (
+  id uuid primary key default gen_random_uuid(),
+  scoreboard_id uuid not null references multi_sport_scoreboards (id) on delete cascade,
+  label text not null,
+  sequence int not null,
+  home_score int not null default 0 check (home_score >= 0),
+  away_score int not null default 0 check (away_score >= 0),
+  finished boolean not null default false,
+  unique (scoreboard_id, sequence)
+);
+
+create table chat_channels (
+  id uuid primary key default gen_random_uuid(),
+  context_type text not null check (context_type in ('team', 'game', 'championship', 'captains', 'service')),
+  context_id uuid not null,
+  title text not null,
+  admin_only_posting boolean not null default false,
+  created_by uuid not null references players (id),
+  created_at timestamptz not null default now()
+);
+create table chat_participants (
+  channel_id uuid not null references chat_channels (id) on delete cascade,
+  player_id uuid not null references players (id) on delete cascade,
+  role text not null default 'member' check (role in ('member', 'admin')),
+  last_read_at timestamptz,
+  primary key (channel_id, player_id)
+);
+create table chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  channel_id uuid not null references chat_channels (id) on delete cascade,
+  sender_player_id uuid not null references players (id),
+  text text not null check (char_length(text) between 1 and 4000),
+  system boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table wallet_ledger (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players (id),
+  establishment_id uuid references establishments (id),
+  kind text not null check (kind in ('credit', 'debit', 'cashback', 'refund', 'bonus')),
+  amount numeric(12,2) not null check (amount > 0),
+  description text not null,
+  external_reference text,
+  created_at timestamptz not null default now()
+);
+create table loyalty_plans (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id) on delete cascade,
+  name text not null,
+  price numeric(12,2) not null check (price >= 0),
+  credits int not null check (credits > 0),
+  bonus_credits int not null default 0 check (bonus_credits >= 0),
+  benefits jsonb not null default '[]',
+  active boolean not null default true
+);
+create table loyalty_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references loyalty_plans (id),
+  player_id uuid not null references players (id),
+  remaining_credits int not null check (remaining_credits >= 0),
+  valid_until timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table sports_staff (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid references players (id),
+  name text not null,
+  role text not null check (role in ('referee', 'scorekeeper', 'coach', 'freelancer')),
+  sports text[] not null default '{}',
+  price_per_event numeric(12,2) not null check (price_per_event >= 0),
+  rating numeric(3,2) not null default 0,
+  available boolean not null default true
+);
+create table staff_assignments (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references sports_staff (id),
+  establishment_id uuid not null references establishments (id),
+  event_label text not null,
+  starts_at timestamptz not null,
+  amount numeric(12,2) not null check (amount >= 0),
+  status text not null default 'invited' check (status in ('invited', 'accepted', 'paid'))
+);
+
+create table open_slot_offers (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id),
+  field_id uuid not null references fields (id),
+  sport_id text not null,
+  starts_at timestamptz not null,
+  duration_minutes int not null check (duration_minutes > 0),
+  original_price numeric(12,2) not null check (original_price >= 0),
+  offer_price numeric(12,2) not null check (offer_price >= 0 and offer_price <= original_price),
+  sponsored boolean not null default false,
+  status text not null default 'available' check (status in ('available', 'reserved', 'expired'))
+);
+
+create table digital_waivers (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  version int not null default 1,
+  scope text not null check (scope in ('team', 'championship', 'class')),
+  scope_id uuid not null,
+  required boolean not null default true,
+  created_by uuid not null references players (id),
+  updated_at timestamptz not null default now()
+);
+create table waiver_acceptances (
+  waiver_id uuid not null references digital_waivers (id),
+  player_id uuid not null references players (id),
+  waiver_version int not null,
+  accepted_at timestamptz not null default now(),
+  device_info text,
+  primary key (waiver_id, player_id, waiver_version)
+);
+
+create table sport_highlights (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players (id),
+  game_id uuid references games (id),
+  title text not null,
+  description text not null,
+  kind text not null check (kind in ('record', 'mvp', 'streak', 'moment')),
+  created_at timestamptz not null default now()
+);
+create table commerce_listings (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references establishments (id),
+  name text not null,
+  kind text not null check (kind in ('sale', 'rental')),
+  price numeric(12,2) not null check (price >= 0),
+  stock int not null default 0 check (stock >= 0),
+  category text not null,
+  active boolean not null default true
+);
+create table rental_orders (
+  id uuid primary key default gen_random_uuid(),
+  listing_id uuid not null references commerce_listings (id),
+  player_id uuid not null references players (id),
+  quantity int not null check (quantity > 0),
+  total numeric(12,2) not null check (total >= 0),
+  pickup_at timestamptz not null,
+  status text not null default 'reserved' check (status in ('reserved', 'picked_up', 'returned')),
+  created_at timestamptz not null default now()
+);
+create table device_push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players (id) on delete cascade,
+  expo_push_token text not null unique,
+  platform text not null check (platform in ('android', 'ios')),
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
 alter table players enable row level security;
 alter table peladas enable row level security;
 alter table pelada_memberships enable row level security;
@@ -1215,6 +1390,23 @@ alter table team_challenges enable row level security;
 alter table friendly_matches enable row level security;
 alter table friendly_match_goals enable row level security;
 alter table player_duels enable row level security;
+alter table multi_sport_scoreboards enable row level security;
+alter table scoreboard_segments enable row level security;
+alter table chat_channels enable row level security;
+alter table chat_participants enable row level security;
+alter table chat_messages enable row level security;
+alter table wallet_ledger enable row level security;
+alter table loyalty_plans enable row level security;
+alter table loyalty_subscriptions enable row level security;
+alter table sports_staff enable row level security;
+alter table staff_assignments enable row level security;
+alter table open_slot_offers enable row level security;
+alter table digital_waivers enable row level security;
+alter table waiver_acceptances enable row level security;
+alter table sport_highlights enable row level security;
+alter table commerce_listings enable row level security;
+alter table rental_orders enable row level security;
+alter table device_push_tokens enable row level security;
 
 create function is_member_of_pelada(p_pelada_id uuid) returns boolean as $$
   select exists (
@@ -1821,4 +2013,114 @@ create policy "player_duels_insert_challenger" on player_duels for insert with c
 create policy "player_duels_update_involved" on player_duels for update using (
   exists (select 1 from players p where p.id = challenger_id and p.auth_user_id = auth.uid())
   or exists (select 1 from players p where p.id = challenged_id and p.auth_user_id = auth.uid())
+);
+
+-- ---------------------------------------------------------------------
+-- Central do Esporte: políticas dos módulos de crescimento
+-- ---------------------------------------------------------------------
+create function is_chat_participant(p_channel_id uuid) returns boolean as $$
+  select exists (
+    select 1 from chat_participants cp
+    join players p on p.id = cp.player_id
+    where cp.channel_id = p_channel_id and p.auth_user_id = auth.uid()
+  );
+$$ language sql security definer stable set search_path = public;
+
+create policy "scoreboards_select_members" on multi_sport_scoreboards for select using (
+  exists (select 1 from games g where g.id = game_id and is_member_of_pelada(g.pelada_id))
+  or exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "scoreboards_write_admin" on multi_sport_scoreboards for all using (
+  exists (select 1 from games g where g.id = game_id and is_admin_of_pelada(g.pelada_id))
+  or exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "scoreboard_segments_select_members" on scoreboard_segments for select using (
+  exists (select 1 from multi_sport_scoreboards s where s.id = scoreboard_id and (
+    exists (select 1 from games g where g.id = s.game_id and is_member_of_pelada(g.pelada_id))
+    or exists (select 1 from players p where p.id = s.created_by and p.auth_user_id = auth.uid())
+  ))
+);
+create policy "scoreboard_segments_write_admin" on scoreboard_segments for all using (
+  exists (select 1 from multi_sport_scoreboards s where s.id = scoreboard_id and (
+    exists (select 1 from games g where g.id = s.game_id and is_admin_of_pelada(g.pelada_id))
+    or exists (select 1 from players p where p.id = s.created_by and p.auth_user_id = auth.uid())
+  ))
+);
+
+create policy "chat_channels_participants" on chat_channels for select using (is_chat_participant(id));
+create policy "chat_channels_create_self" on chat_channels for insert with check (
+  exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "chat_channels_update_creator" on chat_channels for update using (
+  exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "chat_participants_same_channel" on chat_participants for select using (is_chat_participant(channel_id));
+create policy "chat_participants_manage_creator" on chat_participants for all using (
+  exists (select 1 from chat_channels c join players p on p.id = c.created_by where c.id = channel_id and p.auth_user_id = auth.uid())
+);
+create policy "chat_messages_participants" on chat_messages for select using (is_chat_participant(channel_id));
+create policy "chat_messages_send_self" on chat_messages for insert with check (
+  is_chat_participant(channel_id)
+  and exists (select 1 from players p where p.id = sender_player_id and p.auth_user_id = auth.uid())
+  and exists (select 1 from chat_channels c where c.id = channel_id and (
+    not c.admin_only_posting or exists (select 1 from chat_participants cp where cp.channel_id = c.id and cp.player_id = sender_player_id and cp.role = 'admin')
+  ))
+);
+
+create policy "wallet_ledger_owner_select" on wallet_ledger for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or (establishment_id is not null and can_operate_establishment(establishment_id))
+);
+create policy "wallet_ledger_operator_insert" on wallet_ledger for insert with check (
+  establishment_id is not null and can_operate_establishment(establishment_id)
+);
+
+create policy "loyalty_plans_public" on loyalty_plans for select using (active or can_operate_establishment(establishment_id));
+create policy "loyalty_plans_operator" on loyalty_plans for all using (can_operate_establishment(establishment_id));
+create policy "loyalty_subscriptions_owner" on loyalty_subscriptions for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from loyalty_plans lp where lp.id = plan_id and can_operate_establishment(lp.establishment_id))
+);
+
+create policy "sports_staff_public" on sports_staff for select using (true);
+create policy "sports_staff_self" on sports_staff for update using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "staff_assignments_involved" on staff_assignments for select using (
+  can_operate_establishment(establishment_id)
+  or exists (select 1 from sports_staff ss join players p on p.id = ss.player_id where ss.id = staff_id and p.auth_user_id = auth.uid())
+);
+create policy "staff_assignments_operator" on staff_assignments for all using (can_operate_establishment(establishment_id));
+
+create policy "open_slot_offers_public" on open_slot_offers for select using (true);
+create policy "open_slot_offers_operator" on open_slot_offers for all using (can_operate_establishment(establishment_id));
+
+create policy "digital_waivers_authenticated" on digital_waivers for select using (auth.uid() is not null);
+create policy "digital_waivers_creator" on digital_waivers for all using (
+  exists (select 1 from players p where p.id = created_by and p.auth_user_id = auth.uid())
+);
+create policy "waiver_acceptances_self" on waiver_acceptances for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+create policy "waiver_acceptances_insert_self" on waiver_acceptances for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "sport_highlights_public" on sport_highlights for select using (true);
+create policy "sport_highlights_self" on sport_highlights for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "commerce_listings_public" on commerce_listings for select using (active or can_operate_establishment(establishment_id));
+create policy "commerce_listings_operator" on commerce_listings for all using (can_operate_establishment(establishment_id));
+create policy "rental_orders_involved" on rental_orders for select using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+  or exists (select 1 from commerce_listings cl where cl.id = listing_id and can_operate_establishment(cl.establishment_id))
+);
+create policy "rental_orders_insert_self" on rental_orders for insert with check (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
+);
+
+create policy "device_push_tokens_self" on device_push_tokens for all using (
+  exists (select 1 from players p where p.id = player_id and p.auth_user_id = auth.uid())
 );
