@@ -6,11 +6,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
+import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { initializeAds } from '@/lib/ads';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function RootLayout() {
   useNotificationNavigation();
+  useSupabaseSync();
   const initializeAuth = useAuthStore((state) => state.initialize);
   useEffect(() => {
     initializeAds();

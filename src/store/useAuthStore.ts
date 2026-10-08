@@ -17,9 +17,8 @@ interface AuthState {
 }
 
 /**
- * Autenticação mock enquanto o Supabase não está conectado (ver src/lib/supabase.ts).
- * Quando isMockMode virar false, trocar login/logout pelas chamadas reais de
- * supabase.auth.signInWithPassword / signOut.
+ * Mantém o login local no modo demonstração e usa Supabase Auth automaticamente
+ * quando as variáveis públicas do projeto estão configuradas.
  */
 export const useAuthStore = create<AuthState>()(
   persist(

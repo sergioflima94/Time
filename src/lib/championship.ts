@@ -1,6 +1,8 @@
 import type { Championship, ChampionshipBudgetInput, ChampionshipFormat, ChampionshipGoal, ChampionshipMatch, ChampionshipTeam } from '@/types';
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+import { createUuid } from '@/lib/uuid';
+
+const uid = createUuid;
 
 export function estimateChampionshipMatchCount(format: ChampionshipFormat, teamCount: number): number {
   const teams = Math.max(2, Math.floor(teamCount));

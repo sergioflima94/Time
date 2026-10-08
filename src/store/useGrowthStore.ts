@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { segmentCanFinish, walletBalance } from '@/lib/growth';
+import { createUuid } from '@/lib/uuid';
+import { useAppStore } from '@/store/useAppStore';
 import type {
   ChatChannel,
   ChatMessage,
@@ -19,7 +21,7 @@ import type {
   WalletEntry,
 } from '@/types/growth';
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+const uid = createUuid;
 const nowIso = () => new Date().toISOString();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
@@ -93,8 +95,8 @@ export const useGrowthStore = create<GrowthState>()(
       ],
       staffAssignments: [],
       openSlotOffers: [
-        { id: 'offer1', establishmentId: 'est2', fieldName: 'Quadra Society 1', sportId: 'futebol', startsAt: inDays(1), durationMinutes: 90, originalPrice: 260, offerPrice: 210, sponsored: true, status: 'available' },
-        { id: 'offer2', establishmentId: 'est1', fieldName: 'Quadra de Vôlei', sportId: 'volei', startsAt: inDays(2), durationMinutes: 60, originalPrice: 160, offerPrice: 130, sponsored: false, status: 'available' },
+        { id: 'offer1', establishmentId: 'est2', fieldId: 'f2', fieldName: 'Quadra Society 1', sportId: 'futebol', startsAt: inDays(1), durationMinutes: 90, originalPrice: 260, offerPrice: 210, sponsored: true, status: 'available' },
+        { id: 'offer2', establishmentId: 'est1', fieldId: 'f3', fieldName: 'Quadra de Vôlei', sportId: 'volei', startsAt: inDays(2), durationMinutes: 60, originalPrice: 160, offerPrice: 130, sponsored: false, status: 'available' },
       ],
       waivers: [
         { id: 'waiver1', title: 'Termo de participação e uso de imagem', scope: 'team', scopeId: 'pel1', required: true, acceptedPlayerIds: ['p2', 'p3'], updatedAt: nowIso() },
@@ -159,7 +161,9 @@ export const useGrowthStore = create<GrowthState>()(
       },
       addWalletCredit: (playerId, amount, description, kind = 'credit') => {
         if (amount <= 0) return;
-        set((state) => ({ walletEntries: [...state.walletEntries, { id: uid(), playerId, establishmentId: 'est2', kind, amount, description, createdAt: nowIso() }] }));
+        const app = useAppStore.getState();
+        const establishmentId = app.establishments.find((row) => row.ownerPlayerId === app.currentPlayerId)?.id ?? null;
+        set((state) => ({ walletEntries: [...state.walletEntries, { id: uid(), playerId, establishmentId, kind, amount, description, createdAt: nowIso() }] }));
       },
       buyLoyaltyPlan: (planId, playerId) => {
         let completed = false;
@@ -176,8 +180,10 @@ export const useGrowthStore = create<GrowthState>()(
       },
       assignStaff: (staffId, eventLabel) => set((state) => {
         const staff = state.sportsStaff.find((row) => row.id === staffId);
-        if (!staff?.available) return {};
-        return { staffAssignments: [...state.staffAssignments, { id: uid(), staffId, eventLabel, startsAt: inDays(3), amount: staff.pricePerEvent, status: 'invited' }] };
+        const app = useAppStore.getState();
+        const establishment = app.establishments.find((row) => row.ownerPlayerId === app.currentPlayerId);
+        if (!staff?.available || !establishment) return {};
+        return { staffAssignments: [...state.staffAssignments, { id: uid(), staffId, establishmentId: establishment.id, eventLabel, startsAt: inDays(3), amount: staff.pricePerEvent, status: 'invited' }] };
       }),
       reserveOffer: (offerId, playerId) => {
         let completed = false;

@@ -2292,6 +2292,39 @@ export type Database = {
           },
         ]
       }
+      game_team_queue: {
+        Row: {
+          game_id: string
+          position: number
+          team_id: string
+        }
+        Insert: {
+          game_id: string
+          position: number
+          team_id: string
+        }
+        Update: {
+          game_id?: string
+          position?: number
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_team_queue_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_team_queue_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           created_at: string
@@ -3191,6 +3224,42 @@ export type Database = {
           },
         ]
       }
+      player_preferences: {
+        Row: {
+          current_pelada_id: string | null
+          notifications_seen_at: string | null
+          player_id: string
+          updated_at: string
+        }
+        Insert: {
+          current_pelada_id?: string | null
+          notifications_seen_at?: string | null
+          player_id: string
+          updated_at?: string
+        }
+        Update: {
+          current_pelada_id?: string | null
+          notifications_seen_at?: string | null
+          player_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_preferences_current_pelada_id_fkey"
+            columns: ["current_pelada_id"]
+            isOneToOne: false
+            referencedRelation: "peladas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_preferences_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           auth_user_id: string | null
@@ -3215,6 +3284,7 @@ export type Database = {
           premium_auto_renew: boolean
           premium_since: string | null
           premium_until: string | null
+          whatsapp_opt_in: boolean
         }
         Insert: {
           auth_user_id?: string | null
@@ -3239,6 +3309,7 @@ export type Database = {
           premium_auto_renew?: boolean
           premium_since?: string | null
           premium_until?: string | null
+          whatsapp_opt_in?: boolean
         }
         Update: {
           auth_user_id?: string | null
@@ -3263,6 +3334,7 @@ export type Database = {
           premium_auto_renew?: boolean
           premium_since?: string | null
           premium_until?: string | null
+          whatsapp_opt_in?: boolean
         }
         Relationships: []
       }

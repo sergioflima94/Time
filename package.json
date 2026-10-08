@@ -54,7 +54,8 @@
     "web": "expo start --web",
     "supabase:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts",
     "supabase:push": "supabase db push --linked",
-    "supabase:functions": "supabase functions deploy"
+    "supabase:functions": "supabase functions deploy",
+    "supabase:audit-sync": "node scripts/audit-supabase-sync.cjs"
   },
   "private": true
 }

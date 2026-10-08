@@ -69,6 +69,7 @@ import { addPremiumPeriod } from '@/lib/premium';
 import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
 import { buildPunishment } from '@/lib/punishment';
 import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
+import { createUuid } from '@/lib/uuid';
 import type {
   ActivityComment,
   ActivityLike,
@@ -156,7 +157,7 @@ import type {
   WhatsAppDelivery,
 } from '@/types';
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+const uid = createUuid;
 
 function makeGuestPlayer(name: string): Player {
   return {

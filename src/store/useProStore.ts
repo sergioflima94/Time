@@ -17,14 +17,16 @@ import type {
   SportSeason,
   SyncMutation,
 } from '@/types/pro';
+import { createUuid } from '@/lib/uuid';
+import { useAppStore } from '@/store/useAppStore';
 
 const now = () => new Date().toISOString();
-const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+const uid = createUuid;
 
 const PLANS: CommercialPlan[] = [
-  { id: 'pro-player', audience: 'player', name: 'Jogador Premium', monthlyPrice: 14.9, benefits: ['Sem anúncios', 'Carta e retrospectivas Premium', 'Histórico avançado'], highlighted: false, active: true },
-  { id: 'pro-team', audience: 'team', name: 'Time Pro', monthlyPrice: 39.9, benefits: ['WhatsApp e enquetes automáticas', 'Temporadas e rankings', 'Relatórios do time'], highlighted: true, active: true },
-  { id: 'pro-venue', audience: 'establishment', name: 'Estabelecimento Pro', monthlyPrice: 99.9, benefits: ['Agenda e caixa integrados', 'Inteligência de ocupação', 'CRM, estoque e equipe'], highlighted: true, active: true },
+  { id: '11111111-1111-4111-8111-111111111111', audience: 'player', name: 'Jogador Premium', monthlyPrice: 14.9, benefits: ['Sem anúncios', 'Carta e retrospectivas Premium', 'Histórico avançado'], highlighted: false, active: true },
+  { id: '22222222-2222-4222-8222-222222222222', audience: 'team', name: 'Time Pro', monthlyPrice: 39.9, benefits: ['WhatsApp e enquetes automáticas', 'Temporadas e rankings', 'Relatórios do time'], highlighted: true, active: true },
+  { id: '33333333-3333-4333-8333-333333333333', audience: 'establishment', name: 'Estabelecimento Pro', monthlyPrice: 99.9, benefits: ['Agenda e caixa integrados', 'Inteligência de ocupação', 'CRM, estoque e equipe'], highlighted: true, active: true },
 ];
 
 interface ProState {
@@ -108,7 +110,7 @@ export const useProStore = create<ProState>()(
         const id = uid();
         const season: SportSeason = { id, peladaId, sportId, name: name.trim() || 'Nova temporada', startsAt: now().slice(0, 10), endsAt: null, status: 'active', pointsWin: 3, pointsDraw: 1, pointsParticipation: 1, createdAt: now() };
         const rows = playerIds.map((playerId) => ({ seasonId: id, playerId, games: 0, wins: 0, draws: 0, losses: 0, scored: 0, assists: 0, fairPlay: 0, points: 0 }));
-        set((state) => ({ seasons: [...state.seasons, season], standings: [...state.standings, ...rows], auditEvents: [...state.auditEvents, audit('p1', 'team', peladaId, 'season.created', `Temporada ${season.name} criada`)] }));
+        set((state) => ({ seasons: [...state.seasons, season], standings: [...state.standings, ...rows], auditEvents: [...state.auditEvents, audit(useAppStore.getState().currentPlayerId, 'team', peladaId, 'season.created', `Temporada ${season.name} criada`)] }));
         get().enqueueSync('season', id, 'insert', season as unknown as Record<string, unknown>);
         return id;
       },
@@ -118,11 +120,11 @@ export const useProStore = create<ProState>()(
           : index % 3 === 1
             ? { ...row, games: row.games + 1, draws: row.draws + 1, scored: row.scored + 1, points: row.points + 2 }
             : { ...row, games: row.games + 1, losses: row.losses + 1, points: row.points + 1 }),
-        auditEvents: [...state.auditEvents, audit('p1', 'team', seasonId, 'season.round_recorded', 'Rodada registrada na classificação')],
+        auditEvents: [...state.auditEvents, audit(useAppStore.getState().currentPlayerId, 'team', seasonId, 'season.round_recorded', 'Rodada registrada na classificação')],
       })),
       subscribe: (planId, subscriberId) => {
         const period = new Date(); period.setMonth(period.getMonth() + 1);
-        set((state) => ({ subscriptions: [...state.subscriptions.filter((row) => !(row.planId === planId && row.subscriberId === subscriberId)), { id: uid(), planId, subscriberId, status: 'trial', currentPeriodEnd: period.toISOString(), createdAt: now() }], auditEvents: [...state.auditEvents, audit('p1', 'payment', subscriberId, 'subscription.started', `Assinatura ${planId} iniciada em demonstração`)] }));
+        set((state) => ({ subscriptions: [...state.subscriptions.filter((row) => !(row.planId === planId && row.subscriberId === subscriberId)), { id: uid(), planId, subscriberId, status: 'trial', currentPeriodEnd: period.toISOString(), createdAt: now() }], auditEvents: [...state.auditEvents, audit(useAppStore.getState().currentPlayerId, 'payment', subscriberId, 'subscription.started', `Assinatura ${planId} iniciada em demonstração`)] }));
       },
       createReferral: (ownerPlayerId) => {
         const existing = get().referrals.find((row) => row.ownerPlayerId === ownerPlayerId && row.active);

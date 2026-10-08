@@ -13,7 +13,8 @@ const supabasePublicKey =
  * Enquanto o projeto Supabase não é configurado (ver README), o app roda inteiro
  * com dados de exemplo em src/lib/mockData.ts. Assim que EXPO_PUBLIC_SUPABASE_URL e
  * EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY existirem no .env, isMockMode passa a false e as
- * telas devem trocar as chamadas de mockData pelas queries reais ao Supabase.
+ * telas passam a usar o Supabase como fonte oficial por meio de supabaseSync; as
+ * stores permanecem como cache otimista/offline para não espalhar queries pela UI.
  */
 export const isMockMode = !supabaseUrl || !supabasePublicKey;
 const isStaticWebRender = Platform.OS === 'web' && typeof window === 'undefined';

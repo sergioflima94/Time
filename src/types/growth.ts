@@ -84,6 +84,7 @@ export interface SportsStaff {
 export interface StaffAssignment {
   id: string;
   staffId: string;
+  establishmentId: string;
   eventLabel: string;
   startsAt: string;
   amount: number;
@@ -93,6 +94,7 @@ export interface StaffAssignment {
 export interface OpenSlotOffer {
   id: string;
   establishmentId: string;
+  fieldId: string;
   fieldName: string;
   sportId: string;
   startsAt: string;

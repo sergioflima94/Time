@@ -31,11 +31,10 @@ Sem nenhuma configuração adicional, o app roda inteiro com **dados de exemplo*
 os fluxos — chamada, sorteio, cronômetro, avaliações, punições, admin — sem precisar
 de internet ou conta em nenhum serviço.
 
-Quando o Supabase é configurado, login e cadastro já usam o Auth real. Os módulos da
-Operação Pro também possuem uma fila offline idempotente (`client_mutations`) para
-entregar alterações ao backend. Os domínios legados ainda preservam as stores locais
-para a demonstração continuar funcionando sem internet; a migração pode ser feita
-gradualmente, agregado por agregado, sem interromper o aplicativo.
+Quando o Supabase é configurado, login/cadastro usam Auth real e **todos os domínios
+do aplicativo** são carregados e gravados nas tabelas hospedadas. As stores Zustand
+continuam existindo apenas como cache otimista/offline: a interface responde na hora,
+uma fila durável reenvia falhas de rede e o Realtime atualiza outros aparelhos.
 
 ### Contas de demonstração
 
@@ -77,8 +76,8 @@ alterações devem sempre virar migrações versionadas e ser aplicadas pelo CLI
    EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-publicavel
    ```
 4. Reinicie o `npm run start`. Com essas variáveis definidas, `isMockMode` vira
-   `false`, login/cadastro usam Supabase Auth e a fila Pro passa a enviar eventos para
-   `client_mutations`.
+   `false`, login/cadastro usam Supabase Auth e `useSupabaseSync()` ativa leitura,
+   escrita, fila offline e Realtime para as três stores do aplicativo.
 5. Em **Authentication**, habilite o provedor de e-mail/senha (ou o de sua
    preferência) para o cadastro de jogadores.
 6. Para publicar mudanças de backend:
@@ -86,6 +85,7 @@ alterações devem sempre virar migrações versionadas e ser aplicadas pelo CLI
    npm run supabase:push
    npm run supabase:functions
    npm run supabase:types
+   npm run supabase:audit-sync
    ```
 
 As Edge Functions estão configuradas em `supabase/config.toml`. Webhooks e tarefas
@@ -93,9 +93,28 @@ agendadas validam seus próprios segredos; funções iniciadas pelo app exigem J
 Nunca coloque `service_role`, tokens de gateway, WhatsApp ou OpenAI em variáveis
 `EXPO_PUBLIC_*`.
 
-> As telas históricas ainda usam as stores persistidas do aparelho. A autenticação e
-> a caixa de entrada idempotente já são reais; cronômetro, chamada, comandas e agenda
-> são os próximos agregados a serem conectados a queries/Realtime em uma implantação.
+### Como a sincronização de dados funciona
+
+- `src/lib/supabaseSyncMappings.ts` relaciona cada coleção de `useAppStore`,
+  `useGrowthStore` e `useProStore` à sua tabela relacional.
+- `src/lib/supabaseSync.ts` identifica o jogador da sessão, envia alterações que
+  ficaram offline, hidrata todas as consultas permitidas por RLS e passa a observar
+  mudanças locais e remotas.
+- Estado composto também é normalizado: períodos do placar usam
+  `scoreboard_segments`, participantes do chat usam `chat_participants`, aceites de
+  termos usam `waiver_acceptances` e a ordem do rodízio usa `game_team_queue`.
+- `player_preferences` guarda a pelada ativa e a última leitura das notificações sem
+  misturar preferências privadas ao perfil público.
+- Alterações locais são otimistas. Se uma query falhar por falta de conexão, ela vai
+  para `pelada-supabase-mutation-queue-v1` no AsyncStorage e é reenviada antes da
+  próxima hidratação. O status fica disponível em `useDataSyncStore`.
+- Check-in não replica o token aberto: `issue_game_checkin_pass()` armazena somente o
+  hash e `redeem_game_checkin()` valida e consome o ingresso atomicamente.
+- `npm run supabase:audit-sync` falha quando uma nova coleção da store não possui
+  mapeamento e também aponta campos obrigatórios que não seriam enviados ao banco.
+
+O modo sem variáveis Supabase continua usando integralmente os dados de demonstração.
+No modo conectado, o Supabase é a fonte oficial e o conteúdo local é apenas cache.
 
 ## Estrutura do projeto
 
@@ -259,9 +278,9 @@ reter o usuário:
   benefício depois do callback da loja ou webhook do provedor.
 - **Segurança e auditoria**: denúncias, estado da análise e trilha imutável das ações
   administrativas. Dados sensíveis continuam protegidos por RLS.
-- **Sincronização offline-first**: ações novas entram em `useProStore.syncQueue` e
-  são enviadas idempotentemente para `client_mutations` por
-  `src/lib/platformSync.ts`. Repetir uma tentativa não duplica o evento.
+- **Sincronização offline-first**: todos os módulos passam pela fila durável de
+  `src/lib/supabaseSync.ts`; eventos de integração da Operação Pro continuam também
+  registrados idempotentemente em `client_mutations`.
 
 O cadastro passa a usar Supabase Auth quando `.env` está configurado. O trigger
 `handle_new_auth_user()` cria o perfil mínimo mesmo quando a confirmação por e-mail
@@ -279,8 +298,8 @@ indicadores — nunca considera o clique do cliente como receita confirmada.
 ## Central do esporte — novos módulos
 
 A Home agora possui um atalho para `app/central.tsx`. A central reúne dez módulos
-funcionais em uma rota dinâmica (`app/recursos/[slug].tsx`), com estado local
-persistido em `src/store/useGrowthStore.ts`. As regras e cálculos reutilizáveis ficam
+funcionais em uma rota dinâmica (`app/recursos/[slug].tsx`), com cache offline em
+`src/store/useGrowthStore.ts` e persistência relacional no Supabase. As regras e cálculos reutilizáveis ficam
 em `src/lib/growth.ts`, e os contratos de domínio em `src/types/growth.ts`.
 
 - **Placar multiesporte**: suporta gols/pontos, sets com pontuação-alvo e vantagem de
