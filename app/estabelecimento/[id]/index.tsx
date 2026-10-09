@@ -91,7 +91,7 @@ export default function EstablishmentDashboardScreen() {
   async function handleShare() {
     try {
       await Share.share({
-        message: `Cadastra o campo "${establishment!.name}" na sua pelada! No app Pelada, em Admin → Campos, use o código: ${establishment!.accessCode}`,
+        message: `Cadastra o campo "${establishment!.name}" no seu time! No BoraJogo, em Admin → Campos, use o código: ${establishment!.accessCode}`,
       });
     } catch {
       /* usuário cancelou */

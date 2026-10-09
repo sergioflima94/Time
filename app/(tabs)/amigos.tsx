@@ -73,12 +73,18 @@ export default function AmigosScreen() {
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Amigos</Text>
-          <Text style={styles.subtitle}>Sua rede na Pelada — peça amizade, acompanhe o desempenho de quem você joga junto.</Text>
+          <Text style={styles.subtitle}>Esporte fica melhor com gente por perto.</Text>
         </View>
         <Pressable style={styles.bellButton} onPress={() => router.push('/notificacoes')} hitSlop={8}>
           <Ionicons name="notifications-outline" size={24} color={colors.text} />
           {unreadCount > 0 && <View style={styles.bellDot} />}
         </Pressable>
+      </View>
+
+      <View style={styles.networkStats}>
+        <View style={styles.networkPill}><Ionicons name="people" size={15} color={colors.social} /><Text style={styles.networkPillText}>{friends.length} amigos</Text></View>
+        <View style={styles.networkPill}><Ionicons name="sparkles" size={15} color={colors.primaryDark} /><Text style={styles.networkPillText}>{feed.length} novidades</Text></View>
+        {incoming.length > 0 && <View style={[styles.networkPill, styles.networkPillAlert]}><Text style={styles.networkPillText}>{incoming.length} pedidos</Text></View>}
       </View>
 
       <TextField label="Buscar jogador" placeholder="Nome ou apelido" value={query} onChangeText={setQuery} />
@@ -218,7 +224,7 @@ function ActivityRow({ item, player, isMe }: { item: ActivityItem; player?: Play
 
       <View style={styles.activityActionsRow}>
         <Pressable style={styles.likeRow} onPress={() => toggleActivityLike(item.id, currentPlayerId)} hitSlop={8}>
-          <Ionicons name={likedByMe ? 'heart' : 'heart-outline'} size={16} color={likedByMe ? colors.danger : colors.textFaint} />
+          <Ionicons name={likedByMe ? 'heart' : 'heart-outline'} size={16} color={likedByMe ? colors.social : colors.textFaint} />
           {likes.length > 0 && <Text style={styles.likeCount}>{likes.length}</Text>}
         </Pressable>
         <Pressable style={styles.likeRow} onPress={() => setShowComments((v) => !v)} hitSlop={8}>
@@ -277,12 +283,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.danger,
+    backgroundColor: colors.social,
   },
   title: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -0.7,
   },
   subtitle: {
     color: colors.textMuted,
@@ -290,16 +297,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: spacing.lg,
   },
+  networkStats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  networkPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: radius.full, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder },
+  networkPillAlert: { backgroundColor: colors.socialSoft, borderColor: '#F5B7B1' },
+  networkPillText: { color: colors.text, fontSize: 12, fontWeight: '800' },
   section: {
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '900',
     marginBottom: spacing.xs,
   },
   friendsTitle: {
@@ -352,9 +361,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   activityRow: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    marginBottom: spacing.sm,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   activityMain: {
     flexDirection: 'row',

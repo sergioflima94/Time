@@ -71,7 +71,7 @@ export default function CadastroScreen() {
       <Pressable style={styles.photoPicker} onPress={handlePickPhoto} disabled={pickingPhoto}>
         <Avatar name={name || '?'} photoUrl={photoUri} size={72} />
         <View style={styles.photoPickerBadge}>
-          {pickingPhoto ? <ActivityIndicator size="small" color={colors.bg} /> : <Ionicons name="camera" size={14} color={colors.bg} />}
+          {pickingPhoto ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Ionicons name="camera" size={14} color={colors.onPrimary} />}
         </View>
       </Pressable>
       <Text style={styles.photoPickerLabel}>{pickingPhoto ? 'Abrindo galeria...' : 'Toque para adicionar uma foto'}</Text>
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   positionOptionActive: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(34,197,94,0.15)',
+    backgroundColor: 'rgba(157,235,34,0.15)',
   },
   positionText: {
     color: colors.textMuted,

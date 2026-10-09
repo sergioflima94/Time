@@ -36,7 +36,7 @@ export function PlayerCardBack({ playerId, overall, sportId, ratingsCount, width
       </Text>
 
       <View style={styles.content}>
-        <Text style={styles.brand}>PELADA</Text>
+        <Text style={styles.brand}>BORAJOGO</Text>
         <View style={[styles.emblem, { borderColor: tier.color }]}>
           <Text style={styles.emblemIcon}>{sport.icon}</Text>
         </View>

@@ -7,6 +7,7 @@ import { AdBanner } from '@/components/AdBanner';
 import { GameCard } from '@/components/GameCard';
 import { PeladaSwitcher } from '@/components/PeladaSwitcher';
 import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
@@ -21,6 +22,7 @@ export default function AgendaScreen() {
   const pelada = useCurrentPelada();
   const myPeladas = useMyPeladas();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId));
   const games = useAppStore(useShallow((s) => s.games.filter((g) => g.peladaId === pelada.id)));
   const allGames = useAppStore((s) => s.games);
   const attendances = useAppStore((s) => s.attendances);
@@ -47,26 +49,42 @@ export default function AgendaScreen() {
 
   return (
     <Screen>
-      <View style={styles.peladaHeader}>
+      <View style={styles.welcomeHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.brandEyebrow}>BORAJOGO</Text>
+          <Text style={styles.welcomeTitle}>{greeting()}, {player?.nickname || player?.name?.split(' ')[0] || 'jogador'}</Text>
+          <Text style={styles.welcomeSubtitle}>Disciplina hoje, resenha amanhã.</Text>
+        </View>
+        <Pressable style={styles.profileButton} onPress={() => router.push('/(tabs)/perfil')}>
+          <Avatar name={player?.name ?? 'Jogador'} photoUrl={player?.avatarUrl} size={46} />
+        </Pressable>
+      </View>
+
+      <View style={[styles.peladaHeader, { borderLeftColor: sport.color }]}>
         <PeladaSwitcher />
         {pelada.description && <Text style={styles.peladaDescription}>{pelada.description}</Text>}
       </View>
       {!adFree && <AdBanner />}
 
-      <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
-        <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={22} color={colors.bg} /></View>
-        <View style={{ flex: 1 }}>
+      <View style={styles.quickActions}>
+        <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
+          <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={20} color={colors.onAction} /></View>
           <Text style={styles.growthCentralTitle}>Central do esporte</Text>
-          <Text style={styles.growthCentralText}>Placar multiesporte, chat, carteira, fidelidade, marketplace, relatórios e loja.</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-      </Pressable>
+          <Ionicons name="arrow-forward" size={16} color={colors.primaryDark} />
+        </Pressable>
+        <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
+          <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={19} color={colors.white} /></View>
+          <Text style={styles.growthCentralTitle}>Operação Pro</Text>
+          <Ionicons name="arrow-forward" size={16} color={colors.special} />
+        </Pressable>
+      </View>
 
-      <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
-        <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={21} color={colors.white} /></View>
-        <View style={{ flex: 1 }}><Text style={styles.growthCentralTitle}>Operação Pro</Text><Text style={styles.growthCentralText}>Check-in, confiabilidade, temporadas, inteligência e segurança.</Text></View>
-        <Ionicons name="chevron-forward" size={18} color={colors.special} />
-      </Pressable>
+      {upcoming[0] && (
+        <View style={styles.nextGameSection}>
+          <Text style={styles.sectionTitle}>Próximo jogo</Text>
+          <GameCard game={upcoming[0]} />
+        </View>
+      )}
 
       <Card style={styles.perfCard}>
         <View style={styles.perfHeaderRow}>
@@ -106,14 +124,19 @@ export default function AgendaScreen() {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Próximos jogos</Text>
       {upcoming.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>Nenhum jogo agendado. Peça para um admin criar um na aba Admin.</Text>
+        <>
+          <Text style={styles.sectionTitle}>Próximos jogos</Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Nenhum jogo agendado. Peça para um admin criar um na aba Admin.</Text>
+          </View>
+        </>
+      ) : upcoming.length > 1 ? (
+        <View>
+          <Text style={styles.sectionTitle}>Depois desse</Text>
+          {upcoming.slice(1).map((game) => <GameCard key={game.id} game={game} />)}
         </View>
-      ) : (
-        upcoming.map((game) => <GameCard key={game.id} game={game} />)
-      )}
+      ) : null}
 
       {past.length > 0 && (
         <>
@@ -125,6 +148,13 @@ export default function AgendaScreen() {
       )}
     </Screen>
   );
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
 }
 
 function PerfStat({ label, value }: { label: string; value: string }) {
@@ -177,8 +207,22 @@ function TeamShortcut({
 }
 
 const styles = StyleSheet.create({
+  welcomeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  brandEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 1.8 },
+  welcomeTitle: { color: colors.text, fontSize: 27, fontWeight: '900', letterSpacing: -0.6, marginTop: 3 },
+  welcomeSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 3 },
+  profileButton: { padding: 3, borderRadius: radius.full, borderWidth: 2, borderColor: colors.primary },
   peladaHeader: {
     marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    padding: spacing.md,
   },
   peladaDescription: {
     color: colors.textMuted,
@@ -186,11 +230,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '900',
     marginBottom: spacing.sm,
   },
   empty: {
@@ -203,16 +245,21 @@ const styles = StyleSheet.create({
   perfCard: {
     marginBottom: spacing.lg,
     gap: spacing.sm,
+    backgroundColor: colors.infoSoft,
+    borderColor: '#C8DAF7',
   },
+  quickActions: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  nextGameSection: { marginBottom: spacing.sm },
   growthCentral: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: 0,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.cardBorder,
     borderRadius: radius.lg,
   },
   growthCentralIcon: {
@@ -221,11 +268,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.action,
   },
   growthCentralTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   growthCentralText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  proCentral: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, marginTop: -spacing.sm, marginBottom: spacing.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.special, borderRadius: radius.lg },
+  proCentral: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.lg },
   proCentralIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.special },
   perfHeaderRow: {
     flexDirection: 'row',
@@ -293,15 +340,16 @@ const styles = StyleSheet.create({
   },
   teamShortcut: {
     alignItems: 'center',
-    width: 72,
-    paddingVertical: spacing.sm,
+    width: 92,
+    paddingVertical: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     backgroundColor: colors.card,
   },
   teamShortcutActive: {
-    borderColor: colors.primary,
+    borderColor: colors.primaryDark,
+    backgroundColor: '#F6FFE8',
   },
   teamShortcutBadge: {
     width: 36,
@@ -316,14 +364,14 @@ const styles = StyleSheet.create({
   },
   teamShortcutName: {
     color: colors.text,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '800',
     paddingHorizontal: 4,
   },
   addTeamShortcut: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 72,
+    width: 92,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,

@@ -72,6 +72,8 @@ export default function PerfilScreen() {
 
   return (
     <Screen>
+      <Text style={styles.pageTitle}>Seu perfil</Text>
+      <Text style={styles.pageSubtitle}>Sua evolução, sua carta e tudo que você construiu em quadra.</Text>
       <Pressable style={styles.cardCenter} onPress={handleChangePhoto} disabled={pickingPhoto}>
         <PlayerCard
           name={player.name}
@@ -251,6 +253,8 @@ export default function PerfilScreen() {
 }
 
 const styles = StyleSheet.create({
+  pageTitle: { color: colors.text, fontSize: 30, fontWeight: '900', letterSpacing: -0.7 },
+  pageSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2, marginBottom: spacing.lg },
   cardCenter: {
     alignItems: 'center',
     marginTop: spacing.md,

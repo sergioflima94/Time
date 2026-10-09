@@ -9,27 +9,34 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.textFaint,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', paddingBottom: 4 },
+        tabBarItemStyle: { paddingTop: 5 },
         tabBarStyle: {
-          backgroundColor: colors.bgElevated,
+          height: 68,
+          backgroundColor: colors.card,
           borderTopColor: colors.cardBorder,
+          borderTopWidth: 1,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 8,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Agenda',
-          tabBarActiveTintColor: colors.primary,
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar" color={color} size={size} />,
+          title: 'Início',
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="amigos"
         options={{
           title: 'Amigos',
-          tabBarActiveTintColor: colors.secondary,
           tabBarIcon: ({ color, size }) => <AmigosTabIcon color={color} size={size} />,
         }}
       />
@@ -37,24 +44,21 @@ export default function TabsLayout() {
         name="times"
         options={{
           title: 'Times',
-          tabBarActiveTintColor: colors.warning,
-          tabBarIcon: ({ color, size }) => <Ionicons name="shirt" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'shirt' : 'shirt-outline'} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-          tabBarActiveTintColor: colors.gold,
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="admin"
         options={{
           title: 'Admin',
-          tabBarActiveTintColor: colors.special,
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? 'settings' : 'settings-outline'} color={color} size={size} />,
         }}
       />
     </Tabs>

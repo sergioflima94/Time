@@ -19,7 +19,7 @@ export default function GrowthCentralScreen() {
       </View>
 
       <Card style={styles.hero}>
-        <View style={styles.heroIcon}><Ionicons name="rocket-outline" size={24} color={colors.bg} /></View>
+        <View style={styles.heroIcon}><Ionicons name="rocket-outline" size={24} color={colors.onPrimary} /></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle}>10 módulos prontos para demonstração</Text>
           <Text style={styles.heroText}>Os fluxos funcionam em modo local e possuem uma fronteira própria para a futura persistência no Supabase.</Text>

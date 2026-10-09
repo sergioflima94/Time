@@ -80,7 +80,7 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
     <Card style={styles.card}>
       <View style={styles.headerRow}>
         <Ionicons name="star-outline" size={18} color={colors.gold} />
-        <Text style={styles.title}>Pelada Premium</Text>
+        <Text style={styles.title}>BoraJogo Premium</Text>
       </View>
       {expired && (
         <Text style={styles.expiredNotice}>

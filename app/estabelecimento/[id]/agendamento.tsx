@@ -117,9 +117,9 @@ export default function EstablishmentBookingsScreen() {
         {availabilityOpen && fields.length > 0 && (
           <View style={styles.form}>
             <Text style={styles.hint}>Campo</Text>
-            <View style={styles.sportsGrid}>{fields.map((field) => <Pressable key={field.id} onPress={() => setAvailabilityFieldId(field.id)} style={[styles.sportChip, availabilityFieldId === field.id && { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.12)' }]}><Text style={[styles.sportChipText, availabilityFieldId === field.id && { color: colors.primary }]}>{field.name}</Text></Pressable>)}</View>
+            <View style={styles.sportsGrid}>{fields.map((field) => <Pressable key={field.id} onPress={() => setAvailabilityFieldId(field.id)} style={[styles.sportChip, availabilityFieldId === field.id && { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.12)' }]}><Text style={[styles.sportChipText, availabilityFieldId === field.id && { color: colors.primary }]}>{field.name}</Text></Pressable>)}</View>
             <Text style={styles.hint}>Dia da semana</Text>
-            <View style={styles.sportsGrid}>{WEEKDAY_LABELS.map((label, index) => <Pressable key={label} onPress={() => setAvailabilityDay(index)} style={[styles.sportChip, availabilityDay === index && { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.12)' }]}><Text style={[styles.sportChipText, availabilityDay === index && { color: colors.primary }]}>{label.slice(0, 3)}</Text></Pressable>)}</View>
+            <View style={styles.sportsGrid}>{WEEKDAY_LABELS.map((label, index) => <Pressable key={label} onPress={() => setAvailabilityDay(index)} style={[styles.sportChip, availabilityDay === index && { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.12)' }]}><Text style={[styles.sportChipText, availabilityDay === index && { color: colors.primary }]}>{label.slice(0, 3)}</Text></Pressable>)}</View>
             <View style={styles.row3}>
               <View style={styles.thirdInput}><TextField label="Início" value={availabilityStart} onChangeText={setAvailabilityStart} /></View>
               <View style={styles.thirdInput}><TextField label="Fim" value={availabilityEnd} onChangeText={setAvailabilityEnd} /></View>

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   acceptBtnText: {
-    color: colors.bg,
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },

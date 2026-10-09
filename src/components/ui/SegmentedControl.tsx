@@ -38,8 +38,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   label: {
-    color: colors.textMuted,
+    color: colors.text,
     fontSize: 13,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   row: {
@@ -50,14 +51,14 @@ const styles = StyleSheet.create({
   option: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: colors.card,
   },
   optionActive: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(34,197,94,0.15)',
+    backgroundColor: 'rgba(157,235,34,0.18)',
   },
   optionText: {
     color: colors.textMuted,

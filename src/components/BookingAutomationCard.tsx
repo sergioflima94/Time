@@ -159,7 +159,7 @@ function maskPhone(phone: string | null | undefined): string {
 }
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.md, marginBottom: spacing.lg, borderColor: 'rgba(34,197,94,0.35)' },
+  card: { gap: spacing.md, marginBottom: spacing.lg, borderColor: 'rgba(157,235,34,0.35)' },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   icon: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#25D366', alignItems: 'center', justifyContent: 'center' },
   title: { color: colors.text, fontSize: 16, fontWeight: '800' },
@@ -172,14 +172,14 @@ const styles = StyleSheet.create({
   demoBox: { gap: spacing.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.cardBorder, borderRadius: 12, padding: spacing.md },
   demoTitle: { color: colors.warning, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   buttonRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  success: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: 'rgba(34,197,94,0.1)', padding: spacing.md, borderRadius: 12 },
+  success: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: 'rgba(157,235,34,0.1)', padding: spacing.md, borderRadius: 12 },
   successText: { color: colors.primary, fontSize: 13, fontWeight: '700', flex: 1 },
   actions: { gap: spacing.sm },
   actionTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
   poll: { gap: spacing.sm },
   pollTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   option: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, padding: spacing.md },
-  optionSelected: { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.08)' },
+  optionSelected: { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.08)' },
   optionText: { color: colors.text, fontSize: 12, fontWeight: '700' },
   feedback: { color: colors.warning, fontSize: 12, textAlign: 'center' },
   progressBox: { gap: spacing.sm },

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
-import { colors, radius, spacing } from '@/constants/theme';
+import { liveColors as colors, radius, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
 import { advanceQueue, type MatchResult } from '@/lib/teamDraft';
 import { useAppStore } from '@/store/useAppStore';
@@ -99,7 +99,7 @@ export default function CronometroScreen() {
 
   if (!game) {
     return (
-      <Screen>
+      <Screen tone="live">
         <Text style={styles.text}>Jogo não encontrado.</Text>
       </Screen>
     );
@@ -107,7 +107,7 @@ export default function CronometroScreen() {
 
   if (!queue || queue.length < 2) {
     return (
-      <Screen>
+      <Screen tone="live">
         <Text style={styles.text}>Sorteie os times antes de iniciar o cronômetro.</Text>
       </Screen>
     );
@@ -176,8 +176,9 @@ export default function CronometroScreen() {
   const progress = 1 - remaining / matchSeconds;
 
   return (
-    <Screen>
+    <Screen tone="live">
       <Card style={styles.timerCard}>
+        <View style={styles.livePill}><View style={styles.liveDot} /><Text style={styles.liveText}>AO VIVO</Text></View>
         <Text style={styles.timerLabel}>
           Tempo da rodada{game.matchGoalLimit ? ` · até ${game.matchGoalLimit} ${scoreLabel(sport.id, game.matchGoalLimit)}` : ''}
         </Text>
@@ -467,7 +468,12 @@ const styles = StyleSheet.create({
   timerCard: {
     alignItems: 'center',
     gap: spacing.sm,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
   },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(217,64,64,0.16)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.danger },
+  liveText: { color: colors.danger, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   timerLabel: {
     color: colors.textMuted,
     fontSize: 12,
@@ -476,8 +482,8 @@ const styles = StyleSheet.create({
   },
   timer: {
     color: colors.text,
-    fontSize: 56,
-    fontWeight: '800',
+    fontSize: 64,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   progressTrack: {
@@ -516,8 +522,8 @@ const styles = StyleSheet.create({
   },
   scoreboardScore: {
     color: colors.text,
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   goalButtonsRow: {
@@ -668,7 +674,7 @@ const styles = StyleSheet.create({
   },
   reasonChipActive: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(34,197,94,0.15)',
+    backgroundColor: 'rgba(157,235,34,0.15)',
   },
   reasonChipText: {
     color: colors.textMuted,

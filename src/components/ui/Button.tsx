@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
-import { colors, radius, spacing } from '@/constants/theme';
+import { radius, spacing } from '@/constants/theme';
+import { useUiPalette } from './ThemeTone';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
 
@@ -15,6 +16,21 @@ interface ButtonProps {
 }
 
 export function Button({ label, onPress, variant = 'primary', disabled, loading, style, small }: ButtonProps) {
+  const palette = useUiPalette();
+  const variantStyle = {
+    primary: { backgroundColor: palette.action },
+    secondary: { backgroundColor: palette.bgElevated, borderWidth: 1, borderColor: palette.cardBorder },
+    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.primary },
+    danger: { backgroundColor: palette.danger },
+    ghost: { backgroundColor: 'transparent' },
+  }[variant] as ViewStyle;
+  const labelColor = {
+    primary: palette.onAction,
+    secondary: palette.text,
+    outline: palette.primary,
+    danger: palette.white,
+    ghost: palette.primary,
+  }[variant];
   return (
     <Pressable
       onPress={onPress}
@@ -22,16 +38,16 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       style={({ pressed }) => [
         styles.base,
         small && styles.small,
-        variantStyles[variant],
+        variantStyle,
         (disabled || loading) && styles.disabled,
         pressed && !disabled && !loading && styles.pressed,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.bg} />
+        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? palette.primary : palette.onAction} />
       ) : (
-        <Text style={[styles.label, small && styles.smallLabel, textVariantStyles[variant]]}>{label}</Text>
+        <Text style={[styles.label, small && styles.smallLabel, { color: labelColor }]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -39,19 +55,21 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
 
 const styles = StyleSheet.create({
   base: {
+    minHeight: 48,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   small: {
+    minHeight: 38,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   label: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   smallLabel: {
     fontSize: 13,
@@ -59,23 +77,5 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-  pressed: {
-    opacity: 0.85,
-  },
+  pressed: { opacity: 0.78, transform: [{ scale: 0.985 }] },
 });
-
-const variantStyles: Record<Variant, ViewStyle> = StyleSheet.create({
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder },
-  outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary },
-  danger: { backgroundColor: colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-});
-
-const textVariantStyles: Record<Variant, { color: string }> = {
-  primary: { color: colors.bg },
-  secondary: { color: colors.text },
-  outline: { color: colors.primary },
-  danger: { color: colors.white },
-  ghost: { color: colors.primary },
-};

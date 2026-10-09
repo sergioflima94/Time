@@ -8,7 +8,7 @@ const TEST_ADMOB_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
 
 module.exports = {
   expo: {
-    name: 'Pelada',
+    name: 'BoraJogo',
     slug: 'pelada-app',
     version: '1.0.0',
     orientation: 'portrait',
@@ -22,7 +22,7 @@ module.exports = {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: '#0F1B12',
+        backgroundColor: '#F5F2EA',
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',
@@ -50,7 +50,7 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          backgroundColor: '#0F1B12',
+          backgroundColor: '#F5F2EA',
           image: './assets/icon.png',
           imageWidth: 160,
         },

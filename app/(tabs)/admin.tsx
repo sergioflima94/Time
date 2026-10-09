@@ -47,6 +47,7 @@ export default function AdminScreen() {
   return (
     <Screen>
       <Text style={styles.title}>Administração</Text>
+      <Text style={styles.pageSubtitle}>Organize cada time sem misturar agenda, elenco ou caixa.</Text>
       {adminPeladas.length > 1 && <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />}
 
       {isAdmin ? (
@@ -578,10 +579,11 @@ function PunishmentsSection() {
 const styles = StyleSheet.create({
   title: {
     color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: spacing.lg,
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -0.7,
   },
+  pageSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2, marginBottom: spacing.lg },
   inviteCodeBox: {
     backgroundColor: colors.bgElevated,
     borderRadius: 10,
@@ -606,7 +608,7 @@ const styles = StyleSheet.create({
   pickerChip: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     backgroundColor: colors.card,
@@ -659,11 +661,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
   },
   sportLabel: {
     color: colors.textMuted,
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   autoStatus: {
     color: '#25D366',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     marginTop: 3,
   },
 });

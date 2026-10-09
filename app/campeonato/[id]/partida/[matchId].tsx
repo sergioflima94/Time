@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
-import { colors, radius, spacing } from '@/constants/theme';
+import { liveColors as colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -71,7 +71,7 @@ export default function ChampionshipMatchScreen() {
 
   if (!championship || !match) {
     return (
-      <Screen>
+      <Screen tone="live">
         <Text style={styles.text}>Partida não encontrada.</Text>
       </Screen>
     );
@@ -109,7 +109,7 @@ export default function ChampionshipMatchScreen() {
   }
 
   return (
-    <Screen>
+    <Screen tone="live">
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />

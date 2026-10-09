@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   formRow: { flexDirection: 'row', gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999 },
-  chipActive: { borderColor: colors.primary, backgroundColor: 'rgba(34,197,94,0.12)' },
+  chipActive: { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.12)' },
   chipText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: colors.primary },
   preference: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.md },

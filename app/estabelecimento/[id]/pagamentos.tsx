@@ -53,7 +53,7 @@ export default function PaymentGatewaysScreen() {
         return (
           <Card key={gateway.id} style={[styles.gatewayCard, active && styles.gatewayCardActive]}>
             <View style={styles.gatewayHeader}>
-              <View style={[styles.providerIcon, active && { backgroundColor: 'rgba(34,197,94,0.15)' }]}><Ionicons name={gateway.id === 'manual_pix' ? 'qr-code' : 'card'} size={22} color={active ? colors.primary : colors.textMuted} /></View>
+              <View style={[styles.providerIcon, active && { backgroundColor: 'rgba(157,235,34,0.15)' }]}><Ionicons name={gateway.id === 'manual_pix' ? 'qr-code' : 'card'} size={22} color={active ? colors.primary : colors.textMuted} /></View>
               <View style={{ flex: 1 }}><Text style={styles.gatewayName}>{gateway.label}</Text><Text style={styles.meta}>{gateway.shortDescription}</Text></View>
               {active && <Ionicons name="checkmark-circle" size={24} color={colors.primary} />}
             </View>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 22, fontWeight: '900' },
   subtitle: { color: colors.textMuted, fontSize: 12 },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
-  summaryIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(34,197,94,0.12)', alignItems: 'center', justifyContent: 'center' },
+  summaryIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(157,235,34,0.12)', alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   meta: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   demoBanner: { flexDirection: 'row', gap: spacing.sm, borderRadius: radius.md, padding: spacing.md, backgroundColor: 'rgba(245,158,11,0.1)', marginBottom: spacing.lg },

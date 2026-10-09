@@ -1,9 +1,29 @@
-# Pelada
+# BoraJogo
 
-App em Expo (React Native) para organizar futebol amador: agenda de jogos, chamada
-com limite de vagas, sorteio de times (ordem de chegada, aleatório ou por nota),
-cronômetro com fila de rodízio, avaliações estilo carta de FIFA e punição para quem
-falta depois de confirmar presença.
+App em Expo (React Native) para organizar a vida de times e espaços esportivos:
+agenda, chamada, sorteio e rodízio, campeonatos, rede social, pagamentos, comandas,
+vaquinhas, aulas e reservas para futebol, vôlei, basquete, handebol e futevôlei.
+
+## Identidade visual — Clube Vivo
+
+O BoraJogo usa uma linguagem jovem inspirada em clube, resenha e dia de jogo, sem
+parecer um painel corporativo ou uma interface gerada por IA:
+
+- **Uso diário claro e acolhedor**: fundo areia quente, cartões brancos, títulos
+  fortes e formas arredondadas para Início, Amigos, Times, Perfil, Admin e operação.
+- **Ação em verde-lima**: confirmações e chamadas principais usam uma cor viva,
+  sempre com texto escuro para manter contraste.
+- **Social em coral e informação em azul**: amizade, pedidos e atividade social não
+  competem visualmente com desempenho, agenda e dados de organização.
+- **Contexto por esporte**: ícone e cor do esporte continuam identificando times,
+  jogos e campeonatos sem trocar a identidade inteira do aplicativo.
+- **Modo jogo ao vivo**: cronômetro e placar de campeonato mudam para grafite escuro,
+  com placar grande e alto contraste. O restante do app permanece claro.
+- **Componentes compartilhados**: `Screen`, `Card`, `Button`, `TextField`, `Badge` e
+  `SegmentedControl` aplicam a mesma linguagem às rotas atuais e às novas telas.
+
+As cores e métricas ficam em `src/constants/theme.ts`; a troca entre o tom diário e
+o tom ao vivo é feita por `src/components/ui/ThemeTone.tsx`.
 
 ## Rodando o projeto
 
@@ -121,7 +141,7 @@ No modo conectado, o Supabase é a fonte oficial e o conteúdo local é apenas c
 ```
 app/                        rotas (Expo Router)
   (auth)/                    login, cadastro
-  (tabs)/                    agenda, jogadores, times, perfil, admin
+  (tabs)/                    início, amigos, times, perfil, admin
   jogo/[id]/                 detalhe do jogo, sorteio, cronômetro, avaliar
 
 src/

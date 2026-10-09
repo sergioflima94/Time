@@ -58,6 +58,6 @@ export default function KitchenScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl }, title: { color: colors.text, fontSize: 22, fontWeight: '800' }, meta: { color: colors.textMuted, fontSize: 12 },
-  column: { marginBottom: spacing.xl }, columnHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }, columnTitle: { color: colors.text, fontSize: 16, fontWeight: '800' }, count: { color: colors.bg, backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, fontSize: 11, fontWeight: '800' },
+  column: { marginBottom: spacing.xl }, columnHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }, columnTitle: { color: colors.text, fontSize: 16, fontWeight: '800' }, count: { color: colors.onPrimary, backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, fontSize: 11, fontWeight: '800' },
   itemCard: { marginBottom: spacing.sm }, row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, itemName: { color: colors.text, fontWeight: '700' }, station: { color: colors.warning, fontSize: 10, fontWeight: '800' }, empty: { color: colors.textFaint, fontSize: 12, marginVertical: spacing.sm },
 });

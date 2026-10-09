@@ -106,7 +106,7 @@ export default function GameDetailScreen() {
       </View>
 
       <Pressable style={styles.matchDay} onPress={() => router.push(`/jogo/${game.id}/dia-do-jogo`)}>
-        <View style={styles.matchDayIcon}><Ionicons name="flash" size={21} color={colors.bg} /></View>
+        <View style={styles.matchDayIcon}><Ionicons name="flash" size={21} color={colors.onPrimary} /></View>
         <View style={{ flex: 1 }}><Text style={styles.matchDayTitle}>Central do dia do jogo</Text><Text style={styles.matchDayText}>Campo, chamada, pagamentos, check-in, sorteio e partida em um só fluxo.</Text></View>
         <Ionicons name="chevron-forward" size={18} color={colors.primary} />
       </Pressable>

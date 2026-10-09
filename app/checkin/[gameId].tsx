@@ -29,7 +29,7 @@ export default function PlayerCheckInScreen() {
     <Screen contentStyle={styles.screen}>
       <Button label="← Voltar" variant="ghost" onPress={() => router.back()} style={styles.back} />
       <View style={styles.hero}>
-        <View style={styles.icon}><Ionicons name="qr-code" size={30} color={colors.bg} /></View>
+        <View style={styles.icon}><Ionicons name="qr-code" size={30} color={colors.onPrimary} /></View>
         <Text style={styles.eyebrow}>INGRESSO DO JOGO</Text>
         <Text style={styles.title}>{formatGameDateLong(game.scheduledAt)}</Text>
         <Text style={styles.muted}>{field?.name ?? 'Local a definir'}</Text>
@@ -63,5 +63,5 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: spacing.xs }, icon: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, marginBottom: spacing.sm },
   eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 1.5 }, title: { color: colors.text, fontSize: 22, fontWeight: '900', textAlign: 'center' }, muted: { color: colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   ticket: { alignItems: 'center', gap: spacing.md, borderStyle: 'dashed', borderColor: colors.primary }, qr: { padding: spacing.md, backgroundColor: '#FFFFFF', borderRadius: radius.md }, code: { color: colors.text, fontSize: 18, fontWeight: '900', letterSpacing: 3 },
-  ticketTitle: { color: colors.text, fontSize: 17, fontWeight: '800', textAlign: 'center' }, status: { width: '100%', flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: 'rgba(245,158,11,0.12)' }, statusOk: { backgroundColor: 'rgba(34,197,94,0.12)' }, statusText: { color: colors.warning, fontWeight: '800' }, empty: { color: colors.textMuted, textAlign: 'center' },
+  ticketTitle: { color: colors.text, fontSize: 17, fontWeight: '800', textAlign: 'center' }, status: { width: '100%', flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: 'rgba(245,158,11,0.12)' }, statusOk: { backgroundColor: 'rgba(157,235,34,0.12)' }, statusText: { color: colors.warning, fontWeight: '800' }, empty: { color: colors.textMuted, textAlign: 'center' },
 });

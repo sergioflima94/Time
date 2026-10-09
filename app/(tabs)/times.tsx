@@ -30,7 +30,7 @@ export default function TimesScreen() {
   return (
     <Screen>
       <Text style={styles.title}>Times</Text>
-      <Text style={styles.subtitle}>Os times que você é dono e os que você participa.</Text>
+      <Text style={styles.subtitle}>Sua camisa, sua turma e todos os jogos em um só lugar.</Text>
 
       {owned.length > 0 && (
         <View style={styles.group}>
@@ -96,8 +96,9 @@ function TeamRow({ pelada, memberCount, isOwner }: { pelada: Pelada; memberCount
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -0.7,
     color: colors.text,
   },
   subtitle: {
@@ -110,11 +111,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   groupTitle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '900',
     marginBottom: spacing.sm,
   },
   teamRow: {
@@ -122,21 +121,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     marginBottom: spacing.sm,
+    minHeight: 76,
   },
   sportBadge: {
-    width: 40,
-    height: 40,
+    width: 50,
+    height: 50,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sportBadgeIcon: {
-    fontSize: 18,
+    fontSize: 22,
   },
   teamName: {
     color: colors.text,
-    fontWeight: '700',
-    fontSize: 15,
+    fontSize: 17,
+    fontWeight: '900',
   },
   teamSub: {
     color: colors.textMuted,
@@ -163,6 +163,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   actionLinkText: {
     color: colors.primary,

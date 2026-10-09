@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -22,13 +22,11 @@ export default function LoginScreen() {
   }
 
   return (
-    <LinearGradient colors={[colors.pitchDark, colors.bg]} style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.logoWrap}>
-        <View style={styles.logoCircle}>
-          <Ionicons name="football" size={40} color={colors.bg} />
-        </View>
-        <Text style={styles.title}>Pelada</Text>
-        <Text style={styles.subtitle}>Times, chamada e cronômetro pro seu esporte amador — futebol, vôlei e mais</Text>
+        <Image source={require('../../assets/branding/borajogo-logo-v1.png')} style={styles.logo} contentFit="contain" />
+        <Text style={styles.kicker}>SEU CLUBE COMEÇA AQUI</Text>
+        <Text style={styles.subtitle}>Mais amigos, mais jogos e toda a organização do esporte amador em um só lugar.</Text>
       </View>
 
       {isMockMode && (
@@ -71,7 +69,7 @@ export default function LoginScreen() {
           </Link>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -80,25 +78,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.xl,
     justifyContent: 'center',
+    backgroundColor: colors.bg,
   },
   logoWrap: {
     alignItems: 'center',
     marginBottom: spacing.xxl,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.text,
-  },
+  logo: { width: 230, height: 150 },
+  kicker: { color: colors.primaryDark, fontSize: 11, fontWeight: '900', letterSpacing: 1.8, marginTop: -spacing.md },
   subtitle: {
     fontSize: 14,
     color: colors.textMuted,
@@ -109,10 +96,10 @@ const styles = StyleSheet.create({
   mockBanner: {
     flexDirection: 'row',
     gap: spacing.sm,
-    backgroundColor: 'rgba(245,158,11,0.12)',
+    backgroundColor: '#FFF3D8',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.35)',
-    borderRadius: radius.md,
+    borderColor: '#EDCE8E',
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
     alignItems: 'flex-start',
@@ -133,10 +120,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   input: {
+    minHeight: 50,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.text,

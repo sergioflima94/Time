@@ -32,7 +32,12 @@ export function GameCard({ game }: { game: Game }) {
     <Pressable onPress={() => router.push(`/jogo/${game.id}`)}>
       <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: sport.color }]}>
         <View style={styles.topRow}>
-          <Badge label={status.label} color={status.color} />
+          <View style={styles.statusGroup}>
+            <View style={[styles.sportMark, { backgroundColor: `${sport.color}24` }]}>
+              <Text style={styles.sportIcon}>{sport.icon}</Text>
+            </View>
+            <Badge label={status.label} color={status.color} />
+          </View>
           <View style={styles.vagas}>
             <Ionicons name="people" size={14} color={colors.textMuted} />
             <Text style={styles.vagasText}>
@@ -60,6 +65,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  statusGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  sportMark: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  sportIcon: { fontSize: 16 },
   vagas: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -73,7 +81,8 @@ const styles = StyleSheet.create({
   date: {
     color: colors.text,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '900',
+    letterSpacing: -0.25,
     marginTop: spacing.xs,
   },
   fieldRow: {
