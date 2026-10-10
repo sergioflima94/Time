@@ -2,12 +2,15 @@
 
 ## APK de validação Android
 
-Build atualizado de 10/10/2026: [baixar BoraJogo 1.0.1 para Android](https://expo.dev/artifacts/eas/kSIXGOjPjuNPHzept00ERElyPZRQ7FZ1sIFMY2lvUcE.apk).
+Build atualizado de 10/10/2026: [baixar BoraJogo 1.0.2 para Android](https://expo.dev/artifacts/eas/T76USngEc1dD_X4QqO5s6DrGObJddE6-cUjFqIY_Lug.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
-verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/fa9f87ae-bb1a-49ac-b2ec-d181a9db571d).
-Versão Android `versionCode=2`, com a mesma assinatura da versão inicial:
-instale por cima do APK 1.0.0, sem desinstalar. Inclui a correção do cadastro e
-do retorno da confirmação de e-mail descrita abaixo.
+verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/3c1eb6c8-5120-4304-8003-3a6992150a98).
+Versão Android `versionCode=3`, com a mesma assinatura das versões anteriores:
+instale por cima do APK 1.0.0/1.0.1, sem desinstalar. Inclui a correção do cadastro,
+do retorno da confirmação e a alternativa para colar o link no próprio app,
+sem seguir um redirect antigo para localhost. O modelo de e-mail personalizado
+está pronto, mas sua publicação continua bloqueada pelo provedor padrão do
+Supabase até configurar SMTP próprio ou alterar o plano — veja os detalhes abaixo.
 A compilação e assinatura foram verificadas; os fluxos ainda precisam ser
 validados no aparelho. O APK não é versionado no Git.
 
@@ -104,7 +107,7 @@ e [SMTP próprio](https://supabase.com/docs/guides/auth/auth-smtp).
 
 Regressões: `node scripts/test-auth-flow.cjs` testa a store e parsing sem servidor;
 `node scripts/test-auth-ui.cjs` testa cadastro, confirmação/reenvio, login pendente
-e callback em Chrome mobile, com as respostas de Auth interceptadas (sem criar
+e callback, código e link colado em Chrome mobile, com as respostas de Auth interceptadas (sem criar
 contas ou enviar e-mails reais). O callback Android ainda deve ser validado no aparelho.
 
 ## Campos perto de você
