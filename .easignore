@@ -1,0 +1,25 @@
+# Upload only application sources/assets, never local caches, secrets or screenshots.
+node_modules/
+.git/
+.expo/
+.test-runtime/
+.expo-test-dist*/
+dist/
+web-build/
+android/
+ios/
+screenshots/
+supabase/
+scripts/test-*.cjs
+.env
+.env.*
+.claude/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.tsbuildinfo
+*-debug.*

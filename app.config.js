@@ -10,6 +10,10 @@ module.exports = {
   expo: {
     name: 'BoraJogo',
     slug: 'pelada-app',
+    owner: 'sergiolima',
+    extra: {
+      eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
+    },
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -65,7 +69,7 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'O app usa sua localização pra achar jogadores livres perto de você (só se você ativar essa opção no Perfil).',
+            'O app usa sua localização para buscar campos próximos quando você solicitar, e jogadores livres somente se você ativar essa opção.',
         },
       ],
       [

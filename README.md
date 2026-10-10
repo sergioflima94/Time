@@ -1,5 +1,26 @@
 # BoraJogo
 
+## APK de validação Android
+
+O projeto EAS é `@sergiolima/pelada-app`. O perfil **preview** de `eas.json`
+gera um **APK instalável**, não um AAB de loja nem um cliente que depende do
+Expo Go/Metro. Usa o ambiente `preview` do EAS com a URL e chave publicável do
+Supabase vinculado. Cadastro, dados e permissões são **reais**, não exemplos:
+ações realizadas neste APK podem alterar o banco compartilhado.
+
+Para gerar outra versão: `npx eas-cli@latest build --platform android --profile preview`.
+Use o link do build concluído no painel Expo para baixar pelo celular e instalar;
+o Android pode pedir autorização para instalar pelo navegador. Não é necessário
+habilitar opções de desenvolvedor. O computador não precisa ficar ligado depois
+que o APK tiver sido instalado.
+
+`.easignore` mantém fotos de testes, caches, código do backend, pastas nativas
+locais e arquivos de segredo fora do upload. Somente configuração **pública**
+do Supabase entra no aplicativo; chaves administrativas/gateways continuam no
+servidor. Anúncios sem IDs próprios usam os IDs oficiais de teste. Credenciais
+de push, compras nas lojas e SDK SoftPOS não são habilitados apenas por gerar APK.
+O papel administrativo precisa estar concedido à conta real no Supabase.
+
 ## Campos perto de você
 
 Na Home, **Campos próximos** abre `/campos`. O catálogo reúne fichas publicadas,
