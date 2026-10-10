@@ -9,6 +9,8 @@ Supabase vinculado. Cadastro, dados e permissões são **reais**, não exemplos:
 ações realizadas neste APK podem alterar o banco compartilhado.
 
 Para gerar outra versão: `npx eas-cli@latest build --platform android --profile preview`.
+O módulo AdMob usa a versão 17, compatível com React Native 0.86 e com os
+metadados Kotlin do SDK Google Ads 25.4; mantenha essa compatibilidade ao atualizar.
 Use o link do build concluído no painel Expo para baixar pelo celular e instalar;
 o Android pode pedir autorização para instalar pelo navegador. Não é necessário
 habilitar opções de desenvolvedor. O computador não precisa ficar ligado depois
