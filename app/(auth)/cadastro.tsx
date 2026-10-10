@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
 import { useSports } from '@/constants/sports';
@@ -71,8 +72,9 @@ export default function CadastroScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
+      <View style={{ marginBottom: spacing.lg }}><BrandLogo compact /></View>
       <Text style={styles.title}>Criar conta</Text>
-      <Text style={styles.subtitle}>Cadastre seu perfil de jogador para entrar nas peladas</Text>
+      <Text style={styles.subtitle}>Crie seu perfil para jogar, organizar times ou receber a turma no seu espaço.</Text>
 
       <Pressable style={styles.photoPicker} onPress={handlePickPhoto} disabled={pickingPhoto}>
         <Avatar name={name || '?'} photoUrl={photoUri} size={72} />

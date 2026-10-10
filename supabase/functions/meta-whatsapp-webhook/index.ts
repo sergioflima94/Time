@@ -36,7 +36,7 @@ serve(async (req) => {
     const { data: recipients } = await query;
     const notification = result === 'accepted'
       ? `Jogo confirmado! ${pelada.name} joga em ${field.name}, ${new Date(request.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`
-      : `${field.name} recusou ${request.code}. Abra o BoraJogo para tentar outro campo ou criar uma enquete.`;
+      : `${field.name} recusou ${request.code}. Abra o MarcouJogou para tentar outro campo ou criar uma enquete.`;
     await Promise.all((recipients ?? []).map((row: any) => row.players?.phone && row.players?.whatsapp_opt_in
       ? sendWhatsAppText(row.players.phone, notification, `meta-response-${request.id}-${row.player_id}`, establishment.messaging_provider ?? 'automatic')
       : Promise.resolve()));

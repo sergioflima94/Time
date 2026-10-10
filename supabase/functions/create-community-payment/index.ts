@@ -20,7 +20,7 @@ serve(async (req) => {
     if (!auth.user) return json({ error: 'Sessão inválida' }, 401);
     const { data: player } = await service.from('players').select('id').eq('auth_user_id', auth.user.id).single();
 
-    let amountCents = 0; let method = 'pix'; let establishmentId: string | null = null; let title = 'BoraJogo';
+    let amountCents = 0; let method = 'pix'; let establishmentId: string | null = null; let title = 'MarcouJogou';
     if (kind === 'fundraising') {
       const { data: contribution } = await service.from('fundraising_contributions').select('*, fundraising_campaigns(*)').eq('id', id).eq('status', 'pending').single();
       if (!contribution || contribution.paid_by_player_id !== player?.id) return json({ error: 'Contribuição não encontrada' }, 404);

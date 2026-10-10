@@ -2292,7 +2292,7 @@ export const useAppStore = create<AppState>()(
             return {
               id: uid(), bookingRequestId: null, pollId, toPlayerId: member.playerId, phone,
               kind: 'poll_reminder' as const, status: phone ? 'sent' as const : 'skipped' as const,
-              preview: `Lembrete: vote na enquete de horário do seu time no BoraJogo.`, providerMessageId: phone ? `demo-${uid()}` : null,
+              preview: `Lembrete: vote na enquete de horário do seu time no MarcouJogou.`, providerMessageId: phone ? `demo-${uid()}` : null,
               createdAt: now, sentAt: phone ? now : null, provider: phone ? 'evolution_go' as const : 'in_app' as const, fallbackFromProvider: null,
             };
           });

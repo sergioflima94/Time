@@ -102,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
       confirmEmailLink: async (link) => {
         const hash = confirmationTokenHash(link, supabaseProjectUrl);
         if (!hash || !supabase || isMockMode) {
-          set({ error: 'Copie o endereço do botão de confirmação do e-mail mais recente do BoraJogo.' });
+          set({ error: 'Copie o endereço do botão de confirmação do e-mail mais recente do MarcouJogou.' });
           return false;
         }
         set({ loading: true, error: null });

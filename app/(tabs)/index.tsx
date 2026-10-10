@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 
 import { AdBanner } from '@/components/AdBanner';
+import { BrandLogo } from '@/components/BrandLogo';
 import { HomePlayHub } from '@/components/PlayHubPanels';
 import { GameCard } from '@/components/GameCard';
 import { PeladaSwitcher } from '@/components/PeladaSwitcher';
@@ -60,7 +61,7 @@ export default function AgendaScreen() {
     <Screen>
       <View style={styles.welcomeHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.brandEyebrow}>BORAJOGO</Text>
+          <BrandLogo compact />
           <Text style={styles.welcomeTitle}>{greeting()}, {player?.nickname || player?.name?.split(' ')[0] || 'jogador'}</Text>
           <Text style={styles.welcomeSubtitle}>Disciplina hoje, resenha amanhã.</Text>
         </View>
@@ -274,7 +275,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
-  brandEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 1.8 },
   welcomeTitle: { color: colors.text, fontSize: 24, fontWeight: '900', letterSpacing: -0.5, marginTop: 2 },
   welcomeSubtitle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   profileButton: { padding: 2, borderRadius: radius.full, borderWidth: 2, borderColor: colors.primary },

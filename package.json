@@ -1,6 +1,6 @@
 {
-  "name": "time",
-  "version": "1.0.0",
+  "name": "marcoujogou",
+  "version": "1.0.3",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

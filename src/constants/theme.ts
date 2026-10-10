@@ -1,5 +1,5 @@
 /**
- * Clube Vivo — sistema visual do BoraJogo.
+ * Clube Vivo — sistema visual do MarcouJogou.
  *
  * O uso diário é claro e acolhedor. A partida ao vivo usa `liveColors` para
  * aumentar contraste sem transformar o restante do produto em um app escuro.

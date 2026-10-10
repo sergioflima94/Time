@@ -54,7 +54,7 @@ serve(async (req) => {
       const { data: admins } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', pelada.id).eq('role', 'admin').eq('active', true);
       await Promise.all((admins ?? []).map((admin: any) => admin.players?.phone && admin.players?.whatsapp_opt_in ? sendWhatsAppText(
         normalizePhone(admin.players.phone),
-        `${field.name} recusou ${request.code}. Abra o BoraJogo para tentar outro horário, o próximo campo ou criar uma enquete com o time.`,
+        `${field.name} recusou ${request.code}. Abra o MarcouJogou para tentar outro horário, o próximo campo ou criar uma enquete com o time.`,
         `declined-${request.id}-${admin.player_id}`,
         establishment.messaging_provider ?? 'automatic',
       ) : Promise.resolve()));

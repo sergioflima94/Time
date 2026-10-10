@@ -38,6 +38,8 @@ async function run() {
   const savedAuth = () => page.evaluate(() => JSON.parse(localStorage.getItem('pelada-auth-storage')).state);
   try {
     await go('/cadastro');
+    await page.getByLabel('MarcouJogou', { exact: true }).waitFor();
+    assert.equal(await page.getByText(/BoraJogo/i).count(), 0);
     await page.getByPlaceholder('Seu nome', { exact: true }).fill('Validação');
     await page.getByPlaceholder('voce@email.com', { exact: true }).fill('validation@example.invalid');
     await page.getByPlaceholder('Mínimo de 6 caracteres').fill('test-password');
@@ -102,11 +104,18 @@ async function run() {
     assert.equal((await savedAuth()).isLoggedIn, true); // Cold start directly on the confirmation route.
     await page.evaluate(() => localStorage.clear());
     await go('/login'); allowLogin = true;
+    await page.getByLabel('MarcouJogou', { exact: true }).waitFor();
+    await page.locator('img').first().evaluate(img => img.complete || new Promise(resolve => img.addEventListener('load', resolve, { once: true })));
+    assert(await page.locator('img').first().evaluate(img => img.naturalWidth > 0));
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: path.join(out, '06-marcoujogou-login.png'), fullPage: true });
     await page.getByPlaceholder('voce@email.com').fill('validation@example.invalid');
     await page.getByPlaceholder('••••••••').fill('test-password');
     await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/', { timeout: 20000 });
     assert.equal((await savedAuth()).isLoggedIn, true);
+    await page.getByLabel('MarcouJogou', { exact: true }).waitFor();
+    await page.screenshot({ path: path.join(out, '07-marcoujogou-home.png'), fullPage: true });
     assert.deepEqual(errors, []);
     // Email layout uses static test placeholders, never a real user/token.
     const emailPage = await context.newPage();
@@ -114,7 +123,8 @@ async function run() {
     await emailPage.setContent(html);
     assert.equal(await emailPage.locator('a').getAttribute('href'), 'https://example.invalid/verify');
     assert(await emailPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    await emailPage.screenshot({ path: path.join(out, '05-email-borajogo.png'), fullPage: true });
+    assert(await emailPage.getByText('MarcouJogou', { exact: true }).count());
+    await emailPage.screenshot({ path: path.join(out, '05-email-marcoujogou.png'), fullPage: true });
     await emailPage.close();
     console.log('PASS: signup, pending login, resend/cooldown, invalid/valid OTP + home, no stored code, expired/warm/cold callback, password login, mobile email template. All backend responses stubbed.');
   } catch (e) {

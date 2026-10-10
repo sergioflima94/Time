@@ -64,7 +64,7 @@ export default function TeamFundraisingScreen() {
 
       <Card style={styles.infoCard}>
         <Text style={styles.infoTitle}>Transparência do começo ao fim</Text>
-        <Text style={styles.hint}>A vaquinha é separada do rateio da quadra. O dinheiro vai direto à conta conectada pelo responsável; o BoraJogo não guarda o saldo.</Text>
+        <Text style={styles.hint}>A vaquinha é separada do rateio da quadra. O dinheiro vai direto à conta conectada pelo responsável; o MarcouJogou não guarda o saldo.</Text>
       </Card>
 
       {showForm && (

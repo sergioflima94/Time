@@ -18,7 +18,7 @@ serve(async (req) => {
     const { data: admins } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', game.pelada_id).eq('role', 'admin').eq('active', true);
     await Promise.all((admins ?? []).map(async (admin: any) => {
       if (!admin.players?.phone || !admin.players?.whatsapp_opt_in) return;
-      const text = `${field?.name ?? 'O campo'} não respondeu à solicitação ${booking.code}. Abra o BoraJogo para tentar o próximo campo ou criar uma enquete de horários.`;
+      const text = `${field?.name ?? 'O campo'} não respondeu à solicitação ${booking.code}. Abra o MarcouJogou para tentar o próximo campo ou criar uma enquete de horários.`;
       await fetch(`${baseUrl.replace(/\/$/, '')}/send/text`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey }, body: JSON.stringify({ number: normalizePhone(admin.players.phone), text, id: `expired-${booking.id}-${admin.player_id}`, formatJid: true }) });
     }));
   }

@@ -38,7 +38,7 @@ try {
   $stage = 'validate-template'
   $template = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '../config/mobile-auth/confirmation.html'))
   if ($template -match 'localhost|127\.0\.0\.1' -or $template -notmatch 'href="{{ \.ConfirmationURL }}"' -or $template -notmatch '{{ \.Token }}') { throw 'Modelo inválido: preserve a verificação e o código do Supabase.' }
-  $subject = 'Confirme seu e-mail — BoraJogo'
+  $subject = 'Confirme seu e-mail — MarcouJogou'
   $mobileUrl = 'pelada://auth/callback'
   if ($Action -eq 'Apply') {
     if ($before.mailer_autoconfirm) { throw 'A confirmação está desligada no servidor. Revise antes de aplicar.' }

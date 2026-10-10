@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/BrandLogo';
 import { colors, radius, spacing } from '@/constants/theme';
 import { isMockMode } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -24,9 +24,9 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoWrap}>
-        <Image source={require('../../assets/branding/borajogo-logo-v1.png')} style={styles.logo} contentFit="contain" />
-        <Text style={styles.kicker}>SEU CLUBE COMEÇA AQUI</Text>
-        <Text style={styles.subtitle}>Mais amigos, mais jogos e toda a organização do esporte amador em um só lugar.</Text>
+        <BrandLogo />
+        <Text style={styles.kicker}>MARCOU O ESPAÇO. REUNIU A TURMA.</Text>
+        <Text style={styles.subtitle}>Reserve seu espaço, organize o time e venha jogar.</Text>
       </View>
 
       {isMockMode && (
@@ -88,8 +88,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xxl,
   },
-  logo: { width: 230, height: 150 },
-  kicker: { color: colors.primaryDark, fontSize: 11, fontWeight: '900', letterSpacing: 1.8, marginTop: -spacing.md },
+  kicker: { color: colors.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginTop: spacing.lg, textAlign: 'center' },
   subtitle: {
     fontSize: 14,
     color: colors.textMuted,

@@ -3,6 +3,7 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/BrandLogo';
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -38,9 +39,10 @@ export default function ConfirmarEmailScreen() {
     if (ok) { setCode(''); setLink(''); } // Só libera a Home com sessão validada no servidor.
   }
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <BrandLogo compact />
     <Ionicons name="mail-open-outline" size={48} color={colors.primaryDark} />
     <Text style={styles.title}>Confira seu e-mail</Text>
-    <Text style={styles.text}>Abra o e-mail mais recente do BoraJogo e toque no botão de confirmação para voltar ao aplicativo.</Text>
+    <Text style={styles.text}>Abra o e-mail mais recente do MarcouJogou e toque no botão de confirmação para voltar ao aplicativo.</Text>
     <Text style={styles.text}>Confira também a pasta de spam. Se você já confirmou, entre com o mesmo e-mail e senha — não precisa criar outra conta.</Text>
     <Text style={styles.label}>E-mail do cadastro</Text>
     <TextInput accessibilityLabel="E-mail do cadastro" value={email} onChangeText={(value) => { setEmail(value); setCode(''); setLink(''); setNotice(''); }} editable={!loading} autoCapitalize="none" keyboardType="email-address" placeholder="voce@email.com" placeholderTextColor={colors.textFaint} style={styles.input} />

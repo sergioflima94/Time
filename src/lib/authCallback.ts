@@ -32,7 +32,7 @@ export function authErrorMessage(error: unknown): string {
   const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
   if (code === 'email_not_confirmed') return 'Confirme seu e-mail antes de entrar. Você pode reenviar a confirmação abaixo.';
   if (code === 'otp_expired') return 'Código ou link inválido, expirado ou já utilizado. Confira o e-mail mais recente ou solicite outro.';
-  if (code === 'email_address_not_authorized') return 'O envio de e-mails ainda precisa ser configurado pelo responsável do BoraJogo. Tente novamente após essa configuração.';
+  if (code === 'email_address_not_authorized') return 'O envio de e-mails ainda precisa ser configurado pelo responsável do MarcouJogou. Tente novamente após essa configuração.';
   if (code === 'invalid_credentials') return 'E-mail ou senha incorretos.';
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit') return 'Aguarde um pouco antes de tentar novamente. O limite de envio do servidor foi atingido.';
   if (code === 'user_already_exists') return 'Esta conta já existe. Entre com seu e-mail e senha.';

@@ -98,7 +98,7 @@ export default function AutoBookingSettingsScreen() {
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Gatilho de confirmação</Text>
-                <Text style={styles.hint}>Ao atingir o mínimo, o BoraJogo tenta os campos abaixo na ordem.</Text>
+                <Text style={styles.hint}>Ao atingir o mínimo, o MarcouJogou tenta os campos abaixo na ordem.</Text>
               </View>
               <Switch value={enabled} onValueChange={setEnabled} trackColor={{ true: colors.primary }} />
             </View>
@@ -144,7 +144,7 @@ export default function AutoBookingSettingsScreen() {
           </Card>
 
           <Card style={styles.card}>
-            <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Sugestões do BoraJogo</Text><Badge label="Monetização" color={colors.gold} textColor="#111827" /></View>
+            <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Sugestões do MarcouJogou</Text><Badge label="Monetização" color={colors.gold} textColor="#111827" /></View>
             <Text style={styles.hint}>Só aparecem depois dos seus preferidos e sempre identificadas como publicidade.</Text>
             {activePromotions.map((promotion) => {
               const field = fields.find((row) => row.id === promotion.fieldId);

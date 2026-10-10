@@ -10,7 +10,7 @@ async function run(){const browser=await chromium.launch({executablePath:'C:/Pro
  const switchPlayer=async id=>page.evaluate(id=>{const x=JSON.parse(localStorage.getItem('pelada-app-storage'))??{state:{},version:0};x.state.currentPlayerId=id;localStorage.setItem('pelada-app-storage',JSON.stringify(x));},id);
  try{
   await go('/campos');await page.getByText('⚽ Campo do Bairro · exemplo',{exact:true}).waitFor();
-  assert.ok((await page.locator('body').innerText()).indexOf('Cadastrados no BoraJogo')<(await page.locator('body').innerText()).lastIndexOf('Contato direto'));
+  assert.ok((await page.locator('body').innerText()).indexOf('Cadastrados no MarcouJogou')<(await page.locator('body').innerText()).lastIndexOf('Contato direto'));
   assert.equal(await page.getByRole('button',{name:/Ver horários no app de/}).count(),0);
   await page.getByRole('button',{name:'Usar minha localização',exact:true}).click();await page.getByText(/Seu ponto não é salvo/).waitFor();
   await page.screenshot({path:path.join(out,'01-campos-proximos.png'),fullPage:true});

@@ -18,7 +18,7 @@ serve(async (req) => {
     for (const member of members ?? []) {
       const player: any = member.players;
       if (voters.has(member.player_id) || !player?.phone || !player?.whatsapp_opt_in) continue;
-      const text = 'Lembrete do BoraJogo: ainda falta seu voto na enquete de horário do time.';
+      const text = 'Lembrete do MarcouJogou: ainda falta seu voto na enquete de horário do time.';
       const sent = await sendWhatsAppText(player.phone, text, `poll-${poll.id}-${member.player_id}`, 'automatic');
       await service.from('whatsapp_deliveries').insert({ poll_id: poll.id, to_player_id: member.player_id, phone: player.phone, whatsapp_opt_in: true, kind: 'poll_reminder', status: sent.ok ? 'sent' : 'failed', preview: text, provider_message_id: sent.messageId, provider: sent.provider, fallback_from_provider: sent.fallbackFrom, sent_at: sent.ok ? new Date().toISOString() : null });
       if (sent.ok) sentCount += 1;

@@ -48,7 +48,7 @@ export default function PlatformConsoleScreen() {
   }
 
   return <Screen contentStyle={{ gap: spacing.md }}>
-    <View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Voltar" hitSlop={12}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable><View style={{ flex: 1 }}><Text style={styles.title}>Admin da plataforma</Text><Text style={styles.caption}>BoraJogo · gestão global</Text></View>{role && <Badge label={role === 'owner' ? 'Proprietário' : role === 'admin' ? 'Administrador' : 'Suporte'} color={colors.special} />}</View>
+    <View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Voltar" hitSlop={12}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable><View style={{ flex: 1 }}><Text style={styles.title}>Admin da plataforma</Text><Text style={styles.caption}>MarcouJogou · gestão global</Text></View>{role && <Badge label={role === 'owner' ? 'Proprietário' : role === 'admin' ? 'Administrador' : 'Suporte'} color={colors.special} />}</View>
     {loading && !role ? <Text style={styles.caption}>Verificando suas permissões...</Text> : !role || !snapshot ? <Card><Text style={styles.sectionTitle}>Acesso restrito</Text><Text style={styles.copy}>{error || 'Este painel não pertence à administração de um time. Sua conta precisa de autorização da plataforma.'}</Text><Button label="Verificar novamente" small onPress={() => void load()} loading={loading} /></Card> : <>
       {isMockMode && <Text style={styles.warning}>Demonstração: este administrador existe somente nos dados de exemplo. Nenhum usuário real recebe o papel automaticamente.</Text>}
       {role === 'owner' && <Card>

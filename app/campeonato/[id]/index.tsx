@@ -60,7 +60,7 @@ export default function ChampionshipScreen() {
   async function handleShare() {
     try {
       await Share.share({
-        message: `Inscreva seu time na "${championship!.name}"! No app Pelada, use o código: ${championship!.registrationCode}`,
+        message: `Inscreva seu time na "${championship!.name}"! No MarcouJogou, use o código: ${championship!.registrationCode}`,
       });
     } catch {
       /* cancelou */

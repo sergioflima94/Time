@@ -36,7 +36,7 @@ export function PlayerCardBack({ playerId, overall, sportId, ratingsCount, width
       </Text>
 
       <View style={styles.content}>
-        <Text style={styles.brand}>BORAJOGO</Text>
+        <Text style={styles.brand}>MARCOUJOGOU</Text>
         <View style={[styles.emblem, { borderColor: tier.color }]}>
           <Text style={styles.emblemIcon}>{sport.icon}</Text>
         </View>
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.55)',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 4,
+    letterSpacing: 2,
   },
   emblem: {
     width: 72,

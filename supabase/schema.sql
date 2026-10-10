@@ -3458,7 +3458,7 @@ begin
       if not s.active or s.starts_at<=now() or not public.growth_slot_free(f.id,s.starts_at,s.duration_minutes) then raise exception 'Horário já ocupado ou encerrado'; end if;
       select * into p from peladas where id=q.pelada_id;
       insert into field_bookings(field_id,establishment_id,pelada_id,team_name,recurrence,date,time,duration_minutes,notes,created_by)
-        values(f.id,f.establishment_id,p.id,p.name,'single',(s.starts_at at time zone 'America/Sao_Paulo')::date,to_char(s.starts_at at time zone 'America/Sao_Paulo','HH24:MI'),s.duration_minutes,'BoraJogo: oferta confirmada, pagamento separado',me) returning id into booking;
+        values(f.id,f.establishment_id,p.id,p.name,'single',(s.starts_at at time zone 'America/Sao_Paulo')::date,to_char(s.starts_at at time zone 'America/Sao_Paulo','HH24:MI'),s.duration_minutes,'MarcouJogou: oferta confirmada, pagamento separado',me) returning id into booking;
       if q.opponent_pelada_id is not null then
         insert into team_challenges(challenger_pelada_id,challenged_pelada_id,proposed_date,proposed_time,field_id,status,created_by,responded_at)
           values(p.id,q.opponent_pelada_id,(s.starts_at at time zone 'America/Sao_Paulo')::date,to_char(s.starts_at at time zone 'America/Sao_Paulo','HH24:MI'),f.id,'accepted',me,now()) returning id into challenge;

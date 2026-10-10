@@ -9,7 +9,7 @@ export function InvitePeladaSection({ pelada }: { pelada: Pelada }) {
   async function handleShare() {
     try {
       await Share.share({
-        message: `Bora jogar? Entra na pelada "${pelada.name}" comigo!\n\nBaixe o app Pelada, toque em "Entrar em uma pelada" e use o código: ${pelada.inviteCode}`,
+        message: `Vamos jogar? Entra no time "${pelada.name}" comigo!\n\nBaixe o MarcouJogou, toque em "Entrar em outro time" e use o código: ${pelada.inviteCode}`,
       });
     } catch {
       // usuário cancelou o compartilhamento, nada a fazer

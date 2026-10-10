@@ -1,8 +1,50 @@
-# BoraJogo
+# MarcouJogou
+
+## Marca MarcouJogou
+
+Nome público do produto: **MarcouJogou**. A identidade conecta o calendário
+(agendamento), o check (confirmação) e o play (hora de jogar), sem restringir o
+app a futebol. O símbolo original foi criado com a habilidade **imagegen**, no
+modo integrado; os assets finais estão em
+`assets/branding/marcoujogou-mark.png` (transparente) e
+`assets/branding/marcoujogou-icon.png` (fundo creme) e
+`assets/branding/marcoujogou-adaptive.png` (margem adicional para o Android).
+O componente `BrandLogo` combina o símbolo e o nome em texto nativo legível.
+Login, cadastro, confirmação, Home, carregamento inicial, card, convites,
+Premium, diretório, pagamentos e mensagens do backend usam a nova marca.
+O APK usa o ícone adaptativo com margem segura, a mesma máscara alpha para
+ícones temáticos e splash nativo com fundos claro/escuro via plugin Expo 57.
+
+Para preservar atualizações por cima do APK existente, autenticação e dados,
+os identificadores técnicos `com.pelada.app`, scheme `pelada`, slug EAS
+`pelada-app`, projectId EAS e chaves de cache antigas **não foram renomeados**.
+Não são nomes mostrados ao usuário. Migrações já aplicadas e notas históricas
+não são reescritas; a nova migração troca a marca nas próximas reservas.
+O rebranding não compra um domínio nem modifica URLs de confirmação para um
+domínio sem hospedagem. O template de e-mail está atualizado no repositório,
+mas sua publicação continua dependendo de SMTP próprio.
+
+Prompt final do símbolo: “Logo original do MarcouJogou para app brasileiro de
+agendamento e comunidade multi-esporte: calendário arredondado com check
+dinâmico terminando em play, geométrico simples, jovem e amigável. Verde
+esmeralda #148454 e detalhe laranja #F29D38, compatível com creme #F5F2EA.
+Símbolo central no máximo em 58% do canvas quadrado, margens transparentes,
+sem texto, bola, sombra, mockup ou marcas de terceiros.” Variações geradas
+pela mesma ferramenta: manter símbolo/geometria e aplicar fundo creme opaco
+para ícone; extrair apenas esse fundo para o símbolo transparente. A variante
+monocromática experimental foi descartada; Android usa o alpha do próprio
+símbolo, sem dependência de uma máscara redesenhada. Prompt do asset adaptativo:
+“Preservar símbolo/geometria/cores e canvas quadrado, reduzir uniformemente e
+centralizar, ocupando no máximo 44% do canvas, todos os pixels opacos dentro de
+um círculo central de diâmetro 62%; adicionar apenas margem transparente.”
+
+Regressão: `node scripts/test-branding.cjs`. Abertura nativa deve ser validada
+no APK de release; Expo Go não reproduz integralmente o splash configurado.
+Referência: [SplashScreen no Expo 57](https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/).
 
 ## APK de validação Android
 
-Build atualizado de 10/10/2026: [baixar BoraJogo 1.0.2 para Android](https://expo.dev/artifacts/eas/T76USngEc1dD_X4QqO5s6DrGObJddE6-cUjFqIY_Lug.apk).
+Build anterior à troca de marca, de 10/10/2026: [baixar APK 1.0.2 para Android](https://expo.dev/artifacts/eas/T76USngEc1dD_X4QqO5s6DrGObJddE6-cUjFqIY_Lug.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
 verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/3c1eb6c8-5120-4304-8003-3a6992150a98).
 Versão Android `versionCode=3`, com a mesma assinatura das versões anteriores:
@@ -81,7 +123,7 @@ O modelo padrão atual não mostra código: essa opção não promete um envio d
 #### E-mail personalizado: pronto, publicação pendente de SMTP
 
 `config/mobile-auth/confirmation.html` contém o modelo em português com a marca
-BoraJogo, cores do app, código `{{ .Token }}` e botão `{{ .ConfirmationURL }}`.
+MarcouJogou, cores do app, código `{{ .Token }}` e botão `{{ .ConfirmationURL }}`.
 O botão sempre passa pela confirmação do Supabase; não substitua por um link
 direto para o app, que pularia a verificação. O layout não depende de imagens externas.
 
@@ -116,7 +158,7 @@ Na Home, **Campos próximos** abre `/campos`. O catálogo reúne fichas publicad
 não todos os campos existentes na cidade nem campos privados de times. Também há
 atalho na Central do esporte e no marketplace de horários.
 
-- **Cadastrados no BoraJogo** aparecem primeiro; **Contato direto** vem depois.
+- **Cadastrados no MarcouJogou** aparecem primeiro; **Contato direto** vem depois.
   Dentro de cada grupo, a ordem é pela distância em linha reta. O raio de
   5/10/20/50/100 km filtra **ambos** antes da ordenação/paginação: cadastro não
   faz um campo distante furar o raio. Não é publicidade ou selo de qualidade.
@@ -461,7 +503,7 @@ vaquinhas, aulas e reservas para futebol, vôlei, basquete, handebol e futevôle
 
 ## Identidade visual — Clube Vivo
 
-O BoraJogo usa uma linguagem jovem inspirada em clube, resenha e dia de jogo, sem
+O MarcouJogou usa uma linguagem jovem inspirada em clube, resenha e dia de jogo, sem
 parecer um painel corporativo ou uma interface gerada por IA:
 
 - **Uso diário claro e acolhedor**: fundo areia quente, cartões brancos, títulos
@@ -1041,7 +1083,7 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   reembolso, e fora da política marca o sinal como retido. Em produção, a confirmação e
   o estorno são feitos pelo PSP/webhook, nunca pelo botão do cliente.
 - ✅ **Campos patrocinados sem esconder publicidade**: `field_promotions` fornece as
-  sugestões monetizadas do BoraJogo. Elas aparecem com selo **Patrocinado**, depois da
+  sugestões monetizadas do MarcouJogou. Elas aparecem com selo **Patrocinado**, depois da
   lista definida pelo time, e só entram na lista principal quando o admin adiciona. O
   modelo recomendado é taxa fixa por reserva confirmada, complementado por assinatura
   do estabelecimento para agenda, automação e relatórios.
@@ -1109,7 +1151,7 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   premiação ou objetivo livre. O admin informa meta, sugestão e prazo; um membro pode
   contribuir por si ou creditar outra pessoa, via Pix/cartão/dinheiro, com opção de nome
   anônimo. A tela mostra progresso, saldo, despesas e comprovantes. O recebedor é definido
-  na campanha e o dinheiro liquida direto em sua conta conectada; o BoraJogo não mantém
+  na campanha e o dinheiro liquida direto em sua conta conectada; o MarcouJogou não mantém
   carteira nem custódia. `create-community-payment` reaproveita Mercado Pago/PicPay e o
   `payment-webhook` confirma tanto contribuições quanto sinais de reserva.
 - ✅ **Caixa e conciliação** (`app/operacao/caixa.tsx`): abertura com fundo inicial,

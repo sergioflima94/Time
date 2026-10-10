@@ -8,15 +8,15 @@ const TEST_ADMOB_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
 
 module.exports = {
   expo: {
-    name: 'BoraJogo',
+    name: 'MarcouJogou',
     slug: 'pelada-app',
     owner: 'sergiolima',
     extra: {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
     },
-    version: '1.0.2',
+    version: '1.0.3',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    icon: './assets/branding/marcoujogou-icon.png',
     scheme: 'pelada',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
@@ -25,18 +25,18 @@ module.exports = {
       bundleIdentifier: 'com.pelada.app',
     },
     android: {
-      versionCode: 3,
+      versionCode: 4,
       adaptiveIcon: {
         backgroundColor: '#F5F2EA',
-        foregroundImage: './assets/android-icon-foreground.png',
-        backgroundImage: './assets/android-icon-background.png',
-        monochromeImage: './assets/android-icon-monochrome.png',
+        foregroundImage: './assets/branding/marcoujogou-adaptive.png',
+        // Android tints only the alpha mask for themed icons.
+        monochromeImage: './assets/branding/marcoujogou-adaptive.png',
       },
       predictiveBackGestureEnabled: false,
       package: 'com.pelada.app',
     },
     web: {
-      favicon: './assets/favicon.png',
+      favicon: './assets/branding/marcoujogou-icon.png',
       bundler: 'metro',
       output: 'static',
     },
@@ -56,8 +56,13 @@ module.exports = {
         'expo-splash-screen',
         {
           backgroundColor: '#F5F2EA',
-          image: './assets/icon.png',
-          imageWidth: 160,
+          image: './assets/branding/marcoujogou-mark.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          dark: {
+            backgroundColor: '#111416',
+            image: './assets/branding/marcoujogou-mark.png',
+          },
         },
       ],
       [
