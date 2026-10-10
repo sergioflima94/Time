@@ -46,6 +46,7 @@ export default function AgendaScreen() {
   const past = games
     .filter((g) => new Date(g.scheduledAt).getTime() < now || g.status === 'finished')
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+  const nextGame = upcoming[0];
 
   return (
     <Screen>
@@ -66,36 +67,40 @@ export default function AgendaScreen() {
       </View>
       {!adFree && <AdBanner />}
 
-      <View style={styles.quickActions}>
-        <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
-          <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={20} color={colors.onAction} /></View>
-          <Text style={styles.growthCentralTitle}>Central do esporte</Text>
-          <Ionicons name="arrow-forward" size={16} color={colors.primaryDark} />
-        </Pressable>
-        <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
-          <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={19} color={colors.white} /></View>
-          <Text style={styles.growthCentralTitle}>Operação Pro</Text>
-          <Ionicons name="arrow-forward" size={16} color={colors.special} />
-        </Pressable>
-      </View>
-
-      {upcoming[0] && (
+      {nextGame && (
         <View style={styles.nextGameSection}>
-          <Text style={styles.sectionTitle}>Próximo jogo</Text>
-          <GameCard game={upcoming[0]} />
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionEyebrow}>SUA PRÓXIMA MISSÃO</Text>
+              <Text style={styles.sectionTitle}>Próximo jogo</Text>
+            </View>
+            <View style={styles.datePill}>
+              <Ionicons name="time-outline" size={13} color={colors.primaryDark} />
+              <Text style={styles.datePillText}>{distanceToGame(nextGame.scheduledAt)}</Text>
+            </View>
+          </View>
+          <GameCard game={nextGame} />
         </View>
       )}
 
       <Card style={styles.perfCard}>
-        <View style={styles.perfHeaderRow}>
-          <Text style={styles.sectionTitle}>Seu desempenho</Text>
-          <TrendBadge trend={trend} />
+        <View style={styles.performanceHero}>
+          <View style={styles.overallBlock}>
+            <Text style={styles.overallValue}>{overall.overall}</Text>
+            <Text style={styles.overallLabel}>NOTA GERAL</Text>
+          </View>
+          <View style={styles.performanceCopy}>
+            <View style={styles.perfHeaderRow}>
+              <Text style={styles.performanceTitle}>Seu momento</Text>
+              <TrendBadge trend={trend} />
+            </View>
+            <Text style={styles.performanceMessage}>{performanceMessage(trend, activity)}</Text>
+          </View>
         </View>
         <View style={styles.perfStatsRow}>
-          <PerfStat label="Nota geral" value={String(overall.overall)} />
-          <PerfStat label="Jogos" value={String(activity.gamesPlayed)} />
+          <PerfStat icon="football-outline" label="Jogos" value={String(activity.gamesPlayed)} />
           <PerfStat label="Vitórias" value={String(record.wins)} />
-          <PerfStat label={scoreLabel(sport.id, goalStats.scored)} value={String(goalStats.scored)} />
+          <PerfStat icon="flame-outline" label={scoreLabel(sport.id, goalStats.scored)} value={String(goalStats.scored)} />
         </View>
         {record.played > 0 && (
           <Text style={styles.perfRecordText}>
@@ -111,7 +116,16 @@ export default function AgendaScreen() {
 
       {myPeladas.length > 0 && (
         <View style={styles.shortcutsSection}>
-          <Text style={styles.sectionTitle}>Seus times</Text>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionEyebrow}>ONDE VOCÊ JOGA</Text>
+              <Text style={styles.sectionTitle}>Seus times</Text>
+            </View>
+            <Pressable style={styles.viewAllButton} onPress={() => router.push('/(tabs)/times')}>
+              <Text style={styles.viewAllText}>Ver todos</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
+            </Pressable>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsRow}>
             {myPeladas.map((p) => (
               <TeamShortcut key={p.id} peladaId={p.id} name={p.name} sportId={p.sportId} active={p.id === pelada.id} />
@@ -123,6 +137,29 @@ export default function AgendaScreen() {
           </ScrollView>
         </View>
       )}
+
+      <View style={styles.exploreSection}>
+        <Text style={styles.sectionEyebrow}>EXPLORE O BORAJOGO</Text>
+        <Text style={styles.sectionTitle}>Atalhos para organizar</Text>
+        <View style={styles.quickActions}>
+          <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
+            <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={20} color={colors.onAction} /></View>
+            <View style={styles.quickActionCopy}>
+              <Text style={styles.growthCentralTitle}>Central do esporte</Text>
+              <Text style={styles.quickActionDescription}>Recursos, loja e comunidade</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={16} color={colors.primaryDark} />
+          </Pressable>
+          <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
+            <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={19} color={colors.white} /></View>
+            <View style={styles.quickActionCopy}>
+              <Text style={styles.growthCentralTitle}>Operação Pro</Text>
+              <Text style={styles.quickActionDescription}>Gestão avançada do jogo</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={16} color={colors.special} />
+          </Pressable>
+        </View>
+      </View>
 
       {upcoming.length === 0 ? (
         <>
@@ -157,9 +194,28 @@ function greeting() {
   return 'Boa noite';
 }
 
-function PerfStat({ label, value }: { label: string; value: string }) {
+function distanceToGame(date: string) {
+  const diff = new Date(date).getTime() - Date.now();
+  const days = Math.ceil(diff / 86_400_000);
+  if (days <= 0) return 'Hoje';
+  if (days === 1) return 'Amanhã';
+  return `Em ${days} dias`;
+}
+
+function performanceMessage(
+  trend: ReturnType<typeof computeOverallTrend>,
+  activity: ReturnType<typeof computePlayerActivitySummary>,
+) {
+  if (activity.noShows > 0) return `${activity.noShows} falta${activity.noShows > 1 ? 's' : ''} registrada${activity.noShows > 1 ? 's' : ''}. Recupere sua sequência.`;
+  if (trend.direction === 'up' && trend.delta !== null) return `Você subiu ${trend.delta} ponto${trend.delta === 1 ? '' : 's'} nas avaliações recentes.`;
+  if (activity.confirmedUpcoming > 0) return `Presença confirmada em ${activity.confirmedUpcoming} próximo${activity.confirmedUpcoming > 1 ? 's' : ''} jogo${activity.confirmedUpcoming > 1 ? 's' : ''}.`;
+  return 'Entre em campo e receba avaliações para acompanhar sua evolução.';
+}
+
+function PerfStat({ label, value, icon }: { label: string; value: string; icon?: keyof typeof Ionicons.glyphMap }) {
   return (
     <View style={styles.perfStat}>
+      {icon && <Ionicons name={icon} size={15} color={colors.secondary} />}
       <Text style={styles.perfStatValue}>{value}</Text>
       <Text style={styles.perfStatLabel}>{label}</Text>
     </View>
@@ -231,10 +287,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '900',
-    marginBottom: spacing.sm,
+    letterSpacing: -0.25,
   },
+  sectionEyebrow: { color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 2 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, backgroundColor: '#E7F7CF' },
+  datePillText: { color: colors.primaryDark, fontSize: 11, fontWeight: '900' },
   empty: {
     padding: spacing.lg,
   },
@@ -244,19 +304,26 @@ const styles = StyleSheet.create({
   },
   perfCard: {
     marginBottom: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
     backgroundColor: colors.infoSoft,
     borderColor: '#C8DAF7',
+    padding: spacing.lg,
   },
-  quickActions: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  performanceHero: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  overallBlock: { width: 82, minHeight: 82, borderRadius: radius.lg, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  overallValue: { color: colors.white, fontSize: 32, lineHeight: 35, fontWeight: '900', letterSpacing: -1 },
+  overallLabel: { color: '#D7E7FF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  performanceCopy: { flex: 1, gap: 5 },
+  performanceTitle: { color: colors.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.25 },
+  performanceMessage: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  quickActions: { gap: spacing.sm, marginTop: spacing.sm },
   nextGameSection: { marginBottom: spacing.sm },
+  exploreSection: { marginBottom: spacing.xl },
   growthCentral: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.md,
-    marginBottom: 0,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -270,9 +337,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.action,
   },
-  growthCentralTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  growthCentralText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  proCentral: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.lg },
+  quickActionCopy: { flex: 1 },
+  growthCentralTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  quickActionDescription: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  proCentral: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.lg },
   proCentralIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.special },
   perfHeaderRow: {
     flexDirection: 'row',
@@ -294,16 +362,20 @@ const styles = StyleSheet.create({
   },
   perfStatsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   perfStat: {
     alignItems: 'center',
     flex: 1,
+    minHeight: 68,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.64)',
   },
   perfStatValue: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 19,
+    fontWeight: '900',
   },
   perfStatLabel: {
     color: colors.textMuted,
@@ -334,14 +406,19 @@ const styles = StyleSheet.create({
   shortcutsSection: {
     marginBottom: spacing.lg,
   },
+  viewAllButton: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 6, paddingLeft: 10 },
+  viewAllText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
   shortcutsRow: {
     gap: spacing.sm,
     paddingRight: spacing.lg,
   },
   teamShortcut: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: 92,
-    paddingVertical: spacing.md,
+    width: 164,
+    minHeight: 70,
+    padding: spacing.sm,
+    gap: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -352,12 +429,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FFE8',
   },
   teamShortcutBadge: {
-    width: 36,
-    height: 36,
+    width: 42,
+    height: 42,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   teamShortcutIcon: {
     fontSize: 16,
@@ -366,23 +442,25 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 12,
     fontWeight: '800',
-    paddingHorizontal: 4,
+    flex: 1,
   },
   addTeamShortcut: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 92,
+    width: 118,
+    minHeight: 70,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colors.primary,
-    gap: 4,
+    gap: spacing.xs,
   },
   addTeamShortcutText: {
     color: colors.primary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });
