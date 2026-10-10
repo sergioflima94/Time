@@ -2,6 +2,12 @@
 
 ## APK de validação Android
 
+Build de 10/10/2026: [baixar BoraJogo 1.0.0 para Android](https://expo.dev/artifacts/eas/xkzezgAdtm4ympBqux6r8edUhla3A63DTIq3VODHfXE.apk).
+Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
+verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/c3a6a873-8555-47b6-a9e4-513e69def098).
+A compilação e assinatura foram verificadas; os fluxos ainda precisam ser
+validados no aparelho. O APK não é versionado no Git.
+
 O projeto EAS é `@sergiolima/pelada-app`. O perfil **preview** de `eas.json`
 gera um **APK instalável**, não um AAB de loja nem um cliente que depende do
 Expo Go/Metro. Usa o ambiente `preview` do EAS com a URL e chave publicável do
