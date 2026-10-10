@@ -2,9 +2,12 @@
 
 ## APK de validação Android
 
-Build de 10/10/2026: [baixar BoraJogo 1.0.0 para Android](https://expo.dev/artifacts/eas/xkzezgAdtm4ympBqux6r8edUhla3A63DTIq3VODHfXE.apk).
+Build atualizado de 10/10/2026: [baixar BoraJogo 1.0.1 para Android](https://expo.dev/artifacts/eas/kSIXGOjPjuNPHzept00ERElyPZRQ7FZ1sIFMY2lvUcE.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
-verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/c3a6a873-8555-47b6-a9e4-513e69def098).
+verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/fa9f87ae-bb1a-49ac-b2ec-d181a9db571d).
+Versão Android `versionCode=2`, com a mesma assinatura da versão inicial:
+instale por cima do APK 1.0.0, sem desinstalar. Inclui a correção do cadastro e
+do retorno da confirmação de e-mail descrita abaixo.
 A compilação e assinatura foram verificadas; os fluxos ainda precisam ser
 validados no aparelho. O APK não é versionado no Git.
 
