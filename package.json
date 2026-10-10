@@ -9,6 +9,7 @@
     "date-fns": "^4.4.0",
     "dom-to-image": "^2.6.0",
     "expo": "~57.0.27",
+    "expo-build-properties": "~57.0.22",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.21",
     "expo-font": "~57.0.1",
