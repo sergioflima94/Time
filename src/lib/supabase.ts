@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import type { Database } from '@/types/supabase.generated';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+export const supabaseProjectUrl = supabaseUrl ?? null;
 const supabasePublicKey =
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;

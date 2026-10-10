@@ -16,7 +16,8 @@ async function run() {
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
   const errors = [], signups = [], authRequests = [];
-  let resends = 0, allowLogin = false;
+  let resends = 0, allowLogin = false, allowCode = false;
+  const verifications = [];
   page.on('pageerror', e => errors.push(e.message));
   await context.routeWebSocket(/supabase\.co/, ws => ws.close());
   await context.route('https://*.supabase.co/**', async route => {
@@ -28,6 +29,7 @@ async function run() {
     if (url.pathname.endsWith('/platform_configuration')) return route.fulfill({ status: 200, headers, json: { settings: { discoveryEnabled: true, referralsEnabled: true, sponsoredEnabled: false, bookingCommissionPercent: 0, whatsappMonthlyAllowance: 100, trialDays: 14 } } });
     if (url.pathname.endsWith('/signup')) { signups.push(url.searchParams.get('redirect_to')); return route.fulfill({ status: 200, headers, json: user }); }
     if (url.pathname.endsWith('/resend')) { resends++; return route.fulfill({ status: 200, headers, json: {} }); }
+    if (url.pathname.endsWith('/verify')) { verifications.push(route.request().postDataJSON()); return route.fulfill({ status: allowCode ? 200 : 403, headers, json: allowCode ? session : { code: 'otp_expired', msg: 'Token has expired or is invalid' } }); }
     if (url.pathname.endsWith('/token')) return route.fulfill({ status: allowLogin ? 200 : 400, headers, json: allowLogin ? session : { code: 'email_not_confirmed', msg: 'Email not confirmed' } });
     if (url.pathname.endsWith('/user')) return route.fulfill({ status: 200, headers, json: user });
     return route.fulfill({ status: 200, headers, json: [] });
@@ -60,6 +62,31 @@ async function run() {
     assert.equal(resends, 1);
     await page.screenshot({ path: path.join(out, '02-reenvio.png'), fullPage: true });
     await page.clock.resume(); // Navegação/RAF volta ao relógio normal após testar o cooldown.
+    await page.getByRole('button', { name: 'Meu e-mail tem um código', exact: true }).click();
+    await page.getByLabel('Código de confirmação', { exact: true }).fill('12345678');
+    await page.getByRole('button', { name: 'Confirmar e entrar', exact: true }).click();
+    await page.getByText(/Código ou link inválido/).last().waitFor();
+    assert.equal((await savedAuth()).isLoggedIn, false);
+    await page.screenshot({ path: path.join(out, '04-codigo-invalido.png'), fullPage: true });
+    allowCode = true;
+    await page.getByLabel('Código de confirmação', { exact: true }).fill('87654321');
+    await page.getByRole('button', { name: 'Confirmar e entrar', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/', { timeout: 20000 });
+    assert.equal((await savedAuth()).isLoggedIn, true);
+    assert.equal(verifications[1].type, 'email'); assert.equal(verifications[1].email, 'validation@example.invalid');
+    assert.equal(verifications[1].token, '87654321');
+    assert(!JSON.stringify(await savedAuth()).includes('87654321'));
+    await page.evaluate(() => localStorage.clear());
+    await go('/confirmar-email');
+    await page.getByRole('button', { name: 'O link não abriu? Confirmar no app', exact: true }).click();
+    const hash = 'a'.repeat(64);
+    await page.getByLabel('Link de confirmação', { exact: true }).fill(`https://oyhbmbstsiagwljatawq.supabase.co/auth/v1/verify?token=${hash}&type=signup&redirect_to=http://localhost:3000`);
+    await page.getByRole('button', { name: 'Confirmar e entrar', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/', { timeout: 20000 });
+    assert.equal(verifications[2].token_hash, hash);
+    assert.equal((await savedAuth()).isLoggedIn, true);
+    assert(!JSON.stringify(await savedAuth()).includes(hash));
+    await page.evaluate(() => localStorage.clear());
     await go('/auth/callback#error=access_denied&error_code=otp_expired');
     await page.getByText(/Este link expirou/).waitFor();
     await page.waitForURL(url => !url.hash);
@@ -81,7 +108,15 @@ async function run() {
     await page.waitForURL(url => url.pathname === '/', { timeout: 20000 });
     assert.equal((await savedAuth()).isLoggedIn, true);
     assert.deepEqual(errors, []);
-    console.log('PASS: signup leaves form, confirmation screen, login email retained, pending login denied, resend + cooldown, expired callback, warm/cold valid callback session + home + no tokens in URL, confirmed password login. All backend responses stubbed.');
+    // Email layout uses static test placeholders, never a real user/token.
+    const emailPage = await context.newPage();
+    const html = fs.readFileSync(path.resolve('config/mobile-auth/confirmation.html'), 'utf8').replace('{{ .Token }}', '12345678').replace('{{ .ConfirmationURL }}', 'https://example.invalid/verify');
+    await emailPage.setContent(html);
+    assert.equal(await emailPage.locator('a').getAttribute('href'), 'https://example.invalid/verify');
+    assert(await emailPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await emailPage.screenshot({ path: path.join(out, '05-email-borajogo.png'), fullPage: true });
+    await emailPage.close();
+    console.log('PASS: signup, pending login, resend/cooldown, invalid/valid OTP + home, no stored code, expired/warm/cold callback, password login, mobile email template. All backend responses stubbed.');
   } catch (e) {
     await page.screenshot({ path: path.join(out, 'failure.png'), fullPage: true });
     console.log({ pathname: new URL(page.url()).pathname, body: (await page.locator('body').innerText()).slice(0, 2000), auth: await savedAuth(), authRequests });

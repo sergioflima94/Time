@@ -61,6 +61,47 @@ Não precisa criar outra conta. Se continuar pendente, use **Preciso confirmar
 meu e-mail** e solicite uma nova confirmação. E-mails já enviados não são reescritos.
 Reenvio pode ser bloqueado pelos limites do Supabase/SMTP; o erro aparece na tela.
 
+Na versão **1.0.2**, **O link não abriu? Confirmar no app** permite copiar o
+endereço do botão do e-mail e colar somente no próprio aplicativo. A validação
+aceita apenas HTTPS, o domínio do Supabase configurado, `/auth/v1/verify` e tipo
+`signup`/`email`, e confirma o hash no servidor via `verifyOtp`. Não abre o link
+nem segue `redirect_to`: um retorno antigo para localhost não interfere, desde
+que a confirmação não tenha expirado/sido usada. Se já confirmou, entre com senha.
+Links de outros projetos, convites, recuperação e tokens ambíguos são rejeitados.
+O link/código não é persistido nem registrado. Não envie esses dados no chat.
+
+**Meu e-mail tem um código** é uma alternativa opcional: só use se a mensagem
+recebida apresentar um código. O servidor está configurado para 8 dígitos; o app
+aceita 6–10 para compatibilidade, e só libera a Home com uma sessão verificada.
+O modelo padrão atual não mostra código: essa opção não promete um envio diferente.
+
+#### E-mail personalizado: pronto, publicação pendente de SMTP
+
+`config/mobile-auth/confirmation.html` contém o modelo em português com a marca
+BoraJogo, cores do app, código `{{ .Token }}` e botão `{{ .ConfirmationURL }}`.
+O botão sempre passa pela confirmação do Supabase; não substitua por um link
+direto para o app, que pularia a verificação. O layout não depende de imagens externas.
+
+**Em 10/10/2026, o servidor recusou a publicação com HTTP 400**: o plano gratuito
+com provedor padrão não permite modificar o modelo, exigindo SMTP próprio ou
+upgrade. Nenhum plano foi contratado/alterado. O e-mail remoto continua sendo o
+modelo padrão em inglês. O projeto não tem SMTP próprio, e o envio padrão é
+restrito a endereços da equipe: para testar com jogadores reais é necessário
+configurar um serviço SMTP e um remetente autorizado. Não desative a confirmação.
+
+Depois de configurar SMTP em **Authentication → SMTP Settings**, execute no
+PowerShell `./scripts/configure-auth-email.ps1 -Action Inspect`, revise e aplique
+com `-Action Apply`; confirme com `-Action Verify`. O script usa a credencial
+existente do Supabase CLI no Windows (ou `SUPABASE_ACCESS_TOKEN` fornecido no
+ambiente), nunca a chave pública do app. Altera apenas Site URL, redirects e
+assunto/conteúdo da confirmação, preservando redirects web não locais, MFA,
+limites, comprimento/validade do código e credenciais SMTP. Não publica outros
+modelos cujos fluxos ainda não foram validados. Scripts/modelos administrativos
+ficam fora do APK. Credenciais SMTP devem ser inseridas somente no painel seguro.
+
+Referências: [modelos de e-mail](https://supabase.com/docs/guides/auth/auth-email-templates)
+e [SMTP próprio](https://supabase.com/docs/guides/auth/auth-smtp).
+
 Regressões: `node scripts/test-auth-flow.cjs` testa a store e parsing sem servidor;
 `node scripts/test-auth-ui.cjs` testa cadastro, confirmação/reenvio, login pendente
 e callback em Chrome mobile, com as respostas de Auth interceptadas (sem criar

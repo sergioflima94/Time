@@ -12,6 +12,7 @@ screenshots/
 supabase/
 config/mobile-auth/
 scripts/test-*.cjs
+scripts/configure-auth-email.ps1
 .env
 .env.*
 .claude/
