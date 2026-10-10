@@ -57,7 +57,7 @@ export default function AgendaScreen() {
           <Text style={styles.welcomeSubtitle}>Disciplina hoje, resenha amanhã.</Text>
         </View>
         <Pressable style={styles.profileButton} onPress={() => router.push('/(tabs)/perfil')}>
-          <Avatar name={player?.name ?? 'Jogador'} photoUrl={player?.avatarUrl} size={46} />
+          <Avatar name={player?.name ?? 'Jogador'} photoUrl={player?.avatarUrl} size={42} />
         </Pressable>
       </View>
 
@@ -70,16 +70,13 @@ export default function AgendaScreen() {
       {nextGame && (
         <View style={styles.nextGameSection}>
           <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionEyebrow}>SUA PRÓXIMA MISSÃO</Text>
-              <Text style={styles.sectionTitle}>Próximo jogo</Text>
-            </View>
+            <Text style={styles.sectionTitle}>Próximo jogo</Text>
             <View style={styles.datePill}>
               <Ionicons name="time-outline" size={13} color={colors.primaryDark} />
               <Text style={styles.datePillText}>{distanceToGame(nextGame.scheduledAt)}</Text>
             </View>
           </View>
-          <GameCard game={nextGame} />
+          <GameCard game={nextGame} compact />
         </View>
       )}
 
@@ -117,10 +114,7 @@ export default function AgendaScreen() {
       {myPeladas.length > 0 && (
         <View style={styles.shortcutsSection}>
           <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionEyebrow}>ONDE VOCÊ JOGA</Text>
-              <Text style={styles.sectionTitle}>Seus times</Text>
-            </View>
+            <Text style={styles.sectionTitle}>Seus times</Text>
             <Pressable style={styles.viewAllButton} onPress={() => router.push('/(tabs)/times')}>
               <Text style={styles.viewAllText}>Ver todos</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
@@ -267,33 +261,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   brandEyebrow: { color: colors.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 1.8 },
-  welcomeTitle: { color: colors.text, fontSize: 27, fontWeight: '900', letterSpacing: -0.6, marginTop: 3 },
-  welcomeSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 3 },
-  profileButton: { padding: 3, borderRadius: radius.full, borderWidth: 2, borderColor: colors.primary },
+  welcomeTitle: { color: colors.text, fontSize: 24, fontWeight: '900', letterSpacing: -0.5, marginTop: 2 },
+  welcomeSubtitle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  profileButton: { padding: 2, borderRadius: radius.full, borderWidth: 2, borderColor: colors.primary },
   peladaHeader: {
-    marginBottom: spacing.lg,
-    borderLeftWidth: 4,
+    marginBottom: spacing.md,
+    borderLeftWidth: 3,
     borderRadius: radius.md,
     backgroundColor: colors.card,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   peladaDescription: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '900',
     letterSpacing: -0.25,
   },
   sectionEyebrow: { color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 2 },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, backgroundColor: '#E7F7CF' },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.full, backgroundColor: '#E7F7CF' },
   datePillText: { color: colors.primaryDark, fontSize: 11, fontWeight: '900' },
   empty: {
     padding: spacing.lg,
@@ -303,21 +298,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   perfCard: {
-    marginBottom: spacing.lg,
-    gap: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
     backgroundColor: colors.infoSoft,
     borderColor: '#C8DAF7',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
-  performanceHero: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  overallBlock: { width: 82, minHeight: 82, borderRadius: radius.lg, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
-  overallValue: { color: colors.white, fontSize: 32, lineHeight: 35, fontWeight: '900', letterSpacing: -1 },
-  overallLabel: { color: '#D7E7FF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  performanceHero: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  overallBlock: { width: 66, minHeight: 66, borderRadius: radius.md, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  overallValue: { color: colors.white, fontSize: 27, lineHeight: 29, fontWeight: '900', letterSpacing: -0.8 },
+  overallLabel: { color: '#D7E7FF', fontSize: 7, fontWeight: '900', letterSpacing: 0.6 },
   performanceCopy: { flex: 1, gap: 5 },
-  performanceTitle: { color: colors.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.25 },
-  performanceMessage: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
+  performanceTitle: { color: colors.text, fontSize: 16, fontWeight: '900', letterSpacing: -0.2 },
+  performanceMessage: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
   quickActions: { gap: spacing.sm, marginTop: spacing.sm },
-  nextGameSection: { marginBottom: spacing.sm },
+  nextGameSection: { marginBottom: 0 },
   exploreSection: { marginBottom: spacing.xl },
   growthCentral: {
     flexDirection: 'row',
@@ -367,20 +362,19 @@ const styles = StyleSheet.create({
   perfStat: {
     alignItems: 'center',
     flex: 1,
-    minHeight: 68,
+    minHeight: 52,
     justifyContent: 'center',
     borderRadius: radius.md,
     backgroundColor: 'rgba(255,255,255,0.64)',
   },
   perfStatValue: {
     color: colors.text,
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '900',
   },
   perfStatLabel: {
     color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10,
     textAlign: 'center',
   },
   perfRecordText: {
@@ -404,7 +398,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   shortcutsSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   viewAllButton: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 6, paddingLeft: 10 },
   viewAllText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
@@ -415,8 +409,8 @@ const styles = StyleSheet.create({
   teamShortcut: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 164,
-    minHeight: 70,
+    width: 150,
+    minHeight: 58,
     padding: spacing.sm,
     gap: spacing.sm,
     borderRadius: radius.lg,
@@ -429,8 +423,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FFE8',
   },
   teamShortcutBadge: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -448,8 +442,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 118,
-    minHeight: 70,
+    width: 108,
+    minHeight: 58,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,

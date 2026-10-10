@@ -19,7 +19,7 @@ const STATUS_META: Record<Game['status'], { label: string; color: string }> = {
   cancelled: { label: 'Cancelado', color: colors.textFaint },
 };
 
-export function GameCard({ game }: { game: Game }) {
+export function GameCard({ game, compact = false }: { game: Game; compact?: boolean }) {
   const field = useAppStore((s) => s.fields.find((f) => f.id === game.fieldId));
   const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game.peladaId));
   const sport = getSport(pelada?.sportId);
@@ -30,7 +30,7 @@ export function GameCard({ game }: { game: Game }) {
 
   return (
     <Pressable onPress={() => router.push(`/jogo/${game.id}`)}>
-      <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: sport.color }]}>
+      <Card style={[styles.card, compact && styles.compactCard, { borderLeftWidth: 3, borderLeftColor: sport.color }]}>
         <View style={styles.topRow}>
           <View style={styles.statusGroup}>
             <View style={[styles.sportMark, { backgroundColor: `${sport.color}24` }]}>
@@ -45,7 +45,7 @@ export function GameCard({ game }: { game: Game }) {
             </Text>
           </View>
         </View>
-        <Text style={styles.date}>{formatGameDateLong(game.scheduledAt)}</Text>
+        <Text style={[styles.date, compact && styles.compactDate]}>{formatGameDateLong(game.scheduledAt)}</Text>
         <View style={styles.fieldRow}>
           <Ionicons name="location" size={14} color={colors.textMuted} />
           <Text style={styles.fieldText}>{field?.name ?? 'Local a definir'}</Text>
@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     gap: spacing.xs,
   },
+  compactCard: { padding: spacing.md, borderRadius: 16, marginBottom: spacing.sm },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -85,6 +86,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.25,
     marginTop: spacing.xs,
   },
+  compactDate: { fontSize: 16, marginTop: 2 },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
