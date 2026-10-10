@@ -6,10 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { useSports } from '@/constants/sports';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function CriarPeladaScreen() {
+  const SPORTS = useSports();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const createPelada = useAppStore((s) => s.createPelada);
   const [name, setName] = useState('');

@@ -2714,7 +2714,9 @@ export type Database = {
           home_name: string
           id: string
           max_segments: number | null
+          period_minutes: number
           score_unit: string
+          score_values: Json
           segments_to_win: number | null
           sport_id: string
           status: string
@@ -2730,7 +2732,9 @@ export type Database = {
           home_name: string
           id?: string
           max_segments?: number | null
+          period_minutes?: number
           score_unit: string
+          score_values?: Json
           segments_to_win?: number | null
           sport_id: string
           status?: string
@@ -2746,7 +2750,9 @@ export type Database = {
           home_name?: string
           id?: string
           max_segments?: number | null
+          period_minutes?: number
           score_unit?: string
+          score_values?: Json
           segments_to_win?: number | null
           sport_id?: string
           status?: string
@@ -3111,6 +3117,110 @@ export type Database = {
           },
         ]
       }
+      platform_account_controls: {
+        Row: {
+          player_id: string
+          reason: string
+          suspended: boolean
+          updated_at: string
+        }
+        Insert: {
+          player_id: string
+          reason: string
+          suspended?: boolean
+          updated_at?: string
+        }
+        Update: {
+          player_id?: string
+          reason?: string
+          suspended?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_account_controls_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_admin_accounts: {
+        Row: {
+          active: boolean
+          auth_user_id: string
+          created_at: string
+          role: string
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id: string
+          created_at?: string
+          role: string
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string
+          created_at?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      platform_admin_audit: {
+        Row: {
+          action: string
+          actor_auth_user_id: string | null
+          after_value: Json | null
+          before_value: Json | null
+          created_at: string
+          id: string
+          reason: string
+          target_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_auth_user_id?: string | null
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string
+          id?: string
+          reason: string
+          target_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_auth_user_id?: string | null
+          after_value?: Json | null
+          before_value?: Json | null
+          created_at?: string
+          id?: string
+          reason?: string
+          target_id?: string | null
+        }
+        Relationships: []
+      }
+      platform_configuration: {
+        Row: {
+          id: boolean
+          revision: number
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          revision?: number
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          revision?: number
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       player_duels: {
         Row: {
           challenged_id: string
@@ -3417,6 +3527,77 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_game_join_requests: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          player_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          player_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          player_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_game_join_requests_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_game_join_requests_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_game_listings: {
+        Row: {
+          description: string
+          game_id: string
+          level: string
+          published: boolean
+          updated_at: string
+        }
+        Insert: {
+          description?: string
+          game_id: string
+          level?: string
+          published?: boolean
+          updated_at?: string
+        }
+        Update: {
+          description?: string
+          game_id?: string
+          level?: string
+          published?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_game_listings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: true
+            referencedRelation: "games"
             referencedColumns: ["id"]
           },
         ]
@@ -4261,6 +4442,27 @@ export type Database = {
           },
         ]
       }
+      sport_catalog: {
+        Row: {
+          definition: Json
+          id: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          definition: Json
+          id: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          definition?: Json
+          id?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sport_highlights: {
         Row: {
           created_at: string
@@ -5006,6 +5208,10 @@ export type Database = {
         Args: { p_establishment_id: string }
         Returns: boolean
       }
+      can_receive_establishment_payment: {
+        Args: { p_establishment_id: string }
+        Returns: boolean
+      }
       fundraising_campaign_feed: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -5036,12 +5242,38 @@ export type Database = {
         Args: { p_game_id: string; p_player_id: string; p_token: string }
         Returns: string
       }
+      list_open_games: {
+        Args: { p_query?: string; p_sport?: string }
+        Returns: Json
+      }
+      open_game_admin_data: { Args: { p_game_id: string }; Returns: Json }
+      platform_account_allowed: { Args: never; Returns: boolean }
+      platform_admin_role: { Args: never; Returns: string }
+      platform_console_action: {
+        Args: {
+          p_action: string
+          p_id: string
+          p_payload: Json
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      platform_console_snapshot: { Args: { p_query?: string }; Returns: Json }
       player_banter_summary: {
         Args: { p_target_player_id: string }
         Returns: {
           badge: string
           vote_count: number
         }[]
+      }
+      publish_open_game: {
+        Args: {
+          p_description: string
+          p_game_id: string
+          p_level: string
+          p_published: boolean
+        }
+        Returns: undefined
       }
       redeem_game_checkin: {
         Args: {
@@ -5052,6 +5284,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      request_open_game: { Args: { p_game_id: string }; Returns: string }
       respond_game_booking_request: {
         Args: {
           p_accepted: boolean
@@ -5059,6 +5292,14 @@ export type Database = {
           p_response_message_id: string
         }
         Returns: string
+      }
+      respond_open_game_request: {
+        Args: { p_accept: boolean; p_request_id: string }
+        Returns: string
+      }
+      save_platform_sport: {
+        Args: { p_definition: Json; p_reason: string; p_revision: number }
+        Returns: undefined
       }
       settle_sale_payment_intent: {
         Args: { p_intent_id: string }

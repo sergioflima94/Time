@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { colors, radius, spacing } from '@/constants/theme';
 import { daysUntilExpiry, isPremiumActive } from '@/lib/premium';
+import { isMockMode } from '@/lib/supabase';
+import { useProStore } from '@/store/useProStore';
 
 const BENEFITS = [
   'Sem anúncios em nenhuma tela',
@@ -29,11 +31,14 @@ interface PremiumSectionProps {
 }
 
 export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscribe, onCancelAutoRenew }: PremiumSectionProps) {
+  const offer = useProStore(s => s.plans.find(p => p.audience === 'player' && p.active));
+  const price = offer?.monthlyPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const active = isPremiumActive({ premiumUntil });
 
   function handleConfirm() {
+    if (!isMockMode) return;
     setLoading(true);
     // Checkout simulado (modo demonstração): em produção isso abre a tela nativa de
     // assinatura da App Store / Google Play — a cobrança e a renovação mensal ficam
@@ -49,7 +54,7 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
     if (MANAGE_SUBSCRIPTION_URL) {
       Linking.openURL(MANAGE_SUBSCRIPTION_URL).catch(() => {});
     }
-    onCancelAutoRenew();
+    if (isMockMode) onCancelAutoRenew();
   }
 
   if (active) {
@@ -97,7 +102,8 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
 
       {!checkoutOpen ? (
         <Button
-          label={expired ? 'Assinar de novo — R$ 9,90/mês' : 'Assinar por R$ 9,90/mês'}
+          label={!isMockMode ? 'Assinatura em preparação' : `Simular Premium — ${price ?? 'Oferta indisponível'}/mês`}
+          disabled={!isMockMode || !offer}
           onPress={() => setCheckoutOpen(true)}
           style={{ marginTop: spacing.sm }}
         />

@@ -19,6 +19,7 @@ import type {
 } from '@/types/pro';
 import { createUuid } from '@/lib/uuid';
 import { useAppStore } from '@/store/useAppStore';
+import { isMockMode } from '@/lib/supabase';
 
 const now = () => new Date().toISOString();
 const uid = createUuid;
@@ -47,7 +48,7 @@ interface ProState {
   recordReliability: (input: Omit<ReliabilityEvent, 'id' | 'createdAt'>) => void;
   createSeason: (peladaId: string, sportId: string, name: string, playerIds: string[]) => string;
   simulateSeasonRound: (seasonId: string) => void;
-  subscribe: (planId: string, subscriberId: string) => void;
+  subscribe: (planId: string, subscriberId: string, trialDays?: number) => void;
   createReferral: (ownerPlayerId: string) => ReferralCampaign;
   redeemReferral: (code: string, playerId: string) => { ok: boolean; message: string };
   createModerationReport: (reporterPlayerId: string, targetType: ModerationReport['targetType'], targetId: string, reason: ModerationReason, details?: string) => void;
@@ -122,8 +123,10 @@ export const useProStore = create<ProState>()(
             : { ...row, games: row.games + 1, losses: row.losses + 1, points: row.points + 1 }),
         auditEvents: [...state.auditEvents, audit(useAppStore.getState().currentPlayerId, 'team', seasonId, 'season.round_recorded', 'Rodada registrada na classificação')],
       })),
-      subscribe: (planId, subscriberId) => {
-        const period = new Date(); period.setMonth(period.getMonth() + 1);
+      subscribe: (planId, subscriberId, trialDays = 14) => {
+        if (!isMockMode) return;
+        if (!Number.isInteger(trialDays) || trialDays < 1 || trialDays > 30) return;
+        const period = new Date(Date.now() + trialDays * 86400000);
         set((state) => ({ subscriptions: [...state.subscriptions.filter((row) => !(row.planId === planId && row.subscriberId === subscriberId)), { id: uid(), planId, subscriberId, status: 'trial', currentPeriodEnd: period.toISOString(), createdAt: now() }], auditEvents: [...state.auditEvents, audit(useAppStore.getState().currentPlayerId, 'payment', subscriberId, 'subscription.started', `Assinatura ${planId} iniciada em demonstração`)] }));
       },
       createReferral: (ownerPlayerId) => {
@@ -146,7 +149,10 @@ export const useProStore = create<ProState>()(
         return { ok: true, message: 'Indicação registrada. O bônus será liberado após o primeiro jogo pago.' };
       },
       createModerationReport: (reporterPlayerId, targetType, targetId, reason, details) => set((state) => ({ moderationReports: [...state.moderationReports, { id: uid(), reporterPlayerId, targetType, targetId, reason, details: details?.trim() || null, status: 'open', createdAt: now(), resolvedAt: null }], auditEvents: [...state.auditEvents, audit(reporterPlayerId, targetType, targetId, 'moderation.reported', 'Conteúdo enviado para moderação')] })),
-      resolveModerationReport: (reportId, actorPlayerId) => set((state) => ({ moderationReports: state.moderationReports.map((row) => row.id === reportId ? { ...row, status: 'resolved', resolvedAt: now() } : row), auditEvents: [...state.auditEvents, audit(actorPlayerId, 'player', reportId, 'moderation.resolved', 'Denúncia analisada e encerrada')] })),
+      resolveModerationReport: (reportId, actorPlayerId) => {
+        if (!isMockMode || actorPlayerId !== 'p1') return;
+        set((state) => ({ moderationReports: state.moderationReports.map((row) => row.id === reportId ? { ...row, status: 'resolved', resolvedAt: now() } : row), auditEvents: [...state.auditEvents, audit(actorPlayerId, 'player', reportId, 'moderation.resolved', 'Denúncia analisada e encerrada')] }));
+      },
       enqueueSync: (aggregate, aggregateId, operation, payload) => set((state) => ({ syncQueue: [...state.syncQueue, { id: uid(), aggregate, aggregateId, operation, payload, status: 'pending', attempts: 0, lastError: null, createdAt: now(), syncedAt: null }] })),
       updateSyncMutation: (id, patch) => set((state) => ({ syncQueue: state.syncQueue.map((row) => row.id === id ? { ...row, ...patch } : row) })),
     }),

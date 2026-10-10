@@ -10,13 +10,14 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
-import { SPORTS, getSport } from '@/constants/sports';
+import { useSports, getSport } from '@/constants/sports';
 import { colors, spacing } from '@/constants/theme';
 import { formatDateTime, formatMoney } from '@/lib/establishmentOperations';
 import { useAppStore } from '@/store/useAppStore';
 import type { ClassBillingType, ClassFormat } from '@/types';
 
 export default function ClassesManagementScreen() {
+  const SPORTS = useSports();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const { establishmentId } = useLocalSearchParams<{ establishmentId?: string }>();
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === establishmentId && e.ownerPlayerId === currentPlayerId) ?? s.establishments.find((e) => e.ownerPlayerId === currentPlayerId));

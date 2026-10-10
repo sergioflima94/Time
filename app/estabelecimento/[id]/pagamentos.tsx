@@ -40,7 +40,7 @@ export default function PaymentGatewaysScreen() {
           <Text style={styles.sectionTitle}>{connection ? getGateway(connection.provider).label : 'Nenhum gateway conectado'}</Text>
           <Text style={styles.meta}>{connection?.accountLabel ?? 'Escolha onde o estabelecimento quer receber.'}</Text>
         </View>
-        {connection && <Badge label="CONECTADO" color={colors.success} />}
+        {connection && <Badge label={connection.status === 'connected' ? connection.provider === 'manual_pix' ? 'MANUAL' : 'CONECTADO' : 'PENDENTE'} color={connection.status === 'connected' ? colors.success : colors.warning} />}
       </Card>
 
       {isMockMode && <View style={styles.demoBanner}><Ionicons name="flask" size={18} color={colors.warning} /><Text style={styles.demoText}>Modo demonstração: conectar é instantâneo. Em produção, OAuth, tokens e certificados passam pelas Edge Functions e pelo Vault.</Text></View>}
@@ -63,7 +63,7 @@ export default function PaymentGatewaysScreen() {
               {gateway.contactless && <Badge label="APROXIMAÇÃO" color={colors.warning} />}
             </View>
             <Text style={styles.hint}>{gateway.connectionHint}</Text>
-            <Button label={active ? 'Gateway em uso' : gateway.id === 'manual_pix' ? 'Usar Pix manual' : 'Conectar conta'} variant={active ? 'secondary' : 'outline'} onPress={() => connect(gateway.id)} disabled={active} />
+            <Button label={active ? 'Gateway em uso' : gateway.id === 'manual_pix' ? 'Usar Pix manual' : isMockMode ? 'Simular conexão' : 'Aguardando integração autorizada'} variant={active ? 'secondary' : 'outline'} onPress={() => connect(gateway.id)} disabled={active || (!isMockMode && gateway.id !== 'manual_pix')} />
           </Card>
         );
       })}

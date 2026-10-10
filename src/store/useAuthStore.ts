@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>()(
           password,
           options: { data: profile ? { name: profile.name, phone: profile.phone, preferred_position: profile.preferredPosition, favorite_sports: profile.favoriteSports } : undefined },
         });
-        set({ loading: false, isLoggedIn: Boolean(data.session || data.user), authUserId: data.user?.id ?? null, error: error?.message ?? null });
+        set({ loading: false, isLoggedIn: Boolean(data.session), authUserId: data.session?.user.id ?? null, error: error?.message ?? null });
         return !error && Boolean(data.session || data.user);
       },
       logout: async () => {

@@ -1142,6 +1142,7 @@ begin
     to_char(r.requested_start_at at time zone 'America/Sao_Paulo', 'HH24:MI'),
     r.duration_minutes, 'Confirmado automaticamente pelo WhatsApp (' || r.code || ')', g.created_by
   );
+
   update games set field_id = r.field_id where id = g.id;
   update game_booking_requests set status = 'accepted', responded_at = now(), response_message_id = p_response_message_id where id = r.id;
   return 'accepted';
@@ -2561,3 +2562,449 @@ create policy "audit_actor_insert"
       where p.id = actor_player_id and p.auth_user_id = auth.uid()
     )
   );
+
+-- Source: migrations/20261010000000_platform_console.sql
+-- Console da plataforma. Nenhum papel é concedido por cadastro/user_metadata.
+create table public.platform_admin_accounts (
+  auth_user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null check (role in ('owner', 'admin', 'support')),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create table public.platform_configuration (
+  id boolean primary key default true check (id),
+  revision integer not null default 1,
+  settings jsonb not null default '{"discoveryEnabled":true,"referralsEnabled":true,"sponsoredEnabled":false,"bookingCommissionPercent":0,"whatsappMonthlyAllowance":100,"trialDays":14}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+insert into public.platform_configuration(id) values (true);
+create table public.platform_account_controls (
+  player_id uuid primary key references public.players(id) on delete cascade,
+  suspended boolean not null default false,
+  reason text not null,
+  updated_at timestamptz not null default now()
+);
+create table public.platform_admin_audit (
+  id uuid primary key default gen_random_uuid(),
+  actor_auth_user_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  target_id text,
+  reason text not null,
+  before_value jsonb,
+  after_value jsonb,
+  created_at timestamptz not null default now()
+);
+alter table public.platform_admin_accounts enable row level security;
+alter table public.platform_configuration enable row level security;
+alter table public.platform_account_controls enable row level security;
+alter table public.platform_admin_audit enable row level security;
+revoke all on public.platform_admin_accounts, public.platform_account_controls, public.platform_admin_audit from anon, authenticated;
+grant select on public.platform_configuration to anon, authenticated;
+create policy platform_configuration_read on public.platform_configuration for select using (true);
+
+create function public.platform_account_allowed() returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select auth.uid() is not null and not exists (
+    select 1 from public.platform_account_controls c join public.players p on p.id = c.player_id
+    where p.auth_user_id = auth.uid() and c.suspended
+  );
+$$;
+create function public.platform_admin_role() returns text
+language sql stable security definer set search_path = public, pg_temp as $$
+  select role from public.platform_admin_accounts
+  where auth_user_id = auth.uid() and active and public.platform_account_allowed();
+$$;
+revoke all on function public.platform_account_allowed(), public.platform_admin_role() from public;
+grant execute on function public.platform_account_allowed(), public.platform_admin_role() to authenticated;
+
+-- Um token antigo de conta suspensa não continua escrevendo nas tabelas do app.
+do $$ declare t record; begin
+  for t in select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+      and c.relname not like 'platform_%'
+  loop
+    execute format('create policy platform_active_account on public.%I as restrictive for all to authenticated using (public.platform_account_allowed()) with check (public.platform_account_allowed())', t.relname);
+  end loop;
+end $$;
+
+-- Resolução de denúncia é exclusiva de um moderador da plataforma.
+drop policy if exists moderation_reporter_update on public.moderation_reports;
+
+create function public.platform_console_snapshot(p_query text default '') returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare admin_role text; result jsonb; q text := left(coalesce(p_query, ''), 80);
+begin
+  admin_role := public.platform_admin_role();
+  if admin_role is null then raise exception 'Acesso exclusivo da administração da plataforma' using errcode = '42501'; end if;
+  select jsonb_build_object(
+    'role', admin_role,
+    'configuration', (select jsonb_build_object('revision', revision, 'settings', settings) from public.platform_configuration where id),
+    'metrics', jsonb_build_object(
+      'players', (select count(*) from public.players where not is_guest),
+      'teams', (select count(*) from public.peladas),
+      'establishments', (select count(*) from public.establishments),
+      'upcomingGames', (select count(*) from public.games where scheduled_at >= now() and status not in ('cancelled','finished')),
+      'openReports', (select count(*) from public.moderation_reports where status in ('open','reviewing')),
+      'activeSubscriptions', (select count(*) from public.commercial_subscriptions where status = 'active' and current_period_end > now())
+    ),
+    'players', coalesce((select jsonb_agg(x) from (
+      select p.id, p.name, p.nickname, p.auth_user_id as "authUserId", p.created_at as "createdAt", coalesce(c.suspended,false) as suspended
+      from public.players p left join public.platform_account_controls c on c.player_id = p.id
+      where not p.is_guest and (q = '' or p.name ilike '%' || q || '%' or p.nickname ilike '%' || q || '%')
+      order by p.created_at desc limit 100
+    ) x), '[]'::jsonb),
+    'teams', coalesce((select jsonb_agg(x) from (
+      select id, name, sport_id as "sportId", created_at as "createdAt" from public.peladas
+      where q = '' or name ilike '%' || q || '%' order by created_at desc limit 100
+    ) x), '[]'::jsonb),
+    'establishments', coalesce((select jsonb_agg(x) from (
+      select e.id, e.name, e.owner_player_id as "ownerPlayerId", (select count(*) from public.fields f where f.establishment_id = e.id) as "fieldCount"
+      from public.establishments e where q = '' or e.name ilike '%' || q || '%' order by e.created_at desc limit 100
+    ) x), '[]'::jsonb),
+    'plans', coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'audience',audience,'monthlyPrice',monthly_price,'benefits',benefits,'highlighted',highlighted,'active',active)) from public.commercial_plans), '[]'::jsonb),
+    'reports', coalesce((select jsonb_agg(x) from (
+      select id, target_id as "targetId", target_type as "targetType", reason, details, status, created_at as "createdAt"
+      from public.moderation_reports order by created_at desc limit 100
+    ) x), '[]'::jsonb),
+    'admins', case when admin_role = 'owner' then coalesce((select jsonb_agg(jsonb_build_object('authUserId',a.auth_user_id,'name',coalesce(p.name,'Conta cadastrada'),'role',a.role,'active',a.active)) from public.platform_admin_accounts a left join public.players p on p.auth_user_id = a.auth_user_id),'[]'::jsonb) else '[]'::jsonb end,
+    'audit', coalesce((select jsonb_agg(x) from (
+      select id, action, target_id as "targetId", reason, created_at as "createdAt" from public.platform_admin_audit order by created_at desc limit 100
+    ) x), '[]'::jsonb)
+  ) into result;
+  return result;
+end $$;
+
+create function public.platform_console_action(p_action text, p_id uuid, p_payload jsonb, p_reason text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare admin_role text; previous jsonb; changed jsonb; config public.platform_configuration; target_player public.players; requested_role text;
+begin
+  admin_role := public.platform_admin_role();
+  if admin_role is null then raise exception 'Acesso negado' using errcode = '42501'; end if;
+  if length(trim(coalesce(p_reason,''))) < 8 then raise exception 'Informe um motivo com pelo menos 8 caracteres'; end if;
+  if p_action is null or jsonb_typeof(p_payload) is distinct from 'object' or p_action not in ('report','settings','plan','account','admin') then raise exception 'Ação não permitida'; end if;
+  if admin_role = 'support' and p_action <> 'report' then raise exception 'Suporte só pode tratar denúncias' using errcode = '42501'; end if;
+  if p_action = 'settings' then
+    select * into config from public.platform_configuration where id for update;
+    if (p_payload->>'revision')::integer is distinct from config.revision then raise exception 'Configuração mudou. Atualize antes de salvar.' using errcode = '40001'; end if;
+    changed := p_payload->'settings';
+    if jsonb_typeof(changed) is distinct from 'object' then raise exception 'Configuração inválida'; end if;
+    if (select count(*) from jsonb_object_keys(changed)) <> 6
+      or not changed ?& array['discoveryEnabled','referralsEnabled','sponsoredEnabled','bookingCommissionPercent','whatsappMonthlyAllowance','trialDays']
+      or jsonb_typeof(changed->'discoveryEnabled') is distinct from 'boolean' or jsonb_typeof(changed->'referralsEnabled') is distinct from 'boolean' or jsonb_typeof(changed->'sponsoredEnabled') is distinct from 'boolean'
+      or jsonb_typeof(changed->'bookingCommissionPercent') is distinct from 'number' or (changed->>'bookingCommissionPercent')::numeric not between 0 and 20
+      or jsonb_typeof(changed->'whatsappMonthlyAllowance') is distinct from 'number' or (changed->>'whatsappMonthlyAllowance')::numeric not between 0 and 10000
+      or jsonb_typeof(changed->'trialDays') is distinct from 'number' or (changed->>'trialDays')::numeric not between 1 and 30
+      or (changed->>'trialDays')::numeric <> trunc((changed->>'trialDays')::numeric)
+      or (changed->>'whatsappMonthlyAllowance')::numeric <> trunc((changed->>'whatsappMonthlyAllowance')::numeric)
+    then raise exception 'Configuração inválida'; end if;
+    previous := config.settings;
+    update public.platform_configuration set settings = changed, revision = revision + 1, updated_at = now() where id;
+  elsif p_action = 'plan' then
+    select to_jsonb(p) into previous from public.commercial_plans p where id = p_id for update;
+    if previous is null then raise exception 'Plano não encontrado'; end if;
+    if jsonb_typeof(p_payload->'monthlyPrice') is distinct from 'number' or (p_payload->>'monthlyPrice')::numeric not between 0 and 10000
+      or length(trim(coalesce(p_payload->>'name',''))) not between 3 and 80 or jsonb_typeof(p_payload->'active') is distinct from 'boolean'
+    then raise exception 'Nome, preço ou estado inválidos'; end if;
+    update public.commercial_plans set name = trim(p_payload->>'name'), monthly_price = (p_payload->>'monthlyPrice')::numeric, active = (p_payload->>'active')::boolean where id = p_id returning to_jsonb(commercial_plans.*) into changed;
+  elsif p_action = 'report' then
+    if coalesce(p_payload->>'status','') not in ('reviewing','resolved','dismissed') then raise exception 'Estado de denúncia inválido'; end if;
+    select to_jsonb(r) into previous from public.moderation_reports r where id = p_id for update;
+    if previous is null then raise exception 'Denúncia não encontrada'; end if;
+    update public.moderation_reports set status = p_payload->>'status', resolved_at = case when p_payload->>'status' in ('resolved','dismissed') then now() else null end where id = p_id returning to_jsonb(moderation_reports.*) into changed;
+  elsif p_action = 'account' then
+    select * into target_player from public.players where id = p_id;
+    if target_player.id is null then raise exception 'Conta não encontrada'; end if;
+    if exists (select 1 from public.platform_admin_accounts where auth_user_id = target_player.auth_user_id and active) then raise exception 'Revogue o papel administrativo antes de suspender a conta'; end if;
+    if jsonb_typeof(p_payload->'suspended') is distinct from 'boolean' then raise exception 'Estado inválido'; end if;
+    select to_jsonb(c) into previous from public.platform_account_controls c where player_id = p_id for update;
+    insert into public.platform_account_controls(player_id,suspended,reason) values (p_id,(p_payload->>'suspended')::boolean,trim(p_reason))
+      on conflict(player_id) do update set suspended = excluded.suspended, reason = excluded.reason, updated_at = now() returning to_jsonb(platform_account_controls.*) into changed;
+  elsif p_action = 'admin' then
+    if admin_role <> 'owner' then raise exception 'Só o proprietário gerencia administradores' using errcode = '42501'; end if;
+    -- Serializa revogações concorrentes para não remover todos os proprietários.
+    perform 1 from public.platform_admin_accounts order by auth_user_id for update;
+    requested_role := p_payload->>'role';
+    if requested_role not in ('owner','admin','support') or requested_role is null or jsonb_typeof(p_payload->'active') is distinct from 'boolean' then raise exception 'Papel inválido'; end if;
+    if not exists (select 1 from auth.users where id = p_id) then raise exception 'A conta deve existir no Supabase Auth'; end if;
+    if exists (select 1 from public.platform_account_controls c join public.players p on p.id = c.player_id where p.auth_user_id = p_id and c.suspended) then raise exception 'Reative a conta antes de conceder um papel'; end if;
+    select to_jsonb(a) into previous from public.platform_admin_accounts a where auth_user_id = p_id;
+    if previous->>'role' = 'owner' and (requested_role <> 'owner' or not (p_payload->>'active')::boolean)
+      and (select count(*) from public.platform_admin_accounts where role = 'owner' and active) <= 1 then raise exception 'A plataforma precisa manter um proprietário ativo'; end if;
+    insert into public.platform_admin_accounts(auth_user_id,role,active) values(p_id,requested_role,(p_payload->>'active')::boolean)
+      on conflict(auth_user_id) do update set role = excluded.role, active = excluded.active returning to_jsonb(platform_admin_accounts.*) into changed;
+  end if;
+  insert into public.platform_admin_audit(actor_auth_user_id,action,target_id,reason,before_value,after_value)
+    values(auth.uid(),p_action,p_id::text,trim(p_reason),previous,changed);
+end $$;
+revoke all on function public.platform_console_snapshot(text), public.platform_console_action(text,uuid,jsonb,text) from public;
+grant execute on function public.platform_console_snapshot(text), public.platform_console_action(text,uuid,jsonb,text) to authenticated;
+
+create function public.can_receive_establishment_payment(p_establishment_id uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select public.platform_account_allowed() and (
+    public.is_establishment_owner(p_establishment_id) or exists (
+      select 1 from public.establishment_staff s join public.players p on p.id = s.player_id
+      where s.establishment_id = p_establishment_id and s.active and s.roles && array['manager','cashier']::text[] and p.auth_user_id = auth.uid()
+    )
+  );
+$$;
+revoke all on function public.can_receive_establishment_payment(uuid) from public;
+grant execute on function public.can_receive_establishment_payment(uuid) to authenticated;
+
+-- Guarda de campos financeiros da aula: o aluno não dá baixa no próprio Pix.
+create function public.guard_class_enrollment_payment() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare establishment_id uuid; price_now numeric;
+begin
+  if auth.role() = 'service_role' or auth.uid() is null then return new; end if;
+  select cp.establishment_id,cp.price into establishment_id,price_now from public.class_sessions cs join public.class_programs cp on cp.id = cs.program_id where cs.id = new.session_id;
+  if tg_op = 'INSERT' then
+    if not public.can_receive_establishment_payment(establishment_id) and (new.amount is distinct from price_now or new.is_trial or new.paid_at is not null or new.payment_method is not null) then raise exception 'Valor/isenção da aula precisa ser autorizado pela operação'; end if;
+    if new.payment_status <> 'pending' and not public.can_receive_establishment_payment(establishment_id) then raise exception 'Somente a operação confirma dispensa/pagamento'; end if;
+    if new.payment_status in ('paid','refunded') then raise exception 'Pagamento online/reembolso exige confirmação do provedor'; end if;
+  elsif new.payment_status is distinct from old.payment_status or new.paid_at is distinct from old.paid_at or new.amount is distinct from old.amount or new.payment_method is distinct from old.payment_method then
+    if not public.can_receive_establishment_payment(establishment_id) then raise exception 'Dados financeiros são gerenciados pelo estabelecimento'; end if;
+    if new.payment_status = 'paid' and new.payment_method not in ('cash') then raise exception 'Pix/cartão exige confirmação pelo provedor'; end if;
+    if new.payment_status = 'refunded' then raise exception 'Reembolso exige confirmação pelo provedor'; end if;
+  end if;
+  return new;
+end $$;
+create trigger class_payment_verified before insert or update on public.class_enrollments for each row execute function public.guard_class_enrollment_payment();
+
+-- Cliente não inventa testes ilimitados, benefícios Premium ou conexão OAuth.
+drop policy if exists subscriptions_start_trial on public.commercial_subscriptions;
+create function public.guard_player_premium() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null or auth.role() = 'service_role' then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.premium_until is not null or new.premium_since is not null or new.premium_auto_renew then raise exception 'Premium exige confirmação da loja'; end if;
+  elsif new.premium_until is distinct from old.premium_until or new.premium_since is distinct from old.premium_since or new.premium_auto_renew is distinct from old.premium_auto_renew then raise exception 'Premium exige confirmação da loja'; end if;
+  return new;
+end $$;
+create trigger player_premium_verified before insert or update on public.players for each row execute function public.guard_player_premium();
+
+create function public.guard_gateway_connection() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null or auth.role() = 'service_role' then return new; end if;
+  if new.provider <> 'manual_pix' then
+    if tg_op = 'INSERT' or new is distinct from old then raise exception 'Conexão de gateway é confirmada pelo provedor no backend'; end if;
+  elsif new.credential_secret_id is not null or new.card_enabled or new.contactless_enabled then raise exception 'Pix manual não possui credencial ou cartão'; end if;
+  return new;
+end $$;
+create trigger gateway_connection_verified before insert or update on public.payment_gateway_connections for each row execute function public.guard_gateway_connection();
+
+-- Source: migrations/20261010010000_open_game_discovery.sql
+-- Divulgação opt-in: nunca transforma automaticamente uma pelada privada em pública.
+create table public.public_game_listings (
+  game_id uuid primary key references public.games(id) on delete cascade,
+  published boolean not null default false,
+  level text not null default 'all' check (level in ('all','beginner','intermediate','advanced')),
+  description text not null default '' check (length(description) <= 500),
+  updated_at timestamptz not null default now()
+);
+create table public.public_game_join_requests (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null references public.games(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending','accepted','declined')),
+  created_at timestamptz not null default now(),
+  unique(game_id,player_id)
+);
+alter table public.public_game_listings enable row level security;
+alter table public.public_game_join_requests enable row level security;
+revoke all on public.public_game_listings, public.public_game_join_requests from anon, authenticated;
+
+create function public.publish_open_game(p_game_id uuid, p_published boolean, p_level text, p_description text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare g public.games;
+begin
+  select * into g from public.games where id = p_game_id;
+  if not public.platform_account_allowed() or not public.is_admin_of_pelada(g.pelada_id) then raise exception 'Somente o administrador deste time publica o jogo' using errcode = '42501'; end if;
+  if p_level not in ('all','beginner','intermediate','advanced') or p_level is null or p_published is null or length(coalesce(p_description,'')) > 500 then raise exception 'Publicação inválida'; end if;
+  if p_published and (g.scheduled_at <= now() or g.status not in ('open','full')) then raise exception 'Só jogos futuros com chamada aberta podem ser publicados'; end if;
+  insert into public.public_game_listings(game_id,published,level,description) values(p_game_id,p_published,p_level,coalesce(p_description,''))
+    on conflict(game_id) do update set published = excluded.published, level = excluded.level, description = excluded.description, updated_at = now();
+end $$;
+
+create function public.list_open_games(p_sport text default null, p_query text default '') returns jsonb
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if not public.platform_account_allowed() then raise exception 'Entre com uma conta ativa para descobrir jogos' using errcode = '42501'; end if;
+  if not coalesce((select (settings->>'discoveryEnabled')::boolean from public.platform_configuration where id),false) then return '[]'::jsonb; end if;
+  return coalesce((select jsonb_agg(row) from (
+    select g.id as "gameId", p.name as "teamName", p.sport_id as "sportId", f.name as "fieldName", f.address,
+      g.scheduled_at as "scheduledAt", g.duration_minutes as "durationMinutes", g.max_players as "maxPlayers", g.field_cost as "fieldCost", l.level, l.description,
+      (select count(*) from public.attendances a where a.game_id = g.id and a.status = 'confirmed') as "confirmedCount",
+      (select r.status from public.public_game_join_requests r join public.players me on me.id = r.player_id where r.game_id = g.id and me.auth_user_id = auth.uid()) as "requestStatus"
+    from public.public_game_listings l join public.games g on g.id = l.game_id join public.peladas p on p.id = g.pelada_id join public.fields f on f.id = g.field_id
+    where l.published and g.status in ('open','full') and g.scheduled_at > now()
+      and (p_sport is null or p.sport_id = p_sport)
+      and (coalesce(p_query,'') = '' or p.name ilike '%'||left(p_query,80)||'%' or f.name ilike '%'||left(p_query,80)||'%' or f.address ilike '%'||left(p_query,80)||'%')
+    order by g.scheduled_at limit 100
+  ) row),'[]'::jsonb);
+end $$;
+
+create function public.request_open_game(p_game_id uuid) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me_player_id uuid; g public.games; request_status text;
+begin
+  if not public.platform_account_allowed() or not coalesce((select (settings->>'discoveryEnabled')::boolean from public.platform_configuration where id),false) then raise exception 'Solicitações indisponíveis'; end if;
+  select id into me_player_id from public.players where auth_user_id = auth.uid();
+  if me_player_id is null then raise exception 'Complete seu perfil antes de solicitar'; end if;
+  select * into g from public.games where id = p_game_id;
+  if not exists(select 1 from public.public_game_listings where game_id = p_game_id and published) or g.scheduled_at <= now() or g.status not in ('open','full') then raise exception 'Jogo indisponível'; end if;
+  if exists(select 1 from public.attendances a where a.game_id = p_game_id and a.player_id = me_player_id and a.status in ('confirmed','waitlist')) then raise exception 'Você já está na chamada deste jogo'; end if;
+  insert into public.public_game_join_requests(game_id,player_id) values(p_game_id,me_player_id)
+    on conflict(game_id,player_id) do nothing;
+  select r.status into request_status from public.public_game_join_requests r where r.game_id = p_game_id and r.player_id = me_player_id;
+  return request_status;
+end $$;
+
+create function public.open_game_admin_data(p_game_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if not public.platform_account_allowed() or not exists(select 1 from public.games g where g.id = p_game_id and public.is_admin_of_pelada(g.pelada_id)) then raise exception 'Sem permissão' using errcode = '42501'; end if;
+  return jsonb_build_object(
+    'listing', (select jsonb_build_object('published',published,'level',level,'description',description) from public.public_game_listings where game_id = p_game_id),
+    'requests', coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'playerId',r.player_id,'name',p.name,'status',r.status)) from public.public_game_join_requests r join public.players p on p.id = r.player_id where r.game_id = p_game_id),'[]'::jsonb)
+  );
+end $$;
+
+create function public.respond_open_game_request(p_request_id uuid, p_accept boolean) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare r public.public_game_join_requests; g public.games; target_status text; occupied integer;
+begin
+  select * into r from public.public_game_join_requests where id = p_request_id;
+  if r.id is null or p_accept is null then raise exception 'Solicitação inválida'; end if;
+  select * into g from public.games where id = r.game_id for update;
+  -- Todas as aprovações deste jogo são serializadas pelo lock da partida.
+  select * into r from public.public_game_join_requests where id = p_request_id for update;
+  if not public.platform_account_allowed() or not public.is_admin_of_pelada(g.pelada_id) then raise exception 'Sem permissão' using errcode = '42501'; end if;
+  if r.status <> 'pending' then return r.status; end if;
+  if not p_accept then update public.public_game_join_requests set status = 'declined' where id = r.id; return 'declined'; end if;
+  if g.scheduled_at <= now() or g.status not in ('open','full') then raise exception 'Chamada encerrada'; end if;
+  if exists(select 1 from public.platform_account_controls where player_id = r.player_id and suspended) then raise exception 'Conta suspensa'; end if;
+  select status into target_status from public.attendances where game_id = g.id and player_id = r.player_id and status in ('confirmed','waitlist');
+  if target_status is null then
+    select count(*) into occupied from public.attendances where game_id = g.id and status = 'confirmed';
+    target_status := case when occupied < g.max_players then 'confirmed' else 'waitlist' end;
+  end if;
+  insert into public.pelada_memberships(pelada_id,player_id,role,active) values(g.pelada_id,r.player_id,'member',true)
+    on conflict(pelada_id,player_id) do update set active = true;
+  insert into public.attendances(game_id,player_id,status,confirmed_order) values(g.id,r.player_id,target_status,(select coalesce(max(confirmed_order),0)+1 from public.attendances where game_id = g.id))
+    on conflict(game_id,player_id) do update set status = excluded.status, confirmed_order = excluded.confirmed_order;
+  update public.public_game_join_requests set status = 'accepted' where id = r.id;
+  return target_status;
+end $$;
+revoke all on function public.publish_open_game(uuid,boolean,text,text), public.list_open_games(text,text), public.request_open_game(uuid), public.open_game_admin_data(uuid), public.respond_open_game_request(uuid,boolean) from public;
+grant execute on function public.publish_open_game(uuid,boolean,text,text), public.list_open_games(text,text), public.request_open_game(uuid), public.open_game_admin_data(uuid), public.respond_open_game_request(uuid,boolean) to authenticated;
+
+-- Source: migrations/20261010020000_dynamic_sports.sql
+-- Catálogo dinâmico: leitura pública segura, alteração apenas pela plataforma.
+create table public.sport_catalog (
+  id text primary key check (id ~ '^[a-z][a-z0-9_-]{1,39}$'),
+  definition jsonb not null,
+  revision integer not null default 1,
+  updated_at timestamptz not null default now(),
+  check (definition->>'id' = id)
+);
+alter table public.sport_catalog enable row level security;
+revoke all on public.sport_catalog from anon, authenticated;
+grant select on public.sport_catalog to anon, authenticated;
+create policy sport_catalog_read on public.sport_catalog for select using (true);
+insert into public.sport_catalog(id,definition) values
+('futebol','{"id":"futebol","label":"Futebol","icon":"⚽","color":"#22C55E","scoreSingular":"gol","scorePlural":"gols","hasGoalkeeper":true,"suggestedTeamSize":6,"active":true,"rules":{"mode":"total","periodMinutes":10,"periods":1,"targetPoints":null,"winByTwo":false,"setsToWin":null,"scoreValues":[1]}}'::jsonb),
+('volei','{"id":"volei","label":"Vôlei","icon":"🏐","color":"#EAB308","scoreSingular":"ponto","scorePlural":"pontos","hasGoalkeeper":false,"suggestedTeamSize":6,"active":true,"rules":{"mode":"sets","periodMinutes":10,"periods":3,"targetPoints":21,"winByTwo":true,"setsToWin":2,"scoreValues":[1]}}'::jsonb),
+('basquete','{"id":"basquete","label":"Basquete","icon":"🏀","color":"#F97316","scoreSingular":"ponto","scorePlural":"pontos","hasGoalkeeper":false,"suggestedTeamSize":5,"active":true,"rules":{"mode":"periods","periodMinutes":10,"periods":4,"targetPoints":null,"winByTwo":false,"setsToWin":null,"scoreValues":[1,2,3]}}'::jsonb),
+('handebol','{"id":"handebol","label":"Handebol","icon":"🤾","color":"#EF4444","scoreSingular":"gol","scorePlural":"gols","hasGoalkeeper":true,"suggestedTeamSize":7,"active":true,"rules":{"mode":"total","periodMinutes":10,"periods":1,"targetPoints":null,"winByTwo":false,"setsToWin":null,"scoreValues":[1]}}'::jsonb),
+('futvolei','{"id":"futvolei","label":"Futevôlei","icon":"🏖️","color":"#22D3EE","scoreSingular":"ponto","scorePlural":"pontos","hasGoalkeeper":false,"suggestedTeamSize":2,"active":true,"rules":{"mode":"sets","periodMinutes":10,"periods":3,"targetPoints":21,"winByTwo":true,"setsToWin":2,"scoreValues":[1]}}'::jsonb);
+
+-- Substitui somente checks antigos que restringem sport_id aos cinco esportes.
+-- Não altera variantes society/futsal/campo nem remove outros checks.
+do $$ declare c record; begin
+  for c in select con.conname, rel.relname from pg_constraint con join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace ns on ns.oid = rel.relnamespace
+    where ns.nspname = 'public' and con.contype = 'c'
+      and pg_get_constraintdef(con.oid) like '%sport_id%' and pg_get_constraintdef(con.oid) like '%futvolei%'
+  loop execute format('alter table public.%I drop constraint %I',c.relname,c.conname); end loop;
+end $$;
+
+create function public.save_platform_sport(p_definition jsonb, p_revision integer, p_reason text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare previous jsonb; revision_now integer; r jsonb; sid text; role_now text; n integer;
+begin
+  role_now := public.platform_admin_role();
+  if role_now is null or role_now not in ('owner','admin') then raise exception 'Somente a plataforma configura esportes' using errcode = '42501'; end if;
+  if length(trim(coalesce(p_reason,''))) < 8 then raise exception 'Informe um motivo com pelo menos 8 caracteres'; end if;
+  if jsonb_typeof(p_definition) is distinct from 'object' or not p_definition ?& array['id','label','icon','color','scoreSingular','scorePlural','hasGoalkeeper','suggestedTeamSize','active','rules'] then raise exception 'Esporte incompleto'; end if;
+  if (select count(*) from jsonb_object_keys(p_definition)) <> 10 then raise exception 'Campos de esporte não permitidos'; end if;
+  sid := p_definition->>'id'; r := p_definition->'rules';
+  if sid is null or sid !~ '^[a-z][a-z0-9_-]{1,39}$'
+    or jsonb_typeof(p_definition->'label') is distinct from 'string' or length(trim(p_definition->>'label')) not between 2 and 60
+    or jsonb_typeof(p_definition->'icon') is distinct from 'string' or length(trim(p_definition->>'icon')) not between 1 and 16
+    or coalesce(p_definition->>'color','') !~ '^#[0-9a-fA-F]{6}$'
+    or jsonb_typeof(p_definition->'scoreSingular') is distinct from 'string' or length(trim(p_definition->>'scoreSingular')) not between 1 and 30
+    or jsonb_typeof(p_definition->'scorePlural') is distinct from 'string' or length(trim(p_definition->>'scorePlural')) not between 1 and 30
+    or jsonb_typeof(p_definition->'hasGoalkeeper') is distinct from 'boolean'
+    or jsonb_typeof(p_definition->'active') is distinct from 'boolean'
+    or jsonb_typeof(p_definition->'suggestedTeamSize') is distinct from 'number'
+  then raise exception 'Identificação do esporte inválida'; end if;
+  if (p_definition->>'suggestedTeamSize')::numeric not between 1 and 50
+    or (p_definition->>'suggestedTeamSize')::numeric <> trunc((p_definition->>'suggestedTeamSize')::numeric)
+  then raise exception 'Tamanho do time inválido'; end if;
+  if jsonb_typeof(r) is distinct from 'object' or not r ?& array['mode','periodMinutes','periods','targetPoints','winByTwo','setsToWin','scoreValues'] then raise exception 'Regras incompletas'; end if;
+  if (select count(*) from jsonb_object_keys(r)) <> 7 or coalesce(r->>'mode','') not in ('total','sets','periods')
+    or jsonb_typeof(r->'periodMinutes') is distinct from 'number' or jsonb_typeof(r->'periods') is distinct from 'number'
+    or jsonb_typeof(r->'winByTwo') is distinct from 'boolean' or jsonb_typeof(r->'scoreValues') is distinct from 'array'
+  then raise exception 'Formato de regras inválido'; end if;
+  if (r->>'periodMinutes')::numeric not between 1 and 240 or (r->>'periodMinutes')::numeric <> trunc((r->>'periodMinutes')::numeric)
+    or (r->>'periods')::numeric not between 1 and 15 or (r->>'periods')::numeric <> trunc((r->>'periods')::numeric)
+  then raise exception 'Duração/períodos inválidos'; end if;
+  if jsonb_array_length(r->'scoreValues') not between 1 and 5 or not (r->'scoreValues') @> '[1]'::jsonb then raise exception 'Inclua 1 nos valores de pontuação'; end if;
+  for previous in select value from jsonb_array_elements(r->'scoreValues') loop
+    if jsonb_typeof(previous) <> 'number' then raise exception 'Pontuação inválida'; end if;
+    if previous::numeric not between 1 and 10 or previous::numeric <> trunc(previous::numeric) then raise exception 'Pontuação inválida'; end if;
+  end loop;
+  if (select count(distinct value) from jsonb_array_elements(r->'scoreValues')) <> jsonb_array_length(r->'scoreValues') then raise exception 'Valores repetidos'; end if;
+  if r->>'mode' = 'sets' then
+    if jsonb_typeof(r->'targetPoints') is distinct from 'number' or jsonb_typeof(r->'setsToWin') is distinct from 'number' then raise exception 'Alvo de sets inválido'; end if;
+    if (r->>'targetPoints')::numeric not between 1 and 200 or (r->>'targetPoints')::numeric <> trunc((r->>'targetPoints')::numeric)
+      or (r->>'setsToWin')::numeric not between 1 and 8 or (r->>'setsToWin')::numeric <> trunc((r->>'setsToWin')::numeric)
+      or (r->>'periods')::numeric <> 2*(r->>'setsToWin')::numeric-1 then raise exception 'Melhor de sets inválida'; end if;
+  elsif jsonb_typeof(r->'targetPoints') is distinct from 'null' or jsonb_typeof(r->'setsToWin') is distinct from 'null'
+    or (r->>'winByTwo')::boolean or (r->>'mode' = 'total' and (r->>'periods')::integer <> 1)
+  then raise exception 'Placar total/períodos não usa alvo de sets'; end if;
+  -- Lock global evita dois admins desativarem simultaneamente os últimos esportes.
+  perform 1 from public.platform_configuration where id for update;
+  select definition,revision into previous,revision_now from public.sport_catalog where id = sid for update;
+  if p_revision is distinct from coalesce(revision_now,0) then raise exception 'Esporte alterado. Atualize o catálogo.' using errcode = '40001'; end if;
+  if not (p_definition->>'active')::boolean and not exists(select 1 from public.sport_catalog where id <> sid and (definition->>'active')::boolean) then raise exception 'Mantenha pelo menos um esporte ativo'; end if;
+  insert into public.sport_catalog(id,definition,revision) values(sid,p_definition,coalesce(revision_now,0)+1)
+    on conflict(id) do update set definition = excluded.definition, revision = excluded.revision, updated_at = now();
+  insert into public.platform_admin_audit(actor_auth_user_id,action,target_id,reason,before_value,after_value)
+    values(auth.uid(),'sport',sid,trim(p_reason),previous,p_definition);
+end $$;
+revoke all on function public.save_platform_sport(jsonb,integer,text) from public;
+grant execute on function public.save_platform_sport(jsonb,integer,text) to authenticated;
+
+-- Regras copiadas na criação do placar, nunca recalculadas no meio do evento.
+alter table public.multi_sport_scoreboards add column score_values jsonb not null default '[1]'::jsonb;
+alter table public.multi_sport_scoreboards add column period_minutes integer not null default 10 check (period_minutes between 1 and 240);
+
+create function public.guard_registered_sport() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if tg_op = 'UPDATE' and new.sport_id is not distinct from old.sport_id then return new; end if;
+  if not exists(select 1 from public.sport_catalog where id = new.sport_id and (definition->>'active')::boolean) then raise exception 'Selecione um esporte ativo do catálogo'; end if;
+  return new;
+end $$;
+do $$ declare t record; begin
+  for t in select table_name from information_schema.columns where table_schema = 'public' and column_name = 'sport_id'
+  loop execute format('create trigger registered_sport before insert or update of sport_id on public.%I for each row execute function public.guard_registered_sport()',t.table_name); end loop;
+end $$;
+
+-- Source: migrations/20261010030000_checkin_crypto_search_path.sql
+alter function public.issue_game_checkin_pass(uuid,uuid,text) set search_path = public, extensions, pg_temp;
+alter function public.redeem_game_checkin(uuid,uuid,text,uuid) set search_path = public, extensions, pg_temp;

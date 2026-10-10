@@ -10,12 +10,13 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { useSports } from '@/constants/sports';
 import { WEEKDAY_LABELS } from '@/lib/format';
 import { useAppStore } from '@/store/useAppStore';
 import type { FieldBookingRecurrence } from '@/types';
 
 export default function EstablishmentBookingsScreen() {
+  const SPORTS = useSports();
   const { id } = useLocalSearchParams<{ id: string }>();
   const establishmentId = id!;
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);

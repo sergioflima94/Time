@@ -17,6 +17,8 @@ import { currency } from '@/lib/growth';
 import { flushSyncMutations } from '@/lib/platformSync';
 import { occupancyRate, orderedStandings, referralLink, reliabilityLabel, reliabilityScore } from '@/lib/pro';
 import { isMockMode } from '@/lib/supabase';
+import { usePlatformStore } from '@/store/usePlatformStore';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useAppStore } from '@/store/useAppStore';
 import { useProStore } from '@/store/useProStore';
 import type { CommercialAudience, ModerationReason } from '@/types/pro';
@@ -76,22 +78,36 @@ function Referrals() {
 }
 
 function Plans() {
-  const playerId = useAppStore((state) => state.currentPlayerId);
-  const plans = useProStore((state) => state.plans);
-  const subscriptions = useProStore((state) => state.subscriptions);
-  const subscribe = useProStore((state) => state.subscribe);
+  const playerId = useAppStore(s => s.currentPlayerId);
+  const memberships = useAppStore(s => s.memberships);
+  const teams = useAppStore(s => s.peladas);
+  const establishments = useAppStore(s => s.establishments);
+  const plans = useProStore(s => s.plans);
+  const subscriptions = useProStore(s => s.subscriptions);
+  const subscribe = useProStore(s => s.subscribe);
+  const trialDays = usePlatformStore(s => s.settings.trialDays);
   const [audience, setAudience] = useState<CommercialAudience>('player');
-  return <><SegmentedControl value={audience} onChange={setAudience} options={[{ value: 'player', label: 'Jogador' }, { value: 'team', label: 'Time' }, { value: 'establishment', label: 'Campo' }]} />{plans.filter((row) => row.audience === audience).map((plan) => { const active = subscriptions.some((row) => row.planId === plan.id && row.subscriberId === playerId && ['trial', 'active'].includes(row.status)); return <Card key={plan.id} style={[styles.plan, plan.highlighted && { borderColor: colors.special }]}>{plan.highlighted && <Badge label="RECOMENDADO" color={colors.special} />}<Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{currency(plan.monthlyPrice)}<Text style={styles.caption}> / mês</Text></Text>{plan.benefits.map((benefit) => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={active ? 'Plano em demonstração' : 'Testar por 14 dias'} variant={active ? 'secondary' : 'primary'} disabled={active} onPress={() => subscribe(plan.id, playerId)} /></Card>; })}<Info icon="card" text="Na produção, a assinatura só é ativada por callback da loja ou webhook do provedor — nunca pelo clique do cliente." /></>;
+  const [selected, setSelected] = useState('');
+  const options = audience === 'team' ? teams.filter(t => memberships.some(m => m.peladaId === t.id && m.playerId === playerId && m.active && m.role === 'admin'))
+    : audience === 'establishment' ? establishments.filter(e => e.ownerPlayerId === playerId) : [];
+  const subscriberId = audience === 'player' ? playerId : options.some(o => o.id === selected) ? selected : options[0]?.id;
+  return <><SegmentedControl value={audience} onChange={setAudience} options={[{ value: 'player', label: 'Jogador' }, { value: 'team', label: 'Time' }, { value: 'establishment', label: 'Campo' }]} />
+    {audience !== 'player' && <View style={styles.rowBetween}>{options.map(o => <Button small key={o.id} label={o.name} variant={subscriberId === o.id ? 'primary' : 'outline'} onPress={() => setSelected(o.id)} />)}</View>}
+    {!subscriberId && <Text style={styles.caption}>Você precisa administrar um time ou ser dono de um estabelecimento para escolher esta oferta.</Text>}
+    {plans.filter(p => p.audience === audience && p.active).map(plan => {
+      const active = subscriptions.some(s => s.planId === plan.id && s.subscriberId === subscriberId && ['trial','active'].includes(s.status) && Date.parse(s.currentPeriodEnd) > Date.now());
+      return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{currency(plan.monthlyPrice)}<Text style={styles.caption}> / mês</Text></Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
+    })}<Info icon="card" text="Em demonstração não há cobrança. A ativação real exige callback da loja ou webhook validado, e ficará disponível após homologação comercial." /></>;
 }
 
 function Safety() {
+  const platformRole = usePlatformAdmin();
   const playerId = useAppStore((state) => state.currentPlayerId);
   const reports = useProStore((state) => state.moderationReports);
   const audits = useProStore(useShallow((state) => state.auditEvents.slice(-8).reverse()));
   const create = useProStore((state) => state.createModerationReport);
-  const resolve = useProStore((state) => state.resolveModerationReport);
   const [target, setTarget] = useState('p2'); const [details, setDetails] = useState(''); const [reason, setReason] = useState<ModerationReason>('harassment');
-  return <><Card style={styles.form}><Text style={styles.cardTitle}>Nova denúncia</Text><TextField label="ID do jogador/time/campo" value={target} onChangeText={setTarget} /><SegmentedControl value={reason} onChange={setReason} options={[{ value: 'harassment', label: 'Assédio' }, { value: 'fraud', label: 'Fraude' }, { value: 'spam', label: 'Spam' }]} /><TextField label="Detalhes" value={details} onChangeText={setDetails} multiline /><Button label="Enviar para análise" onPress={() => { create(playerId, 'player', target, reason, details); setDetails(''); }} disabled={!target.trim()} /></Card>{reports.map((report) => <Card key={report.id} style={styles.report}><View style={styles.rowBetween}><Text style={styles.cardTitle}>{report.reason}</Text><Badge label={report.status.toUpperCase()} color={report.status === 'resolved' ? colors.success : colors.warning} /></View><Text style={styles.caption}>{report.details || 'Sem detalhes adicionais'} · {new Date(report.createdAt).toLocaleString('pt-BR')}</Text>{report.status !== 'resolved' && <Button small label="Marcar como analisada" variant="outline" onPress={() => resolve(report.id, playerId)} />}</Card>)}<Text style={styles.sectionTitle}>Trilha de auditoria</Text>{audits.map((event) => <View key={event.id} style={styles.audit}><Ionicons name="document-text" size={16} color={colors.textMuted} /><View style={{ flex: 1 }}><Text style={styles.auditText}>{event.summary}</Text><Text style={styles.caption}>{new Date(event.createdAt).toLocaleString('pt-BR')}</Text></View></View>)}</>;
+  return <><Card style={styles.form}><Text style={styles.cardTitle}>Nova denúncia</Text><TextField label="ID do jogador/time/campo" value={target} onChangeText={setTarget} /><SegmentedControl value={reason} onChange={setReason} options={[{ value: 'harassment', label: 'Assédio' }, { value: 'fraud', label: 'Fraude' }, { value: 'spam', label: 'Spam' }]} /><TextField label="Detalhes" value={details} onChangeText={setDetails} multiline /><Button label="Enviar para análise" onPress={() => { create(playerId, 'player', target, reason, details); setDetails(''); }} disabled={!target.trim()} /></Card>{reports.map((report) => <Card key={report.id} style={styles.report}><View style={styles.rowBetween}><Text style={styles.cardTitle}>{report.reason}</Text><Badge label={report.status.toUpperCase()} color={report.status === 'resolved' ? colors.success : colors.warning} /></View><Text style={styles.caption}>{report.details || 'Sem detalhes adicionais'} · {new Date(report.createdAt).toLocaleString('pt-BR')}</Text>{platformRole && <Button small label="Tratar no painel da plataforma" variant="outline" onPress={() => router.push("/plataforma")} />}</Card>)}<Text style={styles.sectionTitle}>Trilha de auditoria</Text>{audits.map((event) => <View key={event.id} style={styles.audit}><Ionicons name="document-text" size={16} color={colors.textMuted} /><View style={{ flex: 1 }}><Text style={styles.auditText}>{event.summary}</Text><Text style={styles.caption}>{new Date(event.createdAt).toLocaleString('pt-BR')}</Text></View></View>)}</>;
 }
 
 function Synchronization() {

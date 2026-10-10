@@ -9,10 +9,11 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { useSports } from '@/constants/sports';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function EstablishmentFieldsScreen() {
+  const SPORTS = useSports();
   const { id } = useLocalSearchParams<{ id: string }>();
   const establishmentId = id!;
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);

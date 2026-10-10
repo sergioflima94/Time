@@ -13,7 +13,7 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
-import { getSport, SPORTS } from '@/constants/sports';
+import { getSport, useSports } from '@/constants/sports';
 import { useCurrentPelada, useMyPeladas } from '@/hooks/useCurrentPelada';
 import { drawMethodLabel, formatGameDateShort, recurrenceLabel, WEEKDAY_LABELS } from '@/lib/format';
 import { formatBRL } from '@/lib/payments';
@@ -23,15 +23,15 @@ import type { DrawMethod, Pelada, RecurrenceType } from '@/types';
 
 export default function AdminScreen() {
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
-  const pelada = useCurrentPelada();
+  const pelada = useAppStore(s => s.peladas.find(p => p.id === s.currentPeladaId) ?? s.peladas[0]);
   const myPeladas = useMyPeladas();
-  const isAdmin = useAppStore((s) => s.isAdmin(currentPlayerId, pelada.id));
+  const isAdmin = useAppStore((s) => !!pelada && s.isAdmin(currentPlayerId, pelada.id));
   const memberships = useAppStore((s) => s.memberships);
   const adminPeladas = myPeladas.filter((p) =>
     memberships.some((m) => m.peladaId === p.id && m.playerId === currentPlayerId && m.role === 'admin' && m.active),
   );
 
-  if (adminPeladas.length === 0) {
+  if (!pelada || adminPeladas.length === 0) {
     return (
       <Screen>
         <Text style={styles.title}>Administração</Text>
@@ -48,10 +48,10 @@ export default function AdminScreen() {
     <Screen>
       <Text style={styles.title}>Administração</Text>
       <Text style={styles.pageSubtitle}>Organize cada time sem misturar agenda, elenco ou caixa.</Text>
-      {adminPeladas.length > 1 && <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />}
+      <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />
 
       {isAdmin ? (
-        <>
+        <View key={pelada.id}>
           <OverviewSection />
           <PeladaInfoSection />
           <InviteSection />
@@ -60,7 +60,7 @@ export default function AdminScreen() {
           <FieldsSection />
           <SchedulesSection />
           <PunishmentsSection />
-        </>
+        </View>
       ) : (
         <View style={styles.notAdmin}>
           <Ionicons name="swap-horizontal" size={32} color={colors.textFaint} />
@@ -133,6 +133,7 @@ function OverviewStat({ label, value, small }: { label: string; value: string; s
 }
 
 function PeladaInfoSection() {
+  const SPORTS = useSports();
   const pelada = useCurrentPelada();
   const updatePeladaInfo = useAppStore((s) => s.updatePeladaInfo);
 

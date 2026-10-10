@@ -21,6 +21,9 @@ export interface MultiSportScoreboard {
   segmentsToWin: number | null;
   maxSegments: number | null;
   status: 'scheduled' | 'live' | 'finished';
+  createdBy?: string;
+  scoreValues?: number[];
+  periodMinutes?: number;
 }
 
 export type ChatContextType = 'team' | 'game' | 'championship' | 'captains' | 'service';

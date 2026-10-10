@@ -1,5 +1,113 @@
 # BoraJogo
 
+## Painel da plataforma e catálogo de esportes
+
+O **Perfil → Admin da plataforma** é separado de **Admin do time** e da operação
+do estabelecimento. Papéis globais são verificados no Supabase, nunca por
+`user_metadata`, botão de cadastro ou um ID de jogador gravado no celular.
+
+- **Proprietário**: configura a plataforma e concede/revoga acesso à equipe.
+- **Administrador**: usuários, ofertas, configurações, esportes e denúncias.
+- **Suporte**: consulta e tratamento de denúncias, sem alterar preços ou regras.
+
+O painel reúne indicadores reais do banco, busca de usuários/times/campos,
+suspensão sem exclusão de histórico, catálogo de planos, moderação e auditoria.
+Toda alteração exige motivo. O último proprietário ativo não pode ser removido.
+Suspensões restringem acesso direto às tabelas autenticadas via RLS; funções
+existentes que usam `service_role` ainda precisam da mesma checagem explícita.
+
+### Criar um novo esporte
+
+Em **Admin da plataforma → Esportes → Criar novo esporte**, informe:
+
+- Nome, identificador permanente, emoji e cor hexadecimal.
+- Nome da pontuação no singular/plural e uso de goleiro no sorteio.
+- Jogadores por time e duração sugerida da rodada/período.
+- Placar total, por períodos ou por sets; alvo de pontos, vantagem de dois pontos
+  e sets para vencer quando aplicável.
+- Valores de pontuação, como `1,2,3` no basquete, e disponibilidade para cadastros.
+
+O catálogo alimenta cadastro, criação/edição de times, campos, aulas,
+campeonatos e filtros de descoberta. Novos times recebem o tamanho/duração como
+sugestão. Desativar um esporte não apaga times ou estatísticas existentes.
+Regras são copiadas na criação em **Recursos → Placar → Novo placar**; editar o
+catálogo não muda placares já criados. O cronômetro de rodízio e as partidas de
+campeonato continuam com seu fluxo próprio de pontos/gols — não passam a ter
+sets automaticamente. Alvo especial de set decisivo, prorrogação e regras
+complexas de tênis ainda não fazem parte do motor genérico.
+
+### Ativar seu acesso real
+
+Aplicar as migrações em ordem antes de distribuir esta versão:
+
+```powershell
+npx supabase db push
+```
+
+Novas migrações: `20261010000000_platform_console.sql`,
+`20261010010000_open_game_discovery.sql`, `20261010020000_dynamic_sports.sql` e
+`20261010030000_checkin_crypto_search_path.sql` (correção do acesso ao pgcrypto no
+check-in). Aplicadas ao projeto vinculado em 10/10/2026; a migração continua
+necessária para outros ambientes.
+Não execute o schema completo por cima de um banco existente. `schema.sql` e
+`schemas/public.sql` são referências de instalação; as migrações são a fonte
+incremental para atualização.
+
+Depois de criar e confirmar sua conta, um operador autorizado deve executar no
+SQL Editor do projeto **correto**, substituindo o e-mail abaixo pelo seu:
+
+```sql
+insert into public.platform_admin_accounts(auth_user_id, role, active)
+select id, 'owner', true
+from auth.users
+where lower(email) = lower('SEU_EMAIL_CONFIRMADO')
+  and email_confirmed_at is not null
+on conflict (auth_user_id) do update set role = 'owner', active = true;
+```
+
+Confira que exatamente sua conta recebeu o papel. Não há proprietário real
+criado automaticamente nesta entrega. No modo demonstração, apenas `p1` tem o
+painel global; esportes/configurações/auditoria de exemplo ficam salvos localmente
+sem conceder qualquer privilégio no Supabase.
+
+### Crescimento e limites comerciais desta versão
+
+- A Home reúne jogos dos times participantes, filtra por esporte e separa
+  rodadas vencidas de jogos realizados. Pontos de esportes diferentes não são
+  anunciados como gols em um total misturado.
+- Organizadores podem divulgar jogos futuros pela tela do jogo; privados não
+  aparecem automaticamente na descoberta. Novos jogadores solicitam entrada,
+  sem pagar nessa etapa. A aprovação inclui o jogador como membro do time e
+  confirma presença ou coloca na espera conforme capacidade, sem duplicação.
+- O chat usa o participante autenticado, não o jogador fixo da demonstração.
+- Preço Premium e planos usam o mesmo catálogo. Testes locais respeitam o
+  número de dias configurado e são ligados ao jogador/time/estabelecimento correto.
+- Comissão, franquia de WhatsApp e patrocínio são parâmetros de produto, não
+  cobrança automática já implementada. Indicação não garante créditos reais sem
+  validar conversão; limite de mensagens ainda precisa ser medido no provedor.
+- Em produção o clique não ativa Premium, assinatura, recarga ou OAuth fictício.
+  Homologação de compras digitais e autorização dos gateways continuam necessárias.
+  Pagamento online de aulas ainda não está disponível nesta etapa; somente o
+  caixa autorizado confirma dinheiro. Cancelar não inventa um reembolso pago.
+- Estatísticas antigas ainda dependem do elenco registrado por rodada; snapshots
+  completos de escalações/substituições são uma evolução pendente.
+
+### Verificação local sem dados reais
+
+```powershell
+node node_modules/typescript/bin/tsc --noEmit
+node scripts/test-sports-domain.cjs
+npm install --prefix .test-runtime --no-audit --no-fund @electric-sql/pglite
+node scripts/test-platform-sql.cjs
+```
+
+O teste SQL executa a cadeia de migrações num PostgreSQL local em memória com
+stubs de Auth/Vault; não acessa produção. Cobre permissões, último proprietário,
+validação de regras, revisão concorrente, publicação opt-in, aprovação e espera,
+suspensão e auditoria. Smoke visual: `scripts/test-platform-ui.cjs`, com Expo web
+em demonstração (`EXPO_NO_DOTENV=1`), `PLAYWRIGHT_MODULE`, `CHROME_PATH` e
+`TEST_URL` opcionais. Prints locais em `screenshots/platform-console/`.
+
 App em Expo (React Native) para organizar a vida de times e espaços esportivos:
 agenda, chamada, sorteio e rodízio, campeonatos, rede social, pagamentos, comandas,
 vaquinhas, aulas e reservas para futebol, vôlei, basquete, handebol e futevôlei.

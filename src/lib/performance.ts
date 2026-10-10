@@ -74,7 +74,8 @@ export function computePlayerActivitySummary(
   attendances: Attendance[],
 ): PlayerActivitySummary {
   const now = Date.now();
-  const mine = attendances.filter((a) => a.playerId === playerId);
+  const gameIds = new Set(games.map(g => g.id));
+  const mine = attendances.filter((a) => a.playerId === playerId && gameIds.has(a.gameId));
 
   const gamesPlayed = mine.filter((a) => {
     if (a.status !== 'confirmed' || a.noShow) return false;
@@ -85,7 +86,7 @@ export function computePlayerActivitySummary(
   const confirmedUpcoming = mine.filter((a) => {
     if (a.status !== 'confirmed') return false;
     const game = games.find((g) => g.id === a.gameId);
-    return !!game && new Date(game.scheduledAt).getTime() >= now && game.status !== 'cancelled';
+    return !!game && new Date(game.scheduledAt).getTime() >= now && !['cancelled','finished'].includes(game.status);
   }).length;
 
   const noShows = mine.filter((a) => a.noShow).length;

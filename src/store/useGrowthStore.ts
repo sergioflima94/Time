@@ -4,6 +4,9 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { segmentCanFinish, walletBalance } from '@/lib/growth';
 import { createUuid } from '@/lib/uuid';
+import { getSport } from '@/constants/sports';
+import { buildSportScoreboard } from '@/lib/sportScoreboard';
+import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import type {
   ChatChannel,
@@ -42,6 +45,7 @@ interface GrowthState {
   notificationOptIn: boolean;
   pushToken: string | null;
   addScore: (scoreboardId: string, side: 'home' | 'away', amount?: number) => void;
+  createScoreboard: (sportId: string, title: string, homeName: string, awayName: string) => boolean;
   finishSegment: (scoreboardId: string) => boolean;
   sendMessage: (channelId: string, senderPlayerId: string, text: string) => void;
   addWalletCredit: (playerId: string, amount: number, description: string, kind?: WalletEntry['kind']) => void;
@@ -56,7 +60,7 @@ interface GrowthState {
 
 export const useGrowthStore = create<GrowthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       scoreboards: [
         {
           id: 'score-volei', sportId: 'volei', title: 'Vôlei da Empresa', homeName: 'Time Azul', awayName: 'Time Laranja',
@@ -116,9 +120,18 @@ export const useGrowthStore = create<GrowthState>()(
       notificationOptIn: false,
       pushToken: null,
 
+      createScoreboard: (sportId, title, homeName, awayName) => {
+        const sport = getSport(sportId);
+        if (sport.id !== sportId || sport.active === false || !title.trim() || !homeName.trim() || !awayName.trim()) return false;
+        const board = buildSportScoreboard(sport, { id: uid(), segmentId: uid(), createdBy: useAppStore.getState().currentPlayerId, title, homeName, awayName });
+        set(state => ({ scoreboards: [...state.scoreboards, board] }));
+        return true;
+      },
       addScore: (scoreboardId, side, amount = 1) => set((state) => ({
         scoreboards: state.scoreboards.map((board) => {
           if (board.id !== scoreboardId || board.status !== 'live') return board;
+          if (!Number.isInteger(amount) || !(board.scoreValues ?? [1]).includes(amount)) return board;
+          if (!isMockMode && board.createdBy !== useAppStore.getState().currentPlayerId) return board;
           const last = board.segments.at(-1)!;
           return { ...board, segments: board.segments.map((segment) => segment.id === last.id ? { ...segment, [side]: segment[side] + amount } : segment) };
         }),
@@ -128,6 +141,7 @@ export const useGrowthStore = create<GrowthState>()(
         set((state) => ({
           scoreboards: state.scoreboards.map((board) => {
             if (board.id !== scoreboardId || board.status !== 'live') return board;
+            if (!isMockMode && board.createdBy !== useAppStore.getState().currentPlayerId) return board;
             const current = board.segments.at(-1)!;
             if (!segmentCanFinish(current, board.targetPoints, board.winByTwo)) return board;
             finished = true;
@@ -156,11 +170,11 @@ export const useGrowthStore = create<GrowthState>()(
       },
       sendMessage: (channelId, senderPlayerId, text) => {
         const clean = text.trim();
-        if (!clean) return;
+        if (!clean || senderPlayerId !== useAppStore.getState().currentPlayerId || !get().chatChannels.some(c => c.id === channelId && c.participantIds.includes(senderPlayerId))) return;
         set((state) => ({ chatMessages: [...state.chatMessages, { id: uid(), channelId, senderPlayerId, text: clean, createdAt: nowIso(), system: false }] }));
       },
       addWalletCredit: (playerId, amount, description, kind = 'credit') => {
-        if (amount <= 0) return;
+        if (!isMockMode || !Number.isFinite(amount) || amount <= 0) return;
         const app = useAppStore.getState();
         const establishmentId = app.establishments.find((row) => row.ownerPlayerId === app.currentPlayerId)?.id ?? null;
         set((state) => ({ walletEntries: [...state.walletEntries, { id: uid(), playerId, establishmentId, kind, amount, description, createdAt: nowIso() }] }));

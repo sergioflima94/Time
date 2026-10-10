@@ -11,12 +11,13 @@ import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { useSports } from '@/constants/sports';
 import { formatChampionshipStatus } from '@/lib/championship';
 import { useAppStore } from '@/store/useAppStore';
 import type { ChampionshipFormat } from '@/types';
 
 export default function EstablishmentChampionshipsScreen() {
+  const SPORTS = useSports();
   const { id } = useLocalSearchParams<{ id: string }>();
   const establishmentId = id!;
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);

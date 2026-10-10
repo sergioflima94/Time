@@ -9,6 +9,7 @@ import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { initializeAds } from '@/lib/ads';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePlatformStore } from '@/store/usePlatformStore';
 
 export default function RootLayout() {
   useNotificationNavigation();
@@ -17,6 +18,7 @@ export default function RootLayout() {
   useEffect(() => {
     initializeAds();
     initializeAuth();
+    void usePlatformStore.getState().loadPublic();
   }, [initializeAuth]);
 
   return (
@@ -48,6 +50,8 @@ export default function RootLayout() {
             <Stack.Screen name="desafio/[matchId]" />
             <Stack.Screen name="jogador/[id]" />
             <Stack.Screen name="notificacoes" />
+            <Stack.Screen name="plataforma" />
+            <Stack.Screen name="descobrir" />
             <Stack.Screen name="central" />
             <Stack.Screen name="recursos/[slug]" />
             <Stack.Screen name="operacao-pro" />

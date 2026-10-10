@@ -15,6 +15,7 @@ import { Screen } from '@/components/ui/Screen';
 import { colors, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { formatGameDateShort } from '@/lib/format';
 import { computePlayerGoalStats, computePlayerGoalStatsByGroup } from '@/lib/goals';
 import { pickProfilePhoto } from '@/lib/photo';
@@ -25,6 +26,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function PerfilScreen() {
+  const platformRole = usePlatformAdmin();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId)!);
   const ratings = useAppStore((s) => s.ratings);
@@ -74,6 +76,7 @@ export default function PerfilScreen() {
     <Screen>
       <Text style={styles.pageTitle}>Seu perfil</Text>
       <Text style={styles.pageSubtitle}>Sua evolução, sua carta e tudo que você construiu em quadra.</Text>
+      {platformRole && <Button label="Admin da plataforma" variant="outline" small onPress={() => router.push('/plataforma')} style={{ marginBottom: spacing.md }} />}
       <Pressable style={styles.cardCenter} onPress={handleChangePhoto} disabled={pickingPhoto}>
         <PlayerCard
           name={player.name}

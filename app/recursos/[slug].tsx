@@ -10,7 +10,8 @@ import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { getGrowthFeature } from '@/constants/growthFeatures';
 import { colors, radius, spacing } from '@/constants/theme';
-import { getSport } from '@/constants/sports';
+import { getSport, useSports } from '@/constants/sports';
+import { isMockMode } from '@/lib/supabase';
 import { currency, percentage, scoreboardTotal, walletBalance } from '@/lib/growth';
 import { enablePushNotifications } from '@/lib/pushNotifications';
 import { useAppStore } from '@/store/useAppStore';
@@ -46,18 +47,25 @@ function FeatureBody({ slug }: { slug: string }) {
 }
 
 function Scoreboards() {
+  const sports = useSports();
+  const create = useGrowthStore(s => s.createScoreboard);
+  const [sportId, setSportId] = useState('futebol');
+  const [title, setTitle] = useState('');
+  const [homeName, setHomeName] = useState('');
+  const [awayName, setAwayName] = useState('');
   const boards = useGrowthStore((state) => state.scoreboards);
   const addScore = useGrowthStore((state) => state.addScore);
   const finishSegment = useGrowthStore((state) => state.finishSegment);
   const [notice, setNotice] = useState('');
   return <>
     <Info text="O placar se adapta ao esporte: futebol/handebol por gols, vôlei/futevôlei por sets e basquete por quartos." />
+    <Card style={styles.section}><Text style={styles.cardTitle}>Novo placar</Text><View style={styles.chipRow}>{sports.map(s => <Pressable key={s.id} style={[styles.chip, sportId === s.id && styles.chipActive]} onPress={() => setSportId(s.id)}><Text style={styles.chipText}>{s.icon} {s.label}</Text></Pressable>)}</View><TextField label="Nome da partida" value={title} onChangeText={setTitle} /><TextField label="Time A" value={homeName} onChangeText={setHomeName} /><TextField label="Time B" value={awayName} onChangeText={setAwayName} /><Button small label="Criar placar com as regras do esporte" disabled={!title.trim() || !homeName.trim() || !awayName.trim()} onPress={() => { if(create(sportId,title,homeName,awayName)) { setNotice('Placar criado com uma cópia das regras atuais.'); setTitle(''); } }} /></Card>
     {boards.map((board) => <Card key={board.id} style={styles.section}>
       <ScoreHeader board={board} />
       <View style={styles.scoreTeams}>
-        <ScoreTeam name={board.homeName} value={scoreboardTotal(board).home} onAdd={() => addScore(board.id, 'home')} />
+        <ScoreTeam name={board.homeName} value={scoreboardTotal(board).home} scoreValues={board.scoreValues ?? [1]} onAdd={amount => addScore(board.id, 'home',amount)} />
         <Text style={styles.scoreSeparator}>×</Text>
-        <ScoreTeam name={board.awayName} value={scoreboardTotal(board).away} onAdd={() => addScore(board.id, 'away')} />
+        <ScoreTeam name={board.awayName} value={scoreboardTotal(board).away} scoreValues={board.scoreValues ?? [1]} onAdd={amount => addScore(board.id, 'away',amount)} />
       </View>
       <View style={styles.segmentList}>{board.segments.map((segment) => <View key={segment.id} style={styles.segmentRow}><Text style={styles.rowLabel}>{segment.label}</Text><Text style={styles.rowValue}>{segment.home} – {segment.away}{segment.finished ? '  ✓' : ''}</Text></View>)}</View>
       <Button label={board.unit === 'sets' ? 'Encerrar set' : 'Encerrar período'} variant="outline" small onPress={() => setNotice(finishSegment(board.id) ? 'Período encerrado; próximo criado automaticamente.' : 'A pontuação ainda não permite encerrar este período.')} />
@@ -71,11 +79,12 @@ function ScoreHeader({ board }: { board: MultiSportScoreboard }) {
   return <View style={styles.row}><View style={[styles.roundIcon, { backgroundColor: `${sport.color}22` }]}><Text>{sport.icon}</Text></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{board.title}</Text><Text style={styles.caption}>{board.unit === 'sets' ? `Melhor de ${board.maxSegments ?? 3} sets` : `${board.maxSegments ?? 4} períodos acumulados`}</Text></View><Badge label={board.status === 'finished' ? 'ENCERRADO' : 'AO VIVO'} color={board.status === 'finished' ? colors.textMuted : colors.danger} /></View>;
 }
 
-function ScoreTeam({ name, value, onAdd }: { name: string; value: number; onAdd: () => void }) {
-  return <View style={styles.scoreTeam}><Text style={styles.scoreValue}>{value}</Text><Text style={styles.scoreName} numberOfLines={1}>{name}</Text><Button label="+1" small onPress={onAdd} /></View>;
+function ScoreTeam({ name, value, scoreValues, onAdd }: { name: string; value: number; scoreValues: number[]; onAdd: (amount: number) => void }) {
+  return <View style={styles.scoreTeam}><Text style={styles.scoreValue}>{value}</Text><Text style={styles.scoreName} numberOfLines={1}>{name}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>{scoreValues.map(amount => <Button key={amount} label={`+${amount}`} small onPress={() => onAdd(amount)} />)}</View></View>;
 }
 
 function Conversations() {
+  const playerId = useAppStore(state => state.currentPlayerId);
   const channels = useGrowthStore((state) => state.chatChannels);
   const messages = useGrowthStore((state) => state.chatMessages);
   const sendMessage = useGrowthStore((state) => state.sendMessage);
@@ -86,7 +95,9 @@ function Conversations() {
   const [text, setText] = useState('');
   const [pushMessage, setPushMessage] = useState('');
   const selected = channels.find((channel) => channel.id === selectedId);
-  const visibleMessages = messages.filter((message) => message.channelId === selectedId);
+  const myChannels = channels.filter(channel => channel.participantIds.includes(playerId));
+  const allowed = myChannels.some(channel => channel.id === selectedId);
+  const visibleMessages = allowed ? messages.filter((message) => message.channelId === selectedId) : [];
 
   async function togglePush(value: boolean) {
     if (!value) { setPushRegistration(false, null); setPushMessage('Notificações desativadas.'); return; }
@@ -101,12 +112,12 @@ function Conversations() {
       {!!pushMessage && <Text style={styles.notice}>{pushMessage}</Text>}
       {!!pushToken && <Text style={styles.caption}>Token registrado: {pushToken.slice(0, 18)}…</Text>}
     </Card>
-    <View style={styles.chipRow}>{channels.map((channel) => <Pressable key={channel.id} onPress={() => setSelectedId(channel.id)} style={[styles.chip, selectedId === channel.id && styles.chipActive]}><Text style={[styles.chipText, selectedId === channel.id && styles.chipTextActive]}>{channel.title}{channel.unreadCount ? ` · ${channel.unreadCount}` : ''}</Text></Pressable>)}</View>
+    <View style={styles.chipRow}>{myChannels.map((channel) => <Pressable key={channel.id} onPress={() => setSelectedId(channel.id)} style={[styles.chip, selectedId === channel.id && styles.chipActive]}><Text style={[styles.chipText, selectedId === channel.id && styles.chipTextActive]}>{channel.title}{channel.unreadCount ? ` · ${channel.unreadCount}` : ''}</Text></Pressable>)}</View>
     <Card style={styles.section}>
-      <Text style={styles.cardTitle}>{selected?.title}</Text>
-      {visibleMessages.length === 0 ? <Text style={styles.empty}>Nenhuma mensagem ainda.</Text> : visibleMessages.map((message) => <View key={message.id} style={styles.message}><Text style={styles.messageSender}>{message.senderPlayerId === 'p1' ? 'Você' : 'Participante'}</Text><Text style={styles.messageText}>{message.text}</Text></View>)}
+      <Text style={styles.cardTitle}>{allowed ? selected?.title : 'Escolha um dos seus canais'}</Text>
+      {visibleMessages.length === 0 ? <Text style={styles.empty}>Nenhuma mensagem ainda.</Text> : visibleMessages.map((message) => <View key={message.id} style={styles.message}><Text style={styles.messageSender}>{message.senderPlayerId === playerId ? 'Você' : 'Participante'}</Text><Text style={styles.messageText}>{message.text}</Text></View>)}
       <TextField label="Nova mensagem" value={text} onChangeText={setText} placeholder="Escreva para este canal" />
-      <Button label="Enviar mensagem" onPress={() => { sendMessage(selectedId, 'p1', text); setText(''); }} />
+      <Button label="Enviar mensagem" disabled={!allowed || !text.trim()} onPress={() => { sendMessage(selectedId, playerId, text); setText(''); }} />
     </Card>
   </>;
 }

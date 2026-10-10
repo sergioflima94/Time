@@ -46,6 +46,7 @@ export function GameCard({ game, compact = false }: { game: Game; compact?: bool
           </View>
         </View>
         <Text style={[styles.date, compact && styles.compactDate]}>{formatGameDateLong(game.scheduledAt)}</Text>
+        {pelada && <Text style={styles.fieldText}>{pelada.name} · {sport.label}</Text>}
         <View style={styles.fieldRow}>
           <Ionicons name="location" size={14} color={colors.textMuted} />
           <Text style={styles.fieldText}>{field?.name ?? 'Local a definir'}</Text>

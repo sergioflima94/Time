@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useShallow } from 'zustand/react/shallow';
+import { useState } from 'react';
 
 import { AdBanner } from '@/components/AdBanner';
 import { GameCard } from '@/components/GameCard';
@@ -10,8 +10,8 @@ import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
-import { getSport, scoreLabel } from '@/constants/sports';
-import { useCurrentPelada, useMyPeladas } from '@/hooks/useCurrentPelada';
+import { getSport, useSports, scoreLabel } from '@/constants/sports';
+import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { useIsAdFree } from '@/hooks/useIsAdFree';
 import { computePlayerGoalStats } from '@/lib/goals';
 import { computePlayerActivitySummary, computePlayerRecord, computeOverallTrend } from '@/lib/performance';
@@ -19,11 +19,12 @@ import { computePlayerOverall } from '@/lib/ratings';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function AgendaScreen() {
-  const pelada = useCurrentPelada();
+  const SPORTS = useSports();
+  const [sportFilter, setSportFilter] = useState('all');
+  const pelada = useAppStore(s => s.peladas.find(p => p.id === s.currentPeladaId) ?? s.peladas[0]);
   const myPeladas = useMyPeladas();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId));
-  const games = useAppStore(useShallow((s) => s.games.filter((g) => g.peladaId === pelada.id)));
   const allGames = useAppStore((s) => s.games);
   const attendances = useAppStore((s) => s.attendances);
   const ratings = useAppStore((s) => s.ratings);
@@ -32,19 +33,25 @@ export default function AgendaScreen() {
   const goals = useAppStore((s) => s.goals);
   const adFree = useIsAdFree();
 
-  const overall = computePlayerOverall(currentPlayerId, ratings);
-  const trend = computeOverallTrend(currentPlayerId, ratings);
-  const record = computePlayerRecord(currentPlayerId, teamPlayers, matchTurns);
-  const goalStats = computePlayerGoalStats(currentPlayerId, teamPlayers, matchTurns, goals);
-  const activity = computePlayerActivitySummary(currentPlayerId, allGames, attendances);
-  const sport = getSport(pelada.sportId);
+  const myTeamIds = new Set(myPeladas.map(p => p.id));
+  const games = allGames.filter(g => myTeamIds.has(g.peladaId) && (sportFilter === 'all' || myPeladas.find(p => p.id === g.peladaId)?.sportId === sportFilter));
+  const gameIds = new Set(games.map(g => g.id));
+  const filteredTurns = matchTurns.filter(t => gameIds.has(t.gameId));
+  const turnIds = new Set(filteredTurns.map(t => t.id));
+  const sportRatings = ratings.filter(r => gameIds.has(r.gameId));
+  const overall = computePlayerOverall(currentPlayerId, sportRatings);
+  const trend = computeOverallTrend(currentPlayerId, sportRatings);
+  const record = computePlayerRecord(currentPlayerId, teamPlayers, filteredTurns);
+  const goalStats = computePlayerGoalStats(currentPlayerId, teamPlayers, filteredTurns, goals.filter(g => turnIds.has(g.matchTurnId)));
+  const activity = computePlayerActivitySummary(currentPlayerId, games, attendances);
+  const sport = getSport(sportFilter === 'all' ? pelada?.sportId ?? player?.favoriteSports[0] : sportFilter);
 
   const now = Date.now();
   const upcoming = games
-    .filter((g) => new Date(g.scheduledAt).getTime() >= now && g.status !== 'cancelled')
+    .filter((g) => new Date(g.scheduledAt).getTime() >= now && !['cancelled', 'finished'].includes(g.status))
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
   const past = games
-    .filter((g) => new Date(g.scheduledAt).getTime() < now || g.status === 'finished')
+    .filter((g) => g.status === 'finished')
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
   const nextGame = upcoming[0];
 
@@ -62,15 +69,17 @@ export default function AgendaScreen() {
       </View>
 
       <View style={[styles.peladaHeader, { borderLeftColor: sport.color }]}>
-        <PeladaSwitcher />
-        {pelada.description && <Text style={styles.peladaDescription}>{pelada.description}</Text>}
+        {pelada ? <PeladaSwitcher /> : <Text style={styles.welcomeSubtitle}>Entre em um time ou descubra um jogo para começar.</Text>}
+        {pelada?.description && <Text style={styles.peladaDescription}>{pelada.description}</Text>}
       </View>
-      {!adFree && <AdBanner />}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.md }}>
+        {[{ id: 'all', label: 'Todos os esportes' }, ...SPORTS].map(item => <Pressable key={item.id} onPress={() => setSportFilter(item.id)} style={[styles.datePill, { borderWidth: 1, borderColor: sportFilter === item.id ? colors.primary : colors.cardBorder, backgroundColor: sportFilter === item.id ? colors.bgElevated : colors.card }]}><Text style={styles.datePillText}>{item.label}</Text></Pressable>)}
+      </ScrollView>
 
       {nextGame && (
         <View style={styles.nextGameSection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Próximo jogo</Text>
+            <Text style={styles.sectionTitle}>Seu próximo jogo</Text>
             <View style={styles.datePill}>
               <Ionicons name="time-outline" size={13} color={colors.primaryDark} />
               <Text style={styles.datePillText}>{distanceToGame(nextGame.scheduledAt)}</Text>
@@ -96,13 +105,13 @@ export default function AgendaScreen() {
         </View>
         <View style={styles.perfStatsRow}>
           <PerfStat icon="football-outline" label="Jogos" value={String(activity.gamesPlayed)} />
-          <PerfStat label="Vitórias" value={String(record.wins)} />
-          <PerfStat icon="flame-outline" label={scoreLabel(sport.id, goalStats.scored)} value={String(goalStats.scored)} />
+          <PerfStat label="Rodadas vencidas" value={String(record.wins)} />
+          <PerfStat icon="flame-outline" label={sportFilter === 'all' ? 'Rodadas jogadas' : scoreLabel(sport.id, goalStats.scored)} value={String(sportFilter === 'all' ? record.played : goalStats.scored)} />
         </View>
         {record.played > 0 && (
           <Text style={styles.perfRecordText}>
             {record.wins}V · {record.draws}E · {record.losses}D
-            {'  ·  '}saldo {goalStats.balance > 0 ? `+${goalStats.balance}` : goalStats.balance}
+            {sportFilter !== 'all' ? `  ·  saldo ${goalStats.balance > 0 ? '+' : ''}${goalStats.balance}` : '  ·  resultados por rodada'}
           </Text>
         )}
         <Pressable style={styles.perfLink} onPress={() => router.push('/(tabs)/perfil')}>
@@ -122,7 +131,7 @@ export default function AgendaScreen() {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shortcutsRow}>
             {myPeladas.map((p) => (
-              <TeamShortcut key={p.id} peladaId={p.id} name={p.name} sportId={p.sportId} active={p.id === pelada.id} />
+              <TeamShortcut key={p.id} peladaId={p.id} name={p.name} sportId={p.sportId} active={p.id === pelada?.id} />
             ))}
             <Pressable style={styles.addTeamShortcut} onPress={() => router.push('/criar-pelada')}>
               <Ionicons name="add" size={20} color={colors.primary} />
@@ -133,22 +142,21 @@ export default function AgendaScreen() {
       )}
 
       <View style={styles.exploreSection}>
-        <Text style={styles.sectionEyebrow}>EXPLORE O BORAJOGO</Text>
-        <Text style={styles.sectionTitle}>Atalhos para organizar</Text>
+        <Text style={styles.sectionTitle}>Bora jogar mais?</Text>
         <View style={styles.quickActions}>
-          <Pressable style={styles.growthCentral} onPress={() => router.push('/central')}>
+          <Pressable style={styles.growthCentral} onPress={() => router.push('/descobrir')}>
             <View style={styles.growthCentralIcon}><Ionicons name="rocket-outline" size={20} color={colors.onAction} /></View>
             <View style={styles.quickActionCopy}>
-              <Text style={styles.growthCentralTitle}>Central do esporte</Text>
-              <Text style={styles.quickActionDescription}>Recursos, loja e comunidade</Text>
+              <Text style={styles.growthCentralTitle}>Encontrar um jogo</Text>
+              <Text style={styles.quickActionDescription}>Vagas abertas para conhecer gente</Text>
             </View>
             <Ionicons name="arrow-forward" size={16} color={colors.primaryDark} />
           </Pressable>
-          <Pressable style={styles.proCentral} onPress={() => router.push('/operacao-pro')}>
+          <Pressable style={styles.proCentral} onPress={() => router.push('/aulas')}>
             <View style={styles.proCentralIcon}><Ionicons name="shield-checkmark" size={19} color={colors.white} /></View>
             <View style={styles.quickActionCopy}>
-              <Text style={styles.growthCentralTitle}>Operação Pro</Text>
-              <Text style={styles.quickActionDescription}>Gestão avançada do jogo</Text>
+              <Text style={styles.growthCentralTitle}>Aulas esportivas</Text>
+              <Text style={styles.quickActionDescription}>Aprender e evoluir no seu ritmo</Text>
             </View>
             <Ionicons name="arrow-forward" size={16} color={colors.special} />
           </Pressable>
@@ -159,24 +167,25 @@ export default function AgendaScreen() {
         <>
           <Text style={styles.sectionTitle}>Próximos jogos</Text>
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nenhum jogo agendado. Peça para um admin criar um na aba Admin.</Text>
+            <Text style={styles.emptyText}>Nenhum jogo agendado nos seus times para este filtro. Encontre um jogo aberto ou organize o próximo encontro.</Text>
           </View>
         </>
       ) : upcoming.length > 1 ? (
         <View>
           <Text style={styles.sectionTitle}>Depois desse</Text>
-          {upcoming.slice(1).map((game) => <GameCard key={game.id} game={game} />)}
+          {upcoming.slice(1, 5).map((game) => <GameCard key={game.id} game={game} compact />)}
         </View>
       ) : null}
 
       {past.length > 0 && (
         <>
           <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Jogos anteriores</Text>
-          {past.map((game) => (
+          {past.slice(0, 5).map((game) => (
             <GameCard key={game.id} game={game} />
           ))}
         </>
       )}
+      {!adFree && <AdBanner />}
     </Screen>
   );
 }

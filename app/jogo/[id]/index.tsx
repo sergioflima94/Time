@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { NearbyFreeAgentsSection } from '@/components/NearbyFreeAgentsSection';
 import { BookingAutomationCard } from '@/components/BookingAutomationCard';
 import { PaymentSplitSection } from '@/components/PaymentSplitSection';
+import { OpenGameSection } from '@/components/OpenGameSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -100,6 +101,7 @@ export default function GameDetailScreen() {
   return (
     <Screen>
       <Text style={styles.date}>{formatGameDateLong(game.scheduledAt)}</Text>
+      {isAdmin && ['open','full'].includes(game.status) && <OpenGameSection gameId={game.id} />}
       <View style={styles.metaRow}>
         <Ionicons name="location" size={14} color={colors.textMuted} />
         <Text style={styles.metaText}>{field?.name ?? 'Local a definir'} · reserva de {game.durationMinutes ?? 90} min</Text>

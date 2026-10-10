@@ -66,6 +66,8 @@ import { banterExpiresAt } from '@/lib/banter';
 import { createBookingCode, findAlternativeSlots, nextBookingCandidate, normalizeWhatsAppPhone } from '@/lib/bookingAutomation';
 import { findBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
+import { isMockMode } from '@/lib/supabase';
+import { getSport, sportRules } from '@/constants/sports';
 import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
 import { buildPunishment } from '@/lib/punishment';
 import { pickNextChallenger, teamColor, teamName, type MatchResult, type WaitingEntry } from '@/lib/teamDraft';
@@ -1262,6 +1264,7 @@ export const useAppStore = create<AppState>()(
       },
 
       setEstablishmentGateway: (establishmentId, provider) => {
+        if (!isMockMode && provider !== 'manual_pix') throw new Error('A conexão real precisa ser autorizada pelo provedor e confirmada pelo backend.');
         const existing = get().paymentGatewayConnections.find((row) => row.establishmentId === establishmentId);
         const now = nowIso();
         const connection: PaymentGatewayConnection = {
@@ -1529,7 +1532,7 @@ export const useAppStore = create<AppState>()(
       cancelClassSession: (sessionId, reason) => {
         set((state) => ({
           classSessions: state.classSessions.map((session) => (session.id === sessionId ? { ...session, status: 'cancelled', cancellationReason: reason.trim() || 'Cancelada pelo estabelecimento' } : session)),
-          classEnrollments: state.classEnrollments.map((enrollment) => enrollment.sessionId === sessionId && enrollment.status !== 'cancelled' ? { ...enrollment, status: 'cancelled', paymentStatus: enrollment.paymentStatus === 'paid' ? 'refunded' : enrollment.paymentStatus } : enrollment),
+          classEnrollments: state.classEnrollments.map((enrollment) => enrollment.sessionId === sessionId && enrollment.status !== 'cancelled' ? { ...enrollment, status: 'cancelled', paymentStatus: isMockMode && enrollment.paymentStatus === 'paid' ? 'refunded' : enrollment.paymentStatus } : enrollment),
         }));
       },
 
@@ -1560,6 +1563,14 @@ export const useAppStore = create<AppState>()(
       },
 
       setClassEnrollmentPayment: (enrollmentId, method) => {
+        if (!isMockMode) {
+          const state = get(); const enrollment = state.classEnrollments.find(e => e.id === enrollmentId);
+          const session = state.classSessions.find(s => s.id === enrollment?.sessionId);
+          const program = state.classPrograms.find(p => p.id === session?.programId);
+          const permitted = program && (state.establishments.some(e => e.id === program.establishmentId && e.ownerPlayerId === state.currentPlayerId)
+            || state.establishmentStaff.some(s => s.establishmentId === program.establishmentId && s.playerId === state.currentPlayerId && s.active && s.roles.some(r => r === 'manager' || r === 'cashier')));
+          if (method !== 'cash' || !permitted) throw new Error('Pagamento online precisa ser confirmado pelo provedor. Apenas o caixa autorizado confirma dinheiro.');
+        }
         set((state) => ({ classEnrollments: state.classEnrollments.map((row) => row.id === enrollmentId ? { ...row, paymentStatus: 'paid', paymentMethod: method, paidAt: nowIso() } : row) }));
       },
 
@@ -1575,7 +1586,7 @@ export const useAppStore = create<AppState>()(
           const program = state.classPrograms.find((row) => row.id === session?.programId);
           const promotedCredit = promoted && program ? state.makeupCredits.find((row) => row.playerId === promoted.playerId && row.programId === program.id && !row.usedAt && new Date(row.expiresAt).getTime() > Date.now()) : undefined;
           const enrollments = state.classEnrollments.map((row) => {
-            if (row.id === enrollmentId) return { ...row, status: 'cancelled' as const, waitlistPosition: null, paymentStatus: row.paymentStatus === 'paid' ? 'refunded' as const : row.paymentStatus };
+            if (row.id === enrollmentId) return { ...row, status: 'cancelled' as const, waitlistPosition: null, paymentStatus: isMockMode && row.paymentStatus === 'paid' ? 'refunded' as const : row.paymentStatus };
             if (row.id === promotedId) return { ...row, status: 'confirmed' as const, waitlistPosition: null, paymentStatus: promotedCredit ? 'waived' as const : row.paymentStatus, amount: promotedCredit ? 0 : row.amount };
             if (row.sessionId === target.sessionId && row.status === 'waitlisted' && promotedId) return { ...row, waitlistPosition: Math.max(1, (row.waitlistPosition ?? 1) - 1) };
             return row;
@@ -2561,14 +2572,16 @@ export const useAppStore = create<AppState>()(
       },
 
       createPelada: (ownerPlayerId, input) => {
+        const selectedSport = getSport(input.sportId);
+        if (selectedSport.id !== input.sportId || selectedSport.active === false) throw new Error('Escolha um esporte ativo do catálogo.');
         const pelada: Pelada = {
           id: uid(),
           name: input.name,
           description: input.description,
           sportId: input.sportId,
           footballVariant: input.footballVariant,
-          defaultMaxPlayers: 16,
-          defaultMatchMinutes: 10,
+          defaultMaxPlayers: getSport(input.sportId).suggestedTeamSize * 2,
+          defaultMatchMinutes: sportRules(getSport(input.sportId)).periodMinutes,
           inviteCode: uid().toUpperCase(),
           memberInvitePermissions: { canInviteFreeAgents: false, canInviteNewMembers: false },
           createdBy: ownerPlayerId,
@@ -2590,6 +2603,7 @@ export const useAppStore = create<AppState>()(
       },
 
       renewPremium: (playerId) => {
+        if (!isMockMode) return; // Entitlement real só por callback verificado da loja.
         set((state) => ({
           players: state.players.map((p) =>
             p.id === playerId

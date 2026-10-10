@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/Screen';
 import { getSport } from '@/constants/sports';
 import { colors, spacing } from '@/constants/theme';
 import { formatDateTime, formatMoney } from '@/lib/establishmentOperations';
+import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function AvailableClassesScreen() {
@@ -36,7 +37,7 @@ export default function AvailableClassesScreen() {
           <Card key={session.id} style={[styles.card, { borderLeftColor: sport.color }]}>
             <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.program}>{sport.icon} {program.name}</Text><Text style={styles.meta}>{establishment?.name} · {formatDateTime(session.startsAt)}</Text></View><Badge label={program.format === 'group' ? `${occupied}/${program.capacity}` : 'Particular'} color={sport.color} /></View>
             <Text style={styles.description}>{program.level} · {program.durationMinutes} min · {formatMoney(program.price)} {program.billingType === 'monthly' ? '/ mês' : program.billingType === 'package' ? '/ pacote' : '/ aula'}</Text>
-            {!mine ? <Button label={occupied >= program.capacity ? 'Entrar na lista de espera' : 'Reservar vaga'} onPress={() => enrollInClass(session.id, currentPlayerId)} /> : <View style={styles.myBox}><Text style={styles.myText}>{mine.status === 'waitlisted' ? `Lista de espera · posição ${mine.waitlistPosition}` : mine.paymentStatus === 'paid' || mine.paymentStatus === 'waived' ? 'Vaga confirmada' : 'Vaga reservada · pagamento pendente'}</Text>{mine.status === 'confirmed' && mine.paymentStatus === 'pending' && <Button label="Pagar via Pix" small onPress={() => setClassEnrollmentPayment(mine.id, 'pix')} />}<Button label="Cancelar inscrição" variant="ghost" small onPress={() => cancelClassEnrollment(mine.id)} /></View>}
+            {!mine ? <Button label={occupied >= program.capacity ? 'Entrar na lista de espera' : 'Reservar vaga'} onPress={() => enrollInClass(session.id, currentPlayerId)} /> : <View style={styles.myBox}><Text style={styles.myText}>{mine.status === 'waitlisted' ? `Lista de espera · posição ${mine.waitlistPosition}` : mine.paymentStatus === 'paid' || mine.paymentStatus === 'waived' ? 'Vaga confirmada' : 'Vaga reservada · pagamento pendente'}</Text>{mine.status === 'confirmed' && mine.paymentStatus === 'pending' && <>{isMockMode ? <Button label="Simular Pix (demo)" small onPress={() => setClassEnrollmentPayment(mine.id, 'pix')} /> : <Text style={styles.meta}>Pagamento online de aulas ainda não está disponível. Combine o pagamento com o caixa. Cancelamentos pagos precisam de reembolso confirmado pelo provedor.</Text>}</>}<Button label="Cancelar inscrição" variant="ghost" small onPress={() => cancelClassEnrollment(mine.id)} /></View>}
           </Card>
         );
       })}

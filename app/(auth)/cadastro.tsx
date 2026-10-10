@@ -6,13 +6,15 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
-import { SPORTS } from '@/constants/sports';
+import { useSports } from '@/constants/sports';
 import { pickProfilePhoto } from '@/lib/photo';
+import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PlayerPosition } from '@/types';
 
 export default function CadastroScreen() {
+  const SPORTS = useSports();
   const register = useAuthStore((s) => s.register);
   const authLoading = useAuthStore((s) => s.loading);
   const authError = useAuthStore((s) => s.error);
@@ -29,6 +31,7 @@ export default function CadastroScreen() {
   const [favoriteSports, setFavoriteSports] = useState<string[]>(['futebol']);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [notice, setNotice] = useState('');
 
   async function handlePickPhoto() {
     setPickingPhoto(true);
@@ -48,10 +51,11 @@ export default function CadastroScreen() {
   }
 
   async function handleSubmit() {
-    const ok = await register(email || 'demo@pelada.app', password || 'demonstracao', {
+    const ok = await register(isMockMode ? email || 'demo@pelada.app' : email, isMockMode ? password || 'demonstracao' : password, {
       name: name.trim() || 'Novo Jogador', phone: phone.trim() || null, preferredPosition: position, favoriteSports,
     });
     if (!ok) return;
+    if (!useAuthStore.getState().isLoggedIn) { setNotice('Conta criada. Confirme seu e-mail e depois entre com sua senha.'); return; }
     updateProfile({
       name: name.trim() || 'Novo Jogador',
       nickname: nickname.trim() || null,
@@ -126,7 +130,8 @@ export default function CadastroScreen() {
       </View>
 
       {authError && <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{authError}</Text>}
-      <Button label="Criar conta e entrar" onPress={handleSubmit} loading={authLoading} disabled={!name.trim()} style={{ marginTop: spacing.xl }} />
+      {!!notice && <Text style={{ color: colors.secondary, marginTop: spacing.sm }}>{notice}</Text>}
+      <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
     </ScrollView>
   );
