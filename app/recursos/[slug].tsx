@@ -166,7 +166,7 @@ function Marketplace() {
   const offers = useGrowthStore((state) => state.openSlotOffers);
   const reserve = useGrowthStore((state) => state.reserveOffer);
   const [notice, setNotice] = useState('');
-  return <>{offers.map((offer) => {
+  return <><Button small variant="outline" label="Ver catálogo de campos próximos" onPress={()=>router.push('/campos')} />{offers.map((offer) => {
     const sport = getSport(offer.sportId);
     const discount = percentage(offer.originalPrice - offer.offerPrice, offer.originalPrice);
     return <Card key={offer.id} style={[styles.section, offer.sponsored && { borderColor: colors.warning }]}>{offer.sponsored && <Badge label="PATROCINADO" color={colors.warning} />}<View style={styles.row}><View style={[styles.roundIcon, { backgroundColor: `${sport.color}22` }]}><Text>{sport.icon}</Text></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{offer.fieldName}</Text><Text style={styles.caption}>{new Date(offer.startsAt).toLocaleString('pt-BR')} · {offer.durationMinutes} min</Text></View></View><View style={styles.priceRow}><Text style={styles.oldPrice}>{currency(offer.originalPrice)}</Text><Text style={styles.offerPrice}>{currency(offer.offerPrice)}</Text><Badge label={`-${discount}%`} color={colors.success} /></View><Button label={offer.status === 'reserved' ? 'Horário reservado' : 'Reservar horário'} disabled={offer.status === 'reserved'} onPress={() => setNotice(reserve(offer.id, playerId) ? 'Horário reservado e debitado da carteira.' : 'Saldo insuficiente ou horário indisponível.')} /></Card>;

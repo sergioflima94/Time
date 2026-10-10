@@ -1775,6 +1775,72 @@ export type Database = {
           },
         ]
       }
+      field_directory_entries: {
+        Row: {
+          active: boolean
+          address: string
+          created_by: string
+          field_id: string | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          online_requested: boolean
+          phone: string
+          revision: number
+          sport_id: string
+          updated_at: string
+          whatsapp: boolean
+        }
+        Insert: {
+          active?: boolean
+          address: string
+          created_by: string
+          field_id?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          online_requested?: boolean
+          phone: string
+          revision?: number
+          sport_id: string
+          updated_at?: string
+          whatsapp?: boolean
+        }
+        Update: {
+          active?: boolean
+          address?: string
+          created_by?: string
+          field_id?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          online_requested?: boolean
+          phone?: string
+          revision?: number
+          sport_id?: string
+          updated_at?: string
+          whatsapp?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_directory_entries_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: true
+            referencedRelation: "fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_directory_entries_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sport_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       field_promotions: {
         Row: {
           active: boolean
@@ -5734,6 +5800,7 @@ export type Database = {
         Args: { p_audience: string; p_target: string }
         Returns: boolean
       }
+      directory_registered: { Args: { p_field: string }; Returns: boolean }
       fundraising_campaign_feed: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -5775,6 +5842,7 @@ export type Database = {
         Args: { p_query?: string; p_sport?: string }
         Returns: Json
       }
+      manage_field_directory: { Args: never; Returns: Json }
       open_game_admin_data: { Args: { p_game_id: string }; Returns: Json }
       platform_account_allowed: { Args: never; Returns: boolean }
       platform_admin_role: { Args: never; Returns: string }
@@ -5846,9 +5914,29 @@ export type Database = {
         Args: { p_payload: Json; p_reason: string }
         Returns: string
       }
+      save_field_directory: {
+        Args: {
+          p_data: Json
+          p_id: string
+          p_reason: string
+          p_revision: number
+        }
+        Returns: string
+      }
       save_platform_sport: {
         Args: { p_definition: Json; p_reason: string; p_revision: number }
         Returns: undefined
+      }
+      search_field_directory: {
+        Args: {
+          p_lat?: number
+          p_lng?: number
+          p_offset?: number
+          p_query?: string
+          p_radius?: number
+          p_sport?: string
+        }
+        Returns: Json
       }
       set_recap_consent: {
         Args: { p_allow: boolean; p_game: string }

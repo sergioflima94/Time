@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { GROWTH_FEATURES } from '@/constants/growthFeatures';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -33,6 +34,7 @@ export default function GrowthCentralScreen() {
       </Pressable>
 
       <View style={styles.grid}>
+        <Button small variant="outline" label="Campos perto de você" onPress={()=>router.push('/campos')} />
         {GROWTH_FEATURES.map((feature) => (
           <Pressable key={feature.id} style={styles.feature} onPress={() => router.push(`/recursos/${feature.id}`)}>
             <View style={[styles.icon, { backgroundColor: `${feature.color}22` }]}>

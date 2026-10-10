@@ -13,9 +13,10 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   small?: boolean;
+  accessibilityLabel?: string;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled, loading, style, small }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', disabled, loading, style, small, accessibilityLabel }: ButtonProps) {
   const palette = useUiPalette();
   const variantStyle = {
     primary: { backgroundColor: palette.action },
@@ -33,6 +34,8 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
   }[variant];
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       disabled={disabled || loading}
       style={({ pressed }) => [

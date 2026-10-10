@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const resolve=Module._resolveFilename;Module._resolveFilename=function(name,parent,...rest){return resolve.call(this,name.startsWith('@/')?path.resolve('src',name.slice(2)):name,parent,...rest);};
+require.extensions['.ts']=(m,file)=>m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const {rankDirectory,validateDirectoryInput,phoneLink,routeLink}=require('../src/lib/fieldDirectoryRules.ts');
+const base={fieldId:null,name:'Campo teste',address:'Rua Centro, 10',sportId:'futebol',phone:'(11) 99999-1111',whatsapp:false,latitude:0,longitude:0,online:false,active:true};
+validateDirectoryInput(base);assert.throws(()=>validateDirectoryInput({...base,online:true}),/não permite/);assert.throws(()=>validateDirectoryInput({...base,latitude:NaN}),/válidos/);assert.throws(()=>validateDirectoryInput({...base,phone:'123'}),/válidos/);
+const rows=[{...base,id:'closest-contact',registered:false},{...base,id:'far-registered',registered:true,latitude:.04},{...base,id:'near-registered',registered:true,latitude:.01},{...base,id:'outside',registered:true,latitude:40},{...base,id:'hidden',active:false,registered:true}];
+const search={origin:{latitude:0,longitude:0},radius:10,query:'',sportId:null};const sorted=rankDirectory(rows,search);
+assert.deepEqual(sorted.map(r=>r.id),['near-registered','far-registered','closest-contact']);assert.equal(sorted[2].distanceKm,0);
+assert.equal(rankDirectory(rows,{...search,radius:1}).length,1);assert.equal(rankDirectory(rows,{...search,sportId:'volei'}).length,0);assert.equal(rankDirectory(rows,{...search,query:'Centro'}).length,3);
+assert.ok(rankDirectory(rows,{...search,origin:null}).every(r=>r.distanceKm===null));assert.throws(()=>rankDirectory(rows,{...search,radius:NaN}),/inválida/);
+assert.equal(phoneLink(base.phone),'tel:+5511999991111');assert.equal(phoneLink(base.phone,true),'https://wa.me/5511999991111');assert.equal(phoneLink('+55 11 99999-1111',true),'https://wa.me/5511999991111');assert.throws(()=>phoneLink('https://evil.invalid'),/inválido/);
+assert.equal(routeLink(base),'https://www.google.com/maps/dir/?api=1&destination=0,0');assert.throws(()=>routeLink({...base,latitude:Infinity}),/inválidas/);
+console.log('PASS: nearest inside each registration group, radius filters both groups, region/sport/no-GPS, real zero coordinates, phone/deep links and no external online bookings.');

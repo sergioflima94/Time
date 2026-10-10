@@ -5,6 +5,7 @@ import { Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EstablishmentSwitcher } from '@/components/EstablishmentSwitcher';
+import { FieldDirectoryEditor } from '@/components/FieldDirectoryEditor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -42,6 +43,7 @@ export default function EstablishmentDashboardScreen() {
   const gatewayConnection = useAppStore((s) => s.paymentGatewayConnections.find((row) => row.establishmentId === id && row.status === 'connected'));
 
   const [editing, setEditing] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [name, setName] = useState(establishment?.name ?? '');
   const [payoutMethod, setPayoutMethod] = useState<EstablishmentPayoutMethod>(establishment?.payoutMethod ?? 'pix');
   const [pixKey, setPixKey] = useState(establishment?.pixKey ?? '');
@@ -129,8 +131,10 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
         <NavCard icon="card" label="Pagamentos" sub={gatewayConnection ? 'Gateway conectado' : 'Escolher gateway'} onPress={() => router.push(`/estabelecimento/${establishment.id}/pagamentos`)} />
         <NavCard icon="time" label="Horários de oportunidade" sub="Desconto real e pedidos" onPress={()=>router.push({pathname:'/bora',params:{establishmentId:establishment.id}})} />
+        <NavCard icon="location" label="Aparecer nos campos próximos" sub="Ficha pública e contato" onPress={()=>setDirectoryOpen(!directoryOpen)} />
         <NavCard icon="megaphone" label="Divulgação" sub="Patrocínio e conversão" onPress={() => router.push(`/estabelecimento/${establishment.id}/promocoes`)} />
       </View>
+      {directoryOpen && <FieldDirectoryEditor establishmentId={establishment.id} />}
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>

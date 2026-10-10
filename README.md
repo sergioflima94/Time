@@ -1,5 +1,52 @@
 # BoraJogo
 
+## Campos perto de você
+
+Na Home, **Campos próximos** abre `/campos`. O catálogo reúne fichas publicadas,
+não todos os campos existentes na cidade nem campos privados de times. Também há
+atalho na Central do esporte e no marketplace de horários.
+
+- **Cadastrados no BoraJogo** aparecem primeiro; **Contato direto** vem depois.
+  Dentro de cada grupo, a ordem é pela distância em linha reta. O raio de
+  5/10/20/50/100 km filtra **ambos** antes da ordenação/paginação: cadastro não
+  faz um campo distante furar o raio. Não é publicidade ou selo de qualidade.
+- GPS é solicitado somente ao tocar **Usar minha localização**, sem rastreamento
+  em segundo plano ou escrita no perfil. Sem permissão, é possível buscar por
+  nome, bairro/cidade e esporte; a lista usa cadastro/nome, sem inventar distância.
+  Busca por texto é literal sobre nome/endereço, não geocodificação de uma cidade.
+- Cada ficha mostra endereço, esporte, telefone comercial, data de atualização,
+  ligação, rota e WhatsApp quando explicitamente habilitado. Contatos não
+  vinculados **não** recebem reserva, dono fictício ou conta de pagamento.
+- O administrador publica/edita/oculta contatos em **Admin da plataforma → Times
+  e campos → Catálogo de campos e contatos**, ou na gestão da própria tela
+  Campos próximos. Nome, endereço com bairro/cidade, telefone com DDD, coordenadas
+  do campo e motivo são obrigatórios; é preciso confirmar a divulgação de dados
+  comerciais. O botão de GPS do cadastro é para quem está **no campo**, não em casa.
+- Donos podem publicar/editar/retirar somente seus próprios campos pelo painel
+  do estabelecimento → **Aparecer nos campos próximos**. Vínculos assistidos só
+  ficam elegíveis depois do aceite do responsável. A ficha externa pode ser
+  vinculada pelo administrador ao campo cadastrado, sem transferir propriedade.
+  Um campo pode ter somente uma ficha vinculada; duplicatas exatas ativas são
+  rejeitadas. Não há reivindicação automática apenas por telefone.
+- **Ver horários no app** exige vínculo com responsável cadastrado/ativo,
+  publicação online habilitada e pelo menos um horário de oportunidade realmente
+  livre. O botão abre `/bora?fieldId=...` somente com horários daquele campo.
+  Sem oferta livre, inclusive em estabelecimento cadastrado, o contato é direto.
+  A disponibilidade é revalidada na reserva. Não cria horários ou cobra valores.
+
+Backend: `20261010100000_field_directory.sql`, tabela privada
+`field_directory_entries` e RPCs autenticados `search_field_directory`,
+`manage_field_directory` e `save_field_directory`. Escrita direta é proibida;
+owner/admin globais gerenciam contatos, suporte não publica, e donos só gerenciam
+campos próprios. Revisão otimista protege edição concorrente; alterações têm
+motivo e auditoria. A busca retorna até 60 fichas por página e não expõe dados
+financeiros, proprietário, elenco ou códigos privados. Telefones dos exemplos
+existem somente no modo demonstração; nenhum campo fictício foi inserido no banco real.
+
+Validação: `node scripts/test-field-directory-domain.cjs`,
+`node scripts/test-field-directory-sql.cjs` e
+`node scripts/test-field-directory-ui.cjs` (Chrome/Playwright, viewport de celular).
+
 ## Painel da plataforma e catálogo de esportes
 
 O **Perfil → Admin da plataforma** é separado de **Admin do time** e da operação

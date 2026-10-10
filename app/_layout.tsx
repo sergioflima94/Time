@@ -55,6 +55,7 @@ export default function RootLayout() {
             <Stack.Screen name="plataforma" />
             <Stack.Screen name="descobrir" />
             <Stack.Screen name="bora" />
+            <Stack.Screen name="campos" />
             <Stack.Screen name="comecar" />
             <Stack.Screen name="central" />
             <Stack.Screen name="recursos/[slug]" />
