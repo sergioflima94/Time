@@ -7,6 +7,7 @@ export default function AuthLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="cadastro" />
+      <Stack.Screen name="confirmar-email" />
     </Stack>
   );
 }

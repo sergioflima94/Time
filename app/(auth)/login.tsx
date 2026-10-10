@@ -13,7 +13,7 @@ export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
   const loading = useAuthStore((s) => s.loading);
   const authError = useAuthStore((s) => s.error);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => useAuthStore.getState().pendingEmail ?? '');
   const [password, setPassword] = useState('');
 
   async function handleLogin() {
@@ -61,6 +61,10 @@ export default function LoginScreen() {
 
         {authError && <Text style={styles.authError}>{authError}</Text>}
         <Button label="Entrar" loading={loading} disabled={!isMockMode && (!email.trim() || !password)} onPress={handleLogin} style={{ marginTop: spacing.lg }} />
+        {!isMockMode && <Button label="Preciso confirmar meu e-mail" variant="ghost" onPress={() => {
+          useAuthStore.setState({ pendingEmail: email.trim() || null, error: null });
+          router.push('/(auth)/confirmar-email');
+        }} />}
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Ainda não tem conta?</Text>

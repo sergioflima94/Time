@@ -10,6 +10,7 @@ android/
 ios/
 screenshots/
 supabase/
+config/mobile-auth/
 scripts/test-*.cjs
 .env
 .env.*

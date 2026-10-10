@@ -5,23 +5,22 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { usePlatformAccessSync } from '@/hooks/usePlatformAccessSync';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { initializeAds } from '@/lib/ads';
-import { useAuthStore } from '@/store/useAuthStore';
 import { usePlatformStore } from '@/store/usePlatformStore';
 
 export default function RootLayout() {
   useNotificationNavigation();
+  useAuthSession();
   useSupabaseSync();
   usePlatformAccessSync();
-  const initializeAuth = useAuthStore((state) => state.initialize);
   useEffect(() => {
     initializeAds();
-    initializeAuth();
     void usePlatformStore.getState().loadPublic();
-  }, [initializeAuth]);
+  }, []);
 
   return (
     <ThemeProvider
@@ -43,6 +42,7 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="auth/callback" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="jogo/[id]" />
             <Stack.Screen name="time/[id]" />

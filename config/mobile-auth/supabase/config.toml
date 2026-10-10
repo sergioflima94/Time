@@ -1,0 +1,7 @@
+# Configuração remota limitada a URLs. Não desativa confirmação, MFA ou limites.
+# Antes de aplicar, revise `supabase config diff` com --workdir config/mobile-auth.
+project_id = "borajogo-mobile-auth"
+
+[auth]
+site_url = "pelada://auth/callback"
+additional_redirect_urls = ["pelada://auth/callback"]

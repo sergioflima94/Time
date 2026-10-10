@@ -29,6 +29,40 @@ servidor. Anúncios sem IDs próprios usam os IDs oficiais de teste. Credenciais
 de push, compras nas lojas e SDK SoftPOS não são habilitados apenas por gerar APK.
 O papel administrativo precisa estar concedido à conta real no Supabase.
 
+### Cadastro e confirmação de e-mail no APK
+
+O Supabase real exige confirmação de e-mail. Criar um usuário não libera sessão:
+o app abre **Confira seu e-mail**, permite reenviar com intervalo mínimo e oferece
+**Já confirmei — entrar**. O link retorna para `pelada://auth/callback`, restaura
+a sessão pelo Supabase Auth e abre a Home. Links expirados têm uma tela de
+recuperação; as mudanças de sessão também são acompanhadas quando o app está aberto.
+Tokens do link não aparecem em avisos/logs, e são removidos da URL no navegador.
+
+O `localhost` que aparecia após o cadastro era a **Site URL de confirmação**,
+não o endereço do banco do APK. No projeto remoto, Site URL e lista de redirects
+agora usam `pelada://auth/callback`; a confirmação, MFA e limites não foram desativados.
+O esquema `pelada` já existe no binário Android. Em web, o app usa o endereço
+da página `/auth/callback`, que deve ser autorizado explicitamente no Supabase
+antes de publicar em um domínio. Não libere curingas amplos em produção.
+
+Para inspecionar/reaplicar somente as URLs móveis, sem empurrar o restante da
+configuração local: `npx supabase config diff --project-ref oyhbmbstsiagwljatawq --workdir config/mobile-auth`
+e, após revisar, `npx supabase config push --project-ref oyhbmbstsiagwljatawq --workdir config/mobile-auth`.
+Esta configuração é para o app móvel; ao publicar a web, preserve também seus
+endereços autorizados. Não use o `supabase/config.toml` de desenvolvimento para
+substituir a configuração remota inteira.
+
+Se uma confirmação antiga abriu localhost **após** validar o e-mail no servidor,
+a conta pode já estar confirmada: tente entrar com o mesmo e-mail e senha.
+Não precisa criar outra conta. Se continuar pendente, use **Preciso confirmar
+meu e-mail** e solicite uma nova confirmação. E-mails já enviados não são reescritos.
+Reenvio pode ser bloqueado pelos limites do Supabase/SMTP; o erro aparece na tela.
+
+Regressões: `node scripts/test-auth-flow.cjs` testa a store e parsing sem servidor;
+`node scripts/test-auth-ui.cjs` testa cadastro, confirmação/reenvio, login pendente
+e callback em Chrome mobile, com as respostas de Auth interceptadas (sem criar
+contas ou enviar e-mails reais). O callback Android ainda deve ser validado no aparelho.
+
 ## Campos perto de você
 
 Na Home, **Campos próximos** abre `/campos`. O catálogo reúne fichas publicadas,

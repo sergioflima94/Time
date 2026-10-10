@@ -31,7 +31,6 @@ export default function CadastroScreen() {
   const [favoriteSports, setFavoriteSports] = useState<string[]>(['futebol']);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [pickingPhoto, setPickingPhoto] = useState(false);
-  const [notice, setNotice] = useState('');
 
   async function handlePickPhoto() {
     setPickingPhoto(true);
@@ -55,15 +54,18 @@ export default function CadastroScreen() {
       name: name.trim() || 'Novo Jogador', phone: phone.trim() || null, preferredPosition: position, favoriteSports,
     });
     if (!ok) return;
-    if (!useAuthStore.getState().isLoggedIn) { setNotice('Conta criada. Confirme seu e-mail e depois entre com sua senha.'); return; }
-    updateProfile({
+    setPassword('');
+    if (!useAuthStore.getState().isLoggedIn) { router.replace('/(auth)/confirmar-email'); return; }
+    // No modo real, o perfil é criado pelo trigger e carregado pela sincronização.
+    // Não sobrescreve o jogador em cache antes de receber o ID da nova conta.
+    if (isMockMode) updateProfile({
       name: name.trim() || 'Novo Jogador',
       nickname: nickname.trim() || null,
       phone: phone.trim() || null,
       preferredPosition: position,
       favoriteSports,
     });
-    if (photoUri) setPlayerPhoto(currentPlayerId, photoUri);
+    if (isMockMode && photoUri) setPlayerPhoto(currentPlayerId, photoUri);
     router.replace('/(tabs)');
   }
 
@@ -130,7 +132,6 @@ export default function CadastroScreen() {
       </View>
 
       {authError && <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{authError}</Text>}
-      {!!notice && <Text style={{ color: colors.secondary, marginTop: spacing.sm }}>{notice}</Text>}
       <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
     </ScrollView>

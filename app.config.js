@@ -14,7 +14,7 @@ module.exports = {
     extra: {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
     },
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'pelada',
@@ -25,6 +25,7 @@ module.exports = {
       bundleIdentifier: 'com.pelada.app',
     },
     android: {
+      versionCode: 2,
       adaptiveIcon: {
         backgroundColor: '#F5F2EA',
         foregroundImage: './assets/android-icon-foreground.png',
