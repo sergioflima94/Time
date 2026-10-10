@@ -16,7 +16,8 @@ import { colors, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
-import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
+import { useCommercialAccess } from '@/hooks/useCommercialAccess';
+import { CommercialOffers } from '@/components/CommercialOffers';
 import { formatGameDateShort } from '@/lib/format';
 import { computePlayerGoalStats, computePlayerGoalStatsByGroup } from '@/lib/goals';
 import { pickProfilePhoto } from '@/lib/photo';
@@ -28,8 +29,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function PerfilScreen() {
   const platformRole = usePlatformAdmin();
-  const ownerBenefits = useOwnerBenefits();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
+  const { included } = useCommercialAccess('player',currentPlayerId);
   const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId)!);
   const ratings = useAppStore((s) => s.ratings);
   const games = useAppStore((s) => s.games);
@@ -54,7 +55,7 @@ export default function PerfilScreen() {
   const goalStats = computePlayerGoalStats(currentPlayerId, teamPlayers, matchTurns, goals);
   const goalStatsByGroup = computePlayerGoalStatsByGroup(currentPlayerId, teamPlayers, matchTurns, goals, games, myPeladas);
   const pendingGames = getPendingRatingGames(games, attendances, ratings, currentPlayerId);
-  const isPremium = ownerBenefits || isPremiumActive(player);
+  const isPremium = included || isPremiumActive(player);
 
   async function handleChangePhoto() {
     setPickingPhoto(true);
@@ -113,6 +114,7 @@ export default function PerfilScreen() {
       />
 
       <FreeAgentInvitesSection playerId={currentPlayerId} />
+      <CommercialOffers audience="player" targetId={currentPlayerId} />
       <FreeAgentSection player={player} />
 
       <Card style={styles.section}>

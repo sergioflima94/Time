@@ -9,6 +9,8 @@ import { daysUntilExpiry, isPremiumActive } from '@/lib/premium';
 import { isMockMode } from '@/lib/supabase';
 import { useProStore } from '@/store/useProStore';
 import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
+import { useCommercialAccess } from '@/hooks/useCommercialAccess';
+import { useAppStore } from '@/store/useAppStore';
 
 const BENEFITS = [
   'Sem anúncios em nenhuma tela',
@@ -33,6 +35,8 @@ interface PremiumSectionProps {
 
 export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscribe, onCancelAutoRenew }: PremiumSectionProps) {
   const ownerBenefits = useOwnerBenefits();
+  const playerId = useAppStore(s=>s.currentPlayerId);
+  const { license } = useCommercialAccess('player',playerId);
   const offer = useProStore(s => s.plans.find(p => p.audience === 'player' && p.active));
   const price = offer?.monthlyPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -67,6 +71,15 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
       </View>
       <Text style={styles.subText}>Premium sem anúncios e benefícios Pro liberados, sem assinatura ou cobrança mensal, enquanto seu papel de proprietário estiver ativo.</Text>
       <Text style={styles.subText}>Consumo, reservas e serviços externos continuam sendo pagos normalmente.</Text>
+    </Card>;
+  }
+
+  if (license) {
+    return <Card style={[styles.card,styles.cardActive]}>
+      <Text style={styles.titleActive}>Premium por licença concedida</Text>
+      <Text style={styles.subText}>{license.expiresAt?`Benefícios gratuitos até ${new Date(license.expiresAt).toLocaleDateString('pt-BR')}.`:'Benefícios gratuitos sem prazo definido, enquanto a licença estiver ativa.'}</Text>
+      <Text style={styles.subText}>Sem anúncios e fundo da carta liberados. A licença pode ser revogada e não concede acesso administrativo.</Text>
+      {active && <><Text style={styles.subText}>Você já tem uma assinatura paga. Esta licença não cancela a renovação nem gera reembolso automaticamente.</Text><Pressable onPress={handleManageSubscription}><Text style={styles.manageLink}>Gerenciar assinatura existente</Text></Pressable></>}
     </Card>;
   }
 

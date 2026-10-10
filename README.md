@@ -18,7 +18,8 @@ Não cria assinatura fictícia, período pago, saldo ou receita. Administradores
 operacionais (`admin`), suporte e administradores de time não recebem essa
 isenção automaticamente.
 
-O aplicativo consulta `platform_admin_role()` no Supabase, não o e-mail nem
+O aplicativo consulta `commercial_access_snapshot()` com `platform_admin_role()`
+no Supabase, não o e-mail nem
 `user_metadata`. O acesso comercial não é persistido no aparelho; é atualizado
 no login, ao voltar ao app e a cada minuto em primeiro plano. Falha de consulta,
 revogação, suspensão ou troca de conta remove a isenção. A interface pode levar
@@ -38,6 +39,44 @@ suspensão sem exclusão de histórico, catálogo de planos, moderação e audit
 Toda alteração exige motivo. O último proprietário ativo não pode ser removido.
 Suspensões restringem acesso direto às tabelas autenticadas via RLS; funções
 existentes que usam `service_role` ainda precisam da mesma checagem explícita.
+
+### Licenças gratuitas e mensalidades negociadas
+
+Em **Admin da plataforma → Licenças e ofertas**, somente o proprietário pode
+selecionar um jogador cadastrado, time ou estabelecimento e seu plano:
+
+- **Gratuita**: libera benefícios imediatamente, por prazo em dias ou sem prazo
+  definido. Pode ser revogada com motivo, mantendo o histórico. Não concede
+  papel administrativo e não cria assinatura paga.
+- **Desconto %**: calcula a mensalidade a partir do preço atual do catálogo,
+  arredondando em centavos. Para gratuidade total use licença, não desconto de 100%.
+- **Valor mensal**: define um preço individual negociado, sem alterar o preço
+  público. Desconto/valor fixo têm prazo para resposta e duração de 1 a 36
+  mensalidades. O valor-base e o valor proposto ficam congelados na oferta.
+
+O destinatário consulta condições em **Operação Pro → Planos comerciais**;
+condições individuais também aparecem no Perfil. Somente o jogador beneficiado,
+administrador ativo do time ou dono do estabelecimento pode aceitar/recusar.
+Membros do time e funcionários autorizados podem aproveitar uma licença da
+organização, mas não consultar sua negociação privada. Uma licença Time Pro não
+libera Premium individual aos integrantes.
+
+**Aceite não é pagamento**: nesta versão uma oferta aceita fica com contratação
+pendente. Não renova, cobra ou ativa plano pago automaticamente. A integração de
+checkout/contrato e webhook autenticado deve usar a oferta aceita e seu valor
+congelado antes de ativar o período pago. Revogar uma oferta não cancela contratos
+já pagos nem estorna cobrança. Dar licença a assinante existente não cancela a
+renovação da loja automaticamente; o Perfil mantém o atalho de gerenciamento.
+
+Backend: migrações `20261010040000_commercial_agreements.sql` e
+`20261010050000_commercial_quote_guard.sql`, aplicadas ao projeto vinculado.
+Uma confirmação repetida usa o mesmo identificador e não duplica a licença;
+se o preço do catálogo mudar, a proposta exige revisão antes de ser criada.
+Escritas diretas na tabela são proibidas; concessão/revogação exigem
+`owner`, motivo e auditoria. Respostas e revogações usam revisão para evitar
+sobrescrita concorrente. A consulta de acesso é por sessão e falha fechada, sem
+persistir licença real no aparelho. A demonstração usa armazenamento separado
+(`borajogo-commercial-demo-v1`) e nunca concede privilégio no Supabase.
 
 ### Criar um novo esporte
 
@@ -123,6 +162,7 @@ node scripts/test-sports-domain.cjs
 npm install --prefix .test-runtime --no-audit --no-fund @electric-sql/pglite
 node scripts/test-platform-sql.cjs
 node scripts/test-owner-access.cjs
+node scripts/test-commercial-domain.cjs
 ```
 
 O teste SQL executa a cadeia de migrações num PostgreSQL local em memória com

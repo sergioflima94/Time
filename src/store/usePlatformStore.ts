@@ -8,6 +8,8 @@ import { useAppStore } from './useAppStore';
 import { useAuthStore } from './useAuthStore';
 import { useProStore } from './useProStore';
 import type { Json } from '@/types/supabase.generated';
+import { useCommercialStore } from './useCommercialStore';
+import type { AgreementInput } from '@/types/commercial';
 
 interface PlatformState {
   snapshot: PlatformSnapshot | null;
@@ -63,13 +65,13 @@ function demoSnapshot(query: string): PlatformSnapshot {
     establishments: app.establishments.filter(e => matches(e.name)).map(e => ({ ...e, fieldCount: app.fields.filter(f => f.establishmentId === e.id).length })),
     plans: pro.plans, reports: pro.moderationReports,
     admins: [{ authUserId: 'demo-owner', name: 'Administrador de demonstração', role: 'owner', active: true }],
-    audit: [...demoAudit].reverse().slice(0, 100),
+    audit: [...demoAudit,...useCommercialStore.getState().demoAudit].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100),
   };
 }
 
 export const usePlatformStore = create<PlatformState>((set, get) => ({
   snapshot: null, accessFor: null, settings: { ...DEFAULT_PLATFORM_SETTINGS }, publicReady: isMockMode, loading: false, error: null,
-  reset: () => { epoch++; set({ snapshot: null, accessFor: null, loading: false, error: null }); },
+  reset: () => { epoch++; useCommercialStore.getState().reset(); set({ snapshot: null, accessFor: null, loading: false, error: null }); },
   loadPublic: async () => {
     if (isMockMode || !supabase) { await hydrateDemo(); set({ settings: { ...demoSettings }, publicReady: true }); return; }
     const [configuration, sports] = await Promise.all([
@@ -92,6 +94,7 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
       let snapshot: PlatformSnapshot;
       if (isMockMode) {
         await hydrateDemo();
+        await useCommercialStore.getState().hydrate();
         if (useAppStore.getState().currentPlayerId !== 'p1') throw new Error('Este perfil não é administrador da plataforma.');
         snapshot = demoSnapshot(query);
       } else {
@@ -100,6 +103,8 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
         if (error) throw error;
         snapshot = data as unknown as PlatformSnapshot;
       }
+      if (requestEpoch !== epoch || key !== sessionKey()) return;
+      if (snapshot.role === 'owner') await useCommercialStore.getState().loadAdmin();
       if (requestEpoch !== epoch || key !== sessionKey()) return;
       set({ snapshot, accessFor: key, settings: snapshot.configuration.settings, publicReady: true, loading: false });
     } catch (error) {
@@ -111,6 +116,12 @@ export const usePlatformStore = create<PlatformState>((set, get) => ({
     if (!snapshot || get().accessFor !== sessionKey()) throw new Error('Sessão administrativa inválida.');
     if (reason.trim().length < 8) throw new Error('Explique o motivo com pelo menos 8 caracteres.');
     if (snapshot.role === 'support' && action !== 'report') throw new Error('Suporte só pode tratar denúncias.');
+    if (action === 'commercial' || action === 'commercial_revoke') {
+      if (snapshot.role !== 'owner') throw new Error('Somente o proprietário concede condições comerciais.');
+      if (action === 'commercial') await useCommercialStore.getState().save(payload as unknown as AgreementInput,reason);
+      else await useCommercialStore.getState().revoke(id!,Number(payload.revision),reason);
+      await get().load(); return;
+    }
     if (isMockMode) {
       if (useAppStore.getState().currentPlayerId !== 'p1') throw new Error('Acesso negado.');
       if (action === 'sport') {

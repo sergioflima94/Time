@@ -3200,6 +3200,83 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_commercial_agreements: {
+        Row: {
+          agreed_monthly_price: number
+          audience: string
+          created_at: string
+          created_by: string
+          discount_percent: number | null
+          duration_months: number | null
+          expires_at: string | null
+          id: string
+          kind: string
+          list_monthly_price: number
+          note: string
+          plan_id: string
+          request_id: string | null
+          request_payload: Json | null
+          responded_at: string | null
+          responded_by: string | null
+          revision: number
+          revoked_at: string | null
+          status: string
+          target_id: string
+        }
+        Insert: {
+          agreed_monthly_price: number
+          audience: string
+          created_at?: string
+          created_by: string
+          discount_percent?: number | null
+          duration_months?: number | null
+          expires_at?: string | null
+          id?: string
+          kind: string
+          list_monthly_price: number
+          note?: string
+          plan_id: string
+          request_id?: string | null
+          request_payload?: Json | null
+          responded_at?: string | null
+          responded_by?: string | null
+          revision?: number
+          revoked_at?: string | null
+          status: string
+          target_id: string
+        }
+        Update: {
+          agreed_monthly_price?: number
+          audience?: string
+          created_at?: string
+          created_by?: string
+          discount_percent?: number | null
+          duration_months?: number | null
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          list_monthly_price?: number
+          note?: string
+          plan_id?: string
+          request_id?: string | null
+          request_payload?: Json | null
+          responded_at?: string | null
+          responded_by?: string | null
+          revision?: number
+          revoked_at?: string | null
+          status?: string
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_commercial_agreements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_configuration: {
         Row: {
           id: boolean
@@ -5212,6 +5289,22 @@ export type Database = {
         Args: { p_establishment_id: string }
         Returns: boolean
       }
+      commercial_access_snapshot: { Args: never; Returns: Json }
+      commercial_admin_data: { Args: never; Returns: Json }
+      commercial_agreement_json: {
+        Args: {
+          a: Database["public"]["Tables"]["platform_commercial_agreements"]["Row"]
+        }
+        Returns: Json
+      }
+      commercial_target_manager: {
+        Args: { p_audience: string; p_target: string }
+        Returns: boolean
+      }
+      commercial_target_member: {
+        Args: { p_audience: string; p_target: string }
+        Returns: boolean
+      }
       fundraising_campaign_feed: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -5285,6 +5378,10 @@ export type Database = {
         Returns: boolean
       }
       request_open_game: { Args: { p_game_id: string }; Returns: string }
+      respond_commercial_agreement: {
+        Args: { p_accept: boolean; p_id: string; p_revision: number }
+        Returns: undefined
+      }
       respond_game_booking_request: {
         Args: {
           p_accepted: boolean
@@ -5295,6 +5392,18 @@ export type Database = {
       }
       respond_open_game_request: {
         Args: { p_accept: boolean; p_request_id: string }
+        Returns: string
+      }
+      revoke_commercial_agreement: {
+        Args: { p_id: string; p_reason: string; p_revision: number }
+        Returns: undefined
+      }
+      save_commercial_agreement: {
+        Args: { p_payload: Json; p_reason: string }
+        Returns: string
+      }
+      save_commercial_agreement_internal: {
+        Args: { p_payload: Json; p_reason: string }
         Returns: string
       }
       save_platform_sport: {

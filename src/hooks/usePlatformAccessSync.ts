@@ -4,6 +4,7 @@ import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
+import { useCommercialStore } from '@/store/useCommercialStore';
 
 /** Uma consulta pequena de papel, sem carregar o console/dados globais. */
 export function usePlatformAccessSync() {
@@ -15,6 +16,7 @@ export function usePlatformAccessSync() {
   useEffect(() => {
     const store = usePlatformAccessStore.getState();
     store.reset();
+    useCommercialStore.getState().reset();
     if (!key) return;
     void store.refresh();
     const refresh = () => { if (AppState.currentState === 'active') void store.refresh(); };

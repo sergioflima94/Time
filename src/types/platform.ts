@@ -21,7 +21,7 @@ export interface PlatformSnapshot {
   admins: Array<{ authUserId: string; name: string; role: PlatformRole; active: boolean }>;
   audit: Array<{ id: string; action: string; targetId: string | null; reason: string; createdAt: string }>;
 }
-export type PlatformAction = 'settings' | 'plan' | 'report' | 'account' | 'admin' | 'sport';
+export type PlatformAction = 'settings' | 'plan' | 'report' | 'account' | 'admin' | 'sport' | 'commercial' | 'commercial_revoke';
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   discoveryEnabled: true, referralsEnabled: true, sponsoredEnabled: false,

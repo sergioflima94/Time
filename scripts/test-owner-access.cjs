@@ -10,11 +10,12 @@ let rpcRole = 'owner', rpcError = null, deferred = null;
 const mocks = new Map([
   [path.resolve('src/store/useAuthStore.ts'), { useAuthStore: { getState: () => auth } }],
   [path.resolve('src/store/useAppStore.ts'), { useAppStore: { getState: () => app } }],
+  [path.resolve('src/store/useCommercialStore.ts'), { useCommercialStore: { getState: () => ({}) } }],
   [path.resolve('src/lib/supabase.ts'), { isMockMode: false, supabase: {
     rpc: async name => {
-      assert.equal(name,'platform_admin_role');
+      assert.equal(name,'commercial_access_snapshot');
       if (deferred) return deferred;
-      return { data: rpcRole, error: rpcError };
+      return { data: { role:rpcRole,licenses:[],agreements:[] }, error: rpcError };
     },
   } }],
 ]);
@@ -54,7 +55,7 @@ async function run() {
   const oldRequest = store.getState().refresh();
   auth.authUserId = 'other-user';
   store.getState().reset();
-  complete({ data: 'owner', error: null });
+  complete({ data: {role:'owner',licenses:[],agreements:[]}, error: null });
   await oldRequest;
   assert.equal(store.getState().role,null); // Old request cannot restore privileges.
   assert.notEqual(store.getState().accessFor,platformAccessKey());

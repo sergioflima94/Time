@@ -20,6 +20,8 @@ import { isMockMode } from '@/lib/supabase';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
+import { useCommercialAccess } from '@/hooks/useCommercialAccess';
+import { CommercialOffers } from '@/components/CommercialOffers';
 import { useAppStore } from '@/store/useAppStore';
 import { useProStore } from '@/store/useProStore';
 import type { CommercialAudience, ModerationReason } from '@/types/pro';
@@ -93,13 +95,15 @@ function Plans() {
   const options = audience === 'team' ? teams.filter(t => memberships.some(m => m.peladaId === t.id && m.playerId === playerId && m.active && m.role === 'admin'))
     : audience === 'establishment' ? establishments.filter(e => e.ownerPlayerId === playerId) : [];
   const subscriberId = audience === 'player' ? playerId : options.some(o => o.id === selected) ? selected : options[0]?.id;
+  const access = useCommercialAccess(audience,subscriberId);
   return <>{ownerBenefits && <Info icon="shield-checkmark" text="Benefícios Jogador Premium, Time Pro e Estabelecimento Pro liberados para o proprietário, sem mensalidade. Para operar um time ou campo, use uma organização sua ou onde você tenha autorização. Consumo e serviços externos não são gratuitos." />}<SegmentedControl value={audience} onChange={setAudience} options={[{ value: 'player', label: 'Jogador' }, { value: 'team', label: 'Time' }, { value: 'establishment', label: 'Campo' }]} />
     {audience !== 'player' && <View style={[styles.rowBetween, { flexWrap: 'wrap', gap: spacing.xs }]}>{options.map(o => <Button small key={o.id} label={o.name} variant={subscriberId === o.id ? 'primary' : 'outline'} onPress={() => setSelected(o.id)} />)}</View>}
     {!subscriberId && <Text style={styles.caption}>Você precisa administrar um time ou ser dono de um estabelecimento para escolher esta oferta.</Text>}
+    <CommercialOffers audience={audience} targetId={subscriberId} />
     {plans.filter(p => p.audience === audience && p.active).map(plan => {
-      const exempt = ownerBenefits && !!subscriberId;
+      const exempt = !!subscriberId && (access.owner || access.license?.planId===plan.id);
       const active = exempt || subscriptions.some(s => s.planId === plan.id && s.subscriberId === subscriberId && ['trial','active'].includes(s.status) && Date.parse(s.currentPeriodEnd) > Date.now());
-      return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{exempt ? 'Sem mensalidade' : currency(plan.monthlyPrice)}{!exempt && <Text style={styles.caption}> / mês</Text>}</Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={exempt ? 'Liberado para o proprietário' : active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && !exempt && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
+      return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{exempt ? 'Sem mensalidade' : currency(plan.monthlyPrice)}{!exempt && <Text style={styles.caption}> / mês</Text>}</Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={exempt ? access.owner?'Liberado para o proprietário':'Liberado por licença' : active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && !exempt && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
     })}<Info icon="card" text="Em demonstração não há cobrança. A ativação real exige callback da loja ou webhook validado, e ficará disponível após homologação comercial." /></>;
 }
 

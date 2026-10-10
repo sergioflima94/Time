@@ -13,10 +13,12 @@ import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { getSport, useSportCatalog, type SportDefinition } from '@/constants/sports';
 import { SportEditor } from '@/components/SportEditor';
+import { CommercialLicensePanel } from '@/components/CommercialLicensePanel';
+import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
 import type { CommercialPlan } from '@/types/pro';
 import { validatePlatformSettings, type PlatformAction, type PlatformSettings, type PlatformSnapshot } from '@/types/platform';
 
-const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Configurações', 'Denúncias', 'Equipe admin', 'Auditoria'] as const;
+const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Licenças e ofertas', 'Configurações', 'Denúncias', 'Equipe admin', 'Auditoria'] as const;
 type PendingAction = { action: PlatformAction; id: string | null; payload: Record<string, unknown>; description: string };
 
 export default function PlatformConsoleScreen() {
@@ -38,7 +40,7 @@ export default function PlatformConsoleScreen() {
   async function confirm() {
     if (!pending) return;
     setBusy(true); setNotice('');
-    try { await act(pending.action, pending.id, pending.payload, reason); setPending(null); setEditingSport(null); setReason(''); setNotice('Alteração salva e registrada na auditoria.'); }
+    try { await act(pending.action, pending.id, pending.payload, reason); await usePlatformAccessStore.getState().refresh(); setPending(null); setEditingSport(null); setReason(''); setNotice('Alteração salva e registrada na auditoria.'); }
     catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Não foi possível salvar. Atualize e tente novamente.'); }
     finally { setBusy(false); }
   }
@@ -58,14 +60,17 @@ export default function PlatformConsoleScreen() {
           <Button small variant="outline" label="Operação Pro" onPress={() => router.push('/operacao-pro')} />
         </View>
       </Card>}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => t !== 'Equipe admin' || role === 'owner').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => !['Equipe admin','Licenças e ofertas'].includes(t) || role === 'owner').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+      {['Usuários','Times e campos','Equipe admin','Licenças e ofertas'].includes(tab) && <><TextField label="Buscar nome" value={query} onChangeText={setQuery} placeholder="Jogador, time ou estabelecimento" /><Button label="Buscar na plataforma" small variant="outline" onPress={() => void load(query)} loading={loading} /><Text style={styles.caption}>Até 100 resultados por categoria. Refine o nome para localizar contas mais antigas.</Text></>}
+      {tab==='Licenças e ofertas' && role==='owner' && <CommercialLicensePanel snapshot={snapshot}
+        onReview={(input,description)=>setPending({action:'commercial',id:null,payload:{...input},description})}
+        onRevoke={a=>setPending({action:'commercial_revoke',id:a.id,payload:{revision:a.revision},description:'Revogar esta licença/oferta sem apagar o histórico. Não cancela contratos pagos nem estorna pagamentos já existentes.'})} />}
       {pending && <Card style={{ borderColor: colors.warning }}><Text style={styles.sectionTitle}>Confirmar alteração</Text><Text style={styles.copy}>{pending.description}</Text><TextField label="Motivo (mínimo 8 caracteres)" value={reason} onChangeText={setReason} multiline placeholder="Explique a decisão para a auditoria" /><View style={styles.row}><Button label="Cancelar" variant="ghost" small onPress={() => setPending(null)} disabled={busy} /><Button label="Confirmar e registrar" small onPress={() => void confirm()} loading={busy} disabled={reason.trim().length < 8} /></View></Card>}
       {tab === 'Visão geral' && <>
         <View style={styles.metrics}>{Object.entries({ Jogadores: snapshot.metrics.players, Times: snapshot.metrics.teams, Estabelecimentos: snapshot.metrics.establishments, 'Jogos futuros': snapshot.metrics.upcomingGames, 'Denúncias abertas': snapshot.metrics.openReports, 'Assinaturas ativas': snapshot.metrics.activeSubscriptions }).map(([label, value]) => <View style={styles.metric} key={label}><Text style={styles.value}>{value}</Text><Text style={styles.caption}>{label}</Text></View>)}</View>
         <Card><Text style={styles.sectionTitle}>Prioridades de atendimento</Text><Text style={styles.copy}>{snapshot.metrics.openReports ? `${snapshot.metrics.openReports} denúncias precisam de análise.` : 'Nenhuma denúncia aguardando análise.'}</Text><Text style={styles.copy}>Planos e regras comerciais ficam em configuração; recebimentos do estabelecimento não são receita do aplicativo. Assinaturas em teste não entram no total de assinantes ativos.</Text><Button small label="Atualizar indicadores" variant="outline" loading={loading} onPress={() => void load()} /></Card>
       </>}
-      {(tab === 'Usuários' || tab === 'Times e campos' || tab === 'Equipe admin') && <><TextField label="Buscar nome" value={query} onChangeText={setQuery} placeholder="Jogador, time ou estabelecimento" /><Button label="Buscar na plataforma" small variant="outline" onPress={() => void load(query)} loading={loading} /><Text style={styles.caption}>Até 100 resultados por categoria. Refine o nome para localizar contas mais antigas.</Text></>}
       {tab === 'Usuários' && snapshot.players.map(p => <Card key={p.id}><View style={styles.row}><Text style={[styles.sectionTitle, { flex: 1 }]}>{p.nickname || p.name}</Text><Badge label={p.suspended ? 'Suspensa' : 'Ativa'} color={p.suspended ? colors.danger : colors.primary} /></View><Text selectable style={styles.caption}>ID: {p.id}</Text>{role !== 'support' && <Button small variant={p.suspended ? 'outline' : 'danger'} label={p.suspended ? 'Reativar conta' : 'Suspender acesso'} onPress={() => setPending({ action: 'account', id: p.id, payload: { suspended: !p.suspended }, description: `${p.suspended ? 'Reativar' : 'Suspender'} ${p.name}. O histórico não será excluído.` })} />}</Card>)}
       {tab === 'Times e campos' && <><Text style={styles.sectionTitle}>Times</Text>{snapshot.teams.map(t => <View key={t.id} style={styles.listRow}><Text style={styles.copy}>{getSport(t.sportId).icon} {t.name}</Text><Text style={styles.caption}>{getSport(t.sportId).label}</Text></View>)}<Text style={styles.sectionTitle}>Estabelecimentos</Text>{snapshot.establishments.map(e => <View key={e.id} style={styles.listRow}><Text style={styles.copy}>{e.name}</Text><Text style={styles.caption}>{e.fieldCount} campos · ID {e.id}</Text></View>)}<Text style={styles.caption}>Consulta global sem assumir a identidade do dono e sem alterar reservas ou saldos de clientes.</Text></>}
       {tab === 'Planos' && <><Text style={styles.copy}>Preços anunciados. Alterar o catálogo não muda contratos já pagos nem ativa uma assinatura. Cobrança real exige a integração comercial correspondente.</Text>{snapshot.plans.map(p => <PlanEditor key={`${p.id}-${p.name}-${p.monthlyPrice}-${p.active}`} plan={p} editable={role !== 'support'} onSave={payload => setPending({ action: 'plan', id: p.id, payload, description: `Atualizar a oferta ${p.name}. O novo valor vale para futuras ofertas, não para cobrança retroativa.` })} />)}</>}
