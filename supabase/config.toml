@@ -445,3 +445,9 @@ verify_jwt = false
 
 [functions.trigger-auto-booking]
 verify_jwt = false
+
+[functions.create-commercial-checkout]
+verify_jwt = true
+
+[functions.commercial-payment-webhook]
+verify_jwt = false

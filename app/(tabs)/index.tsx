@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 
 import { AdBanner } from '@/components/AdBanner';
+import { HomePlayHub } from '@/components/PlayHubPanels';
 import { GameCard } from '@/components/GameCard';
 import { PeladaSwitcher } from '@/components/PeladaSwitcher';
 import { Card } from '@/components/ui/Card';
@@ -76,6 +77,7 @@ export default function AgendaScreen() {
         {[{ id: 'all', label: 'Todos os esportes' }, ...SPORTS].map(item => <Pressable key={item.id} onPress={() => setSportFilter(item.id)} style={[styles.datePill, { borderWidth: 1, borderColor: sportFilter === item.id ? colors.primary : colors.cardBorder, backgroundColor: sportFilter === item.id ? colors.bgElevated : colors.card }]}><Text style={styles.datePillText}>{item.label}</Text></Pressable>)}
       </ScrollView>
 
+      <HomePlayHub />
       {nextGame && (
         <View style={styles.nextGameSection}>
           <View style={styles.sectionHeaderRow}>

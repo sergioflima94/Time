@@ -14,7 +14,7 @@ export function computePlayerRecord(playerId: string, teamPlayers: TeamPlayer[],
 
   for (const turn of turns) {
     if (!turn.endedAt) continue;
-    const myTeamId = myTeamIds.has(turn.teamAId) ? turn.teamAId : myTeamIds.has(turn.teamBId) ? turn.teamBId : null;
+    const myTeamId = turn.rosterSnapshot ? turn.rosterSnapshot.find(r=>r.playerId===playerId)?.teamId ?? null : myTeamIds.has(turn.teamAId) ? turn.teamAId : myTeamIds.has(turn.teamBId) ? turn.teamBId : null;
     if (!myTeamId) continue;
     record.played += 1;
     if (turn.winnerTeamId === null) record.draws += 1;

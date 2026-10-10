@@ -32,7 +32,7 @@ async function run() {
     await page.getByText(/R\$\s*11,18\/mês por 3 mensalidades/).waitFor();
     await page.getByText('Aceitar oferta',{exact:true}).click();
     await page.getByText('Oferta aceita. A contratação e o pagamento ainda precisam ser concluídos; nenhum valor foi cobrado.',{exact:true}).waitFor();
-    await page.getByText(/Jogador Premium · Aceita · contratação pendente/).waitFor();
+    await page.getByText(/Jogador Premium · Oferta aceita/).waitFor();
     await page.screenshot({path:path.join(output,'03-beneficiario.png'),fullPage:true});
     assert.equal(await page.getByText('Admin da plataforma',{exact:true}).count(),0);
     await switchPlayer('p1');
@@ -44,7 +44,7 @@ async function run() {
     await page.goto(`${base}/perfil`,{waitUntil:'networkidle'});
     await page.getByText('Fundo com foto é exclusivo do Premium',{exact:true}).waitFor();
     assert.equal(await page.getByText('Premium por licença concedida',{exact:true}).count(),0);
-    await page.getByText(/Jogador Premium · Aceita · contratação pendente/).waitFor();
+    await page.getByText(/Jogador Premium · Oferta aceita/).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('pelada-app-storage')).state.players?.find(p=>p.id==='p4')?.premiumUntil ?? null),null);
     assert.deepEqual(errors,[]);
     console.log('PASS: owner grant and audited discount, recipient Premium, offer acceptance without paid activation, no global privileges and revoked gift removes benefits.');

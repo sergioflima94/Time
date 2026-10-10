@@ -852,6 +852,7 @@ export const useAppStore = create<AppState>()(
           startedAt: nowIso(),
           endedAt: null,
           durationSeconds: 0,
+          rosterSnapshot: get().teamPlayers.filter(tp=>tp.teamId===teamAId||tp.teamId===teamBId).map(tp=>({teamId:tp.teamId,playerId:tp.playerId,joinedAt:nowIso(),leftAt:null})),
           winnerTeamId: null,
         };
         set((state) => ({ matchTurns: [...state.matchTurns, turn] }));
@@ -935,7 +936,12 @@ export const useAppStore = create<AppState>()(
             ];
           }
 
-          return { teamPlayers, playerFatigue, waitingPlayers };
+          const changedAt=nowIso();
+          const matchTurns=state.matchTurns.map(turn=>{
+            if(turn.gameId!==gameId||turn.endedAt||![turn.teamAId,turn.teamBId].includes(teamId)||!turn.rosterSnapshot)return turn;
+            return {...turn,rosterSnapshot:[...turn.rosterSnapshot.map(r=>r.teamId===teamId&&r.playerId===outPlayerId&&!r.leftAt?{...r,leftAt:changedAt}:r),{teamId,playerId:inPlayerId,joinedAt:changedAt,leftAt:null}]};
+          });
+          return { teamPlayers, playerFatigue, waitingPlayers, matchTurns };
         });
       },
 

@@ -326,6 +326,7 @@ export default function GameDetailScreen() {
 
       {game.status === 'finished' && (
         <>
+          <Button label="Resumo e destaque do jogo" variant="outline" onPress={()=>router.push(`/jogo/${game.id}/resumo`)} />
           <Button
             label="Avaliar jogadores"
             onPress={() => router.push(`/jogo/${game.id}/avaliar`)}

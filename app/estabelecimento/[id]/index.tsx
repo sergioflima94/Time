@@ -128,6 +128,7 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="school" label="Aulas" sub={`${classPrograms.length} programas`} onPress={() => router.push({ pathname: '/operacao/aulas', params: { establishmentId: establishment.id } })} />
         <NavCard icon="wallet" label="Caixa integrado" sub="Quadras, consumo e aulas" onPress={() => router.push({ pathname: '/operacao/caixa', params: { establishmentId: establishment.id } })} />
         <NavCard icon="card" label="Pagamentos" sub={gatewayConnection ? 'Gateway conectado' : 'Escolher gateway'} onPress={() => router.push(`/estabelecimento/${establishment.id}/pagamentos`)} />
+        <NavCard icon="time" label="Horários de oportunidade" sub="Desconto real e pedidos" onPress={()=>router.push({pathname:'/bora',params:{establishmentId:establishment.id}})} />
         <NavCard icon="megaphone" label="Divulgação" sub="Patrocínio e conversão" onPress={() => router.push(`/estabelecimento/${establishment.id}/promocoes`)} />
       </View>
 

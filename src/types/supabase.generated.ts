@@ -100,6 +100,48 @@ export type Database = {
           },
         ]
       }
+      assisted_venues: {
+        Row: {
+          created_at: string
+          establishment_id: string
+          prepared_by: string
+          revision: number
+          status: string
+          target_player_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          establishment_id: string
+          prepared_by: string
+          revision?: number
+          status?: string
+          target_player_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          establishment_id?: string
+          prepared_by?: string
+          revision?: number
+          status?: string
+          target_player_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assisted_venues_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: true
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assisted_venues_target_player_id_fkey"
+            columns: ["target_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendances: {
         Row: {
           checked_in: boolean
@@ -311,6 +353,61 @@ export type Database = {
           {
             foreignKeyName: "booking_deposits_payer_player_id_fkey"
             columns: ["payer_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      buddy_invites: {
+        Row: {
+          buddy_player_id: string | null
+          code: string
+          created_at: string
+          expires_at: string
+          game_id: string
+          host_player_id: string
+          id: string
+          status: string
+        }
+        Insert: {
+          buddy_player_id?: string | null
+          code?: string
+          created_at?: string
+          expires_at?: string
+          game_id: string
+          host_player_id: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          buddy_player_id?: string | null
+          code?: string
+          created_at?: string
+          expires_at?: string
+          game_id?: string
+          host_player_id?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buddy_invites_buddy_player_id_fkey"
+            columns: ["buddy_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buddy_invites_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buddy_invites_host_player_id_fkey"
+            columns: ["host_player_id"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
@@ -1219,6 +1316,68 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_checkout_orders: {
+        Row: {
+          agreement_id: string
+          amount: number
+          building: boolean
+          checkout_url: string | null
+          created_at: string
+          cycle: number
+          expires_at: string
+          id: string
+          period_end: string | null
+          preference_id: string | null
+          provider_payment_id: string | null
+          provider_updated_at: string | null
+          status: string
+          terms_accepted_by: string
+          terms_version: string
+        }
+        Insert: {
+          agreement_id: string
+          amount: number
+          building?: boolean
+          checkout_url?: string | null
+          created_at?: string
+          cycle: number
+          expires_at?: string
+          id?: string
+          period_end?: string | null
+          preference_id?: string | null
+          provider_payment_id?: string | null
+          provider_updated_at?: string | null
+          status?: string
+          terms_accepted_by: string
+          terms_version: string
+        }
+        Update: {
+          agreement_id?: string
+          amount?: number
+          building?: boolean
+          checkout_url?: string | null
+          created_at?: string
+          cycle?: number
+          expires_at?: string
+          id?: string
+          period_end?: string | null
+          preference_id?: string | null
+          provider_payment_id?: string | null
+          provider_updated_at?: string | null
+          status?: string
+          terms_accepted_by?: string
+          terms_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_checkout_orders_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "platform_commercial_agreements"
             referencedColumns: ["id"]
           },
         ]
@@ -2292,6 +2451,76 @@ export type Database = {
           },
         ]
       }
+      game_highlight_votes: {
+        Row: {
+          game_id: string
+          target_player_id: string
+          voter_player_id: string
+        }
+        Insert: {
+          game_id: string
+          target_player_id: string
+          voter_player_id: string
+        }
+        Update: {
+          game_id?: string
+          target_player_id?: string
+          voter_player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_highlight_votes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_highlight_votes_target_player_id_fkey"
+            columns: ["target_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_highlight_votes_voter_player_id_fkey"
+            columns: ["voter_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_recap_consents: {
+        Row: {
+          game_id: string
+          player_id: string
+        }
+        Insert: {
+          game_id: string
+          player_id: string
+        }
+        Update: {
+          game_id?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_recap_consents_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_recap_consents_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_team_queue: {
         Row: {
           game_id: string
@@ -2605,6 +2834,7 @@ export type Database = {
           ended_at: string | null
           game_id: string
           id: string
+          roster_snapshot: Json | null
           started_at: string | null
           team_a_id: string
           team_b_id: string
@@ -2615,6 +2845,7 @@ export type Database = {
           ended_at?: string | null
           game_id: string
           id?: string
+          roster_snapshot?: Json | null
           started_at?: string | null
           team_a_id: string
           team_b_id: string
@@ -2625,6 +2856,7 @@ export type Database = {
           ended_at?: string | null
           game_id?: string
           id?: string
+          roster_snapshot?: Json | null
           started_at?: string | null
           team_a_id?: string
           team_b_id?: string
@@ -2777,6 +3009,38 @@ export type Database = {
           },
         ]
       }
+      onboarding_preferences: {
+        Row: {
+          completed: boolean
+          persona: string
+          player_id: string
+          suggestions_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          persona: string
+          player_id: string
+          suggestions_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          persona?: string
+          player_id?: string
+          suggestions_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_preferences_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       open_slot_offers: {
         Row: {
           duration_minutes: number
@@ -2824,6 +3088,125 @@ export type Database = {
           },
           {
             foreignKeyName: "open_slot_offers_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_requests: {
+        Row: {
+          booking_id: string | null
+          commission_percent: number
+          created_at: string
+          id: string
+          match_id: string | null
+          opponent_accepted: boolean
+          opponent_pelada_id: string | null
+          pelada_id: string
+          price: number
+          slot_id: string
+          status: string
+        }
+        Insert: {
+          booking_id?: string | null
+          commission_percent: number
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          opponent_accepted?: boolean
+          opponent_pelada_id?: string | null
+          pelada_id: string
+          price: number
+          slot_id: string
+          status?: string
+        }
+        Update: {
+          booking_id?: string | null
+          commission_percent?: number
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          opponent_accepted?: boolean
+          opponent_pelada_id?: string | null
+          pelada_id?: string
+          price?: number
+          slot_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "field_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_requests_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "friendly_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_requests_opponent_pelada_id_fkey"
+            columns: ["opponent_pelada_id"]
+            isOneToOne: false
+            referencedRelation: "peladas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_requests_pelada_id_fkey"
+            columns: ["pelada_id"]
+            isOneToOne: false
+            referencedRelation: "peladas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_requests_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_slots: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration_minutes: number
+          field_id: string
+          id: string
+          offer_price: number
+          regular_price: number
+          starts_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration_minutes: number
+          field_id: string
+          id?: string
+          offer_price: number
+          regular_price: number
+          starts_at: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration_minutes?: number
+          field_id?: string
+          id?: string
+          offer_price?: number
+          regular_price?: number
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_slots_field_id_fkey"
             columns: ["field_id"]
             isOneToOne: false
             referencedRelation: "fields"
@@ -3297,6 +3680,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      play_windows: {
+        Row: {
+          active: boolean
+          created_at: string
+          ends_at: string
+          id: string
+          level: string
+          pelada_id: string
+          starts_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          ends_at: string
+          id?: string
+          level: string
+          pelada_id: string
+          starts_at: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          ends_at?: string
+          id?: string
+          level?: string
+          pelada_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_windows_pelada_id_fkey"
+            columns: ["pelada_id"]
+            isOneToOne: false
+            referencedRelation: "peladas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       player_duels: {
         Row: {
@@ -5289,12 +5710,20 @@ export type Database = {
         Args: { p_establishment_id: string }
         Returns: boolean
       }
+      claim_commercial_preference: {
+        Args: { p_order: string }
+        Returns: boolean
+      }
       commercial_access_snapshot: { Args: never; Returns: Json }
       commercial_admin_data: { Args: never; Returns: Json }
       commercial_agreement_json: {
         Args: {
           a: Database["public"]["Tables"]["platform_commercial_agreements"]["Row"]
         }
+        Returns: Json
+      }
+      commercial_checkout_state: {
+        Args: { p_agreement: string }
         Returns: Json
       }
       commercial_target_manager: {
@@ -5316,10 +5745,17 @@ export type Database = {
           paid_at: string
         }[]
       }
+      game_recap: { Args: { p_game: string }; Returns: Json }
       get_gateway_credentials: {
         Args: { p_connection_id: string }
         Returns: Json
       }
+      growth_action: { Args: { p_action: string; p_data: Json }; Returns: Json }
+      growth_slot_free: {
+        Args: { p_field: string; p_minutes: number; p_start: string }
+        Returns: boolean
+      }
+      growth_snapshot: { Args: never; Returns: Json }
       is_admin_of_pelada: { Args: { p_pelada_id: string }; Returns: boolean }
       is_chat_participant: { Args: { p_channel_id: string }; Returns: boolean }
       is_establishment_owner: {
@@ -5358,6 +5794,10 @@ export type Database = {
           badge: string
           vote_count: number
         }[]
+      }
+      prepare_commercial_checkout: {
+        Args: { p_agreement: string; p_terms: string }
+        Returns: Json
       }
       publish_open_game: {
         Args: {
@@ -5410,9 +5850,29 @@ export type Database = {
         Args: { p_definition: Json; p_reason: string; p_revision: number }
         Returns: undefined
       }
+      set_recap_consent: {
+        Args: { p_allow: boolean; p_game: string }
+        Returns: undefined
+      }
+      settle_commercial_checkout: {
+        Args: {
+          p_amount: number
+          p_approved_at: string
+          p_currency: string
+          p_order: string
+          p_payment: string
+          p_status: string
+          p_updated_at: string
+        }
+        Returns: undefined
+      }
       settle_sale_payment_intent: {
         Args: { p_intent_id: string }
         Returns: string
+      }
+      vote_game_highlight: {
+        Args: { p_game: string; p_player: string }
+        Returns: undefined
       }
     }
     Enums: {

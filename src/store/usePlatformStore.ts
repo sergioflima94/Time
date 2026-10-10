@@ -51,6 +51,13 @@ function sessionKey(): string | null {
   return isMockMode ? `demo:${useAppStore.getState().currentPlayerId}` : auth.authUserId;
 }
 
+export async function recordDemoPlatformAudit(action:string,id:string|null,reason:string){
+  if(!isMockMode)return;
+  await hydrateDemo();
+  demoAudit.push({id:`${Date.now()}-${demoAudit.length}`,action,targetId:id,reason,createdAt:new Date().toISOString()});
+  await AsyncStorage.setItem('borajogo-platform-demo-v1',JSON.stringify({settings:demoSettings,revision:demoRevision,sports:useSportCatalog.getState().catalog,audit:demoAudit.slice(-100)}));
+}
+
 function demoSnapshot(query: string): PlatformSnapshot {
   const app = useAppStore.getState(); const pro = useProStore.getState();
   const matches = (name: string) => name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());

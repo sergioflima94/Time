@@ -17,7 +17,7 @@ assert.throws(()=>agreementPrice({...offered,durationMonths:1.5},plan),/duraçã
 assert.throws(()=>agreementPrice({...offered,kind:'price',agreedMonthlyPrice:9.999},plan),/centavos/);
 assert.throws(()=>agreementPrice({...input,audience:'team'},plan),/incompatíveis/);
 assert(licenseIsActive({expiresAt:null})); assert(!licenseIsActive({expiresAt:'2020-01-01'}));
-assert.equal(agreementLabel({status:'accepted',expiresAt:'2020-01-01'}),'Aceita · contratação pendente');
+assert.equal(agreementLabel({status:'accepted',expiresAt:'2020-01-01'}),'Oferta aceita');
 const app={currentPlayerId:'p4',memberships:[{peladaId:'t1',playerId:'p4',active:true,role:'player'}],establishments:[{id:'e1',ownerPlayerId:'other'}],establishmentStaff:[{establishmentId:'e1',playerId:'p4',active:true}]};
 assert(canManageAgreement(input,app)); assert(!canManageAgreement({...input,targetId:'p3'},app));
 assert(!canManageAgreement({audience:'team',targetId:'t1'},app));

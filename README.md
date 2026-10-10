@@ -61,10 +61,11 @@ Membros do time e funcionários autorizados podem aproveitar uma licença da
 organização, mas não consultar sua negociação privada. Uma licença Time Pro não
 libera Premium individual aos integrantes.
 
-**Aceite não é pagamento**: nesta versão uma oferta aceita fica com contratação
-pendente. Não renova, cobra ou ativa plano pago automaticamente. A integração de
-checkout/contrato e webhook autenticado deve usar a oferta aceita e seu valor
-congelado antes de ativar o período pago. Revogar uma oferta não cancela contratos
+**Aceite não é pagamento**: uma oferta aceita permite iniciar o checkout mensal
+na versão web, quando a integração comercial estiver homologada/configurada.
+Sem credenciais a contratação continua pendente. Não há renovação automática:
+cada checkout cobra uma mensalidade pelo valor congelado e somente o webhook
+validado libera um mês pago. Revogar uma oferta não cancela contratos
 já pagos nem estorna cobrança. Dar licença a assinante existente não cancela a
 renovação da loja automaticamente; o Perfil mantém o atalho de gerenciamento.
 
@@ -77,6 +78,131 @@ Escritas diretas na tabela são proibidas; concessão/revogação exigem
 sobrescrita concorrente. A consulta de acesso é por sessão e falha fechada, sem
 persistir licença real no aparelho. A demonstração usa armazenamento separado
 (`borajogo-commercial-demo-v1`) e nunca concede privilégio no Supabase.
+
+### Jogar, convidar e ocupar horários reais
+
+- **Home → Bora jogar hoje?**: descoberta opt-in por esporte, bairro/endereço,
+  nível, data e intervalo de disponibilidade. A duração inteira do jogo deve
+  caber na janela escolhida. Região é busca textual, não rastreamento preciso.
+  A busca atual traz até 100 jogos futuros publicados; nenhum jogo privado é
+  publicado automaticamente. Iniciantes podem escolher o nível adequado.
+- **Entrar com um amigo**: o primeiro jogador cria e compartilha um convite
+  válido por até 24 horas (ou até o jogo). O amigo entra na própria conta e
+  confirma seu interesse. Em **Jogo → Divulgação**, o organizador aprova ambos
+  atomicamente somente se houver duas vagas. Não cobra nem inscreve alguém sem
+  consentimento. É possível cancelar a dupla antes da aprovação. Uma solicitação
+  individual pendente não pode ser duplicada como dupla, e vice-versa.
+- **Home → Horários e desafios**: administradores publicam uma janela de
+  disponibilidade do time; donos publicam data, duração, preço habitual e preço
+  de oportunidade do campo. O desconto precisa ser positivo e menor que o preço
+  habitual. Publicar disponibilidade expõe nome/esporte/nível/horário, não elenco.
+- Um time solicita um horário para si ou desafia outro time que publicou uma
+  janela compatível com o esporte e a duração. O adversário aceita/recusa e o
+  dono do campo confirma/recusa. Somente a confirmação cria `field_bookings` e,
+  no desafio, a partida avulsa. A reserva também bloqueia novos pedidos naquele
+  horário; o banco verifica conflitos entre reservas avulsas e semanais.
+- Preço e percentual de comissão ficam congelados no pedido. **Confirmação não
+  é pagamento**: estes pedidos não fazem split, debitam saldo, cobram comissão
+  nem inventam receita recebida. Liquidação de reserva/comissão depende da
+  contratação e integração marketplace do recebedor. Ofertas de horários são
+  descontos do campo, não anúncios; patrocínios existentes permanecem separados
+  e identificados. Não se promete Pix gratuito nem taxa fixa de provedor.
+- **Home → Configurar minha experiência / Minha experiência e sugestões**:
+  escolha jogador, organizador ou estabelecimento para ir ao primeiro fluxo.
+  Os três perfis podem coexistir. Sugestões de horários dos esportes favoritos
+  são opt-in e somente dentro do app; não ativam push/WhatsApp automaticamente.
+
+### Resumo compartilhável e escalações históricas
+
+Em **Jogo finalizado → Resumo e destaque do jogo**, os membros veem as rodadas,
+placares, próximo encontro interno e votação do destaque (um voto editável por
+participante registrado; empates não escolhem um vencedor arbitrário).
+A imagem PNG usa o compartilhamento do aparelho; na web permite baixar a imagem.
+O convite compartilhado é do aplicativo, não um código secreto de time privado.
+O resumo não publica localização precisa, telefone, próxima agenda privada nem
+nomes sem autorização individual por jogo. Revogação de autorização impede novas
+imagens com o nome, mas não apaga arquivos já compartilhados por terceiros.
+
+Novas rodadas capturam `match_turns.roster_snapshot`. Substituições mantêm
+intervalos de entrada/saída, e rodadas encerradas não permitem reabrir/apagar a
+escalação pela mesma atualização. Vitórias usam o histórico por rodada; saldo de
+pontos considera somente eventos dentro do intervalo em que o jogador estava
+em campo. Rodadas antigas sem captura não ganham uma escalação inventada nem
+votação nova. Estatísticas antigas ainda usam o comportamento legado disponível.
+
+### Preparar um estabelecimento e vincular ao dono depois
+
+Em **Admin da plataforma → Times e campos → Cadastro assistido**, proprietário
+ou administrador (não suporte) prepara nome, campos/quadras por esporte, endereço,
+disponibilidade semanal e preço por horário. Cada alteração exige motivo e revisão
+do cadastro. O espaço fica sob custódia do administrador que o preparou, identificado
+como **Aguardando responsável** — não se cria usuário fictício ou papel admin.
+
+Depois que o dono cria sua conta, o administrador seleciona a conta na busca e
+envia o vínculo. O destinatário vê o convite na Home e aceita ou recusa. Somente
+no aceite muda `owner_player_id`; campos e horários são preservados. Pix é limpo
+e o novo dono deve conectar o próprio gateway e autorizar o próprio WhatsApp.
+O painel não assume a identidade dele. Cadastros com reservas ou gateway já
+conectado exigem revisão fora deste fluxo; não se transferem finanças existentes.
+Após o vínculo, a edição deixa de ser cadastro assistido e segue as permissões do
+estabelecimento. Gestão de administradores e concessão de licenças continuam
+reservadas ao proprietário global.
+
+### Checkout comercial mensal — integração e limites
+
+Em ofertas aceitas na versão web, o beneficiário aceita as condições e abre
+**Pagar mensalidade negociada**. O backend lê valor/destinatário da oferta,
+congela o ciclo e impede cobrança concorrente do mesmo contrato/perfil.
+O Mercado Pago recebe uma preferência para uma mensalidade (sem parcelamento
+ou débito automático), não o total dos meses. Novo pagamento só é preparado
+depois do fim do período pago, até a quantidade negociada de mensalidades.
+Não cria assinatura paga ao aceitar, abrir checkout ou retornar ao aplicativo.
+
+`commercial-payment-webhook` valida HMAC, consulta `/v1/payments/{id}`, exige
+conta recebedora configurada, moeda BRL, valor exato e pagamento **live** aprovado.
+Eventos repetidos não duplicam período; evento antigo não sobrescreve o novo.
+Estorno/contestação suspende somente o período correspondente e exige revisão,
+sem inventar reembolso. Checkout expirado ou criação incerta exige reconciliação
+antes de abrir outra cobrança, para evitar pagar duas vezes. A concessão gratuita
+permanece independente e não vira pagamento.
+
+**Ainda requer configuração/homologação externa**. No servidor Supabase, configure
+os segredos `PLATFORM_MP_ACCESS_TOKEN`, `PLATFORM_MP_WEBHOOK_SECRET`,
+`PLATFORM_MP_COLLECTOR_ID`, `APP_WEB_URL` (HTTPS) e, **somente após homologar**,
+`COMMERCIAL_CHECKOUT_ENABLED=true`. Não coloque tokens em `EXPO_PUBLIC_*`.
+Configure o evento `payment` na aplicação do Mercado Pago para a URL
+`https://SEU_PROJETO.supabase.co/functions/v1/commercial-payment-webhook`.
+Sem os segredos o endpoint retorna indisponível, sem liberar acesso pago.
+Testes sandbox de pagamentos devem usar um projeto de homologação separado;
+esta função não concede benefício real por pagamento de teste.
+
+```powershell
+npx supabase db push --linked
+npx supabase functions deploy create-commercial-checkout
+npx supabase functions deploy commercial-payment-webhook
+```
+
+O checkout usa a conta **da plataforma** para mensalidades; comandas e aluguel
+continuam usando a conta do estabelecimento. Compras digitais nativas continuam
+dependendo da integração e homologação das lojas; o botão externo não é exibido
+nas versões iOS/Android. Não há adaptação automática para PicPay/Inter/Sicoob
+nas mensalidades desta entrega nem renovação recorrente silenciosa.
+Referências: [preferências Checkout Pro](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/create-payment-preference)
+e [webhooks](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/additional-content/notifications/webhooks).
+
+Migrações: `20261010060000_growth_flows.sql`, `20261010070000_game_recap.sql`,
+`20261010080000_commercial_checkout.sql`. Tabelas privadas usam RPCs com checagem
+da sessão, RLS e sem escrita direta pelo cliente. Modo demo usa caches próprios
+separados e nunca cria pagamento ou privilégio real.
+
+```powershell
+node scripts/test-play-hub-domain.cjs
+node scripts/test-play-hub-sql.cjs
+```
+
+Smoke mobile web: `scripts/test-play-hub-ui.cjs` em Expo demonstração
+(`EXPO_NO_DOTENV=1`), Chrome instalado, `PLAYWRIGHT_MODULE`, `CHROME_PATH` e
+`TEST_URL` opcionais. Prints em `.test-runtime/play-hub/` (não versionados).
 
 ### Criar um novo esporte
 

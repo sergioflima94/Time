@@ -790,6 +790,8 @@ export interface MatchTurn {
   startedAt: string | null;
   endedAt: string | null;
   durationSeconds: number;
+  /** Histórico por rodada; null/ausente = rodada antiga sem captura confiável. */
+  rosterSnapshot?: Array<{ teamId: UUID; playerId: UUID; joinedAt: string; leftAt: string | null }> | null;
   /** null enquanto a rodada está rolando; também null (com endedAt preenchido) em caso de empate. */
   winnerTeamId: UUID | null;
 }

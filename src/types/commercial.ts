@@ -10,6 +10,8 @@ export interface CommercialAgreement {
   revision: number; createdAt: string; respondedAt: string | null;
 }
 export interface LicenseAccess {
+  /** Período comercial liquidado pelo provedor; não é uma licença gratuita. */
+  paid?: boolean;
   id: string; audience: CommercialAudience; targetId: string; planId: string; expiresAt: string | null;
 }
 export interface CommercialAccessSnapshot {

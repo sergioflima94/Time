@@ -1,0 +1,37 @@
+// Expo web demo + installed Chrome. No external payments or user accounts.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+async function run(){
+ const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+ const page=await browser.newPage({viewport:{width:390,height:844}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>localStorage.setItem('pelada-auth-storage',JSON.stringify({state:{isLoggedIn:true,authUserId:null},version:0})));
+ const base=process.env.TEST_URL||'http://localhost:19013';const out=path.join(__dirname,'../.test-runtime/play-hub');fs.mkdirSync(out,{recursive:true});
+ const fill=async(label,value)=>page.getByText(label,{exact:true}).locator('..').locator('input,textarea').fill(value);
+ const go=async route=>page.goto(base+route,{waitUntil:'networkidle',timeout:90000});
+ const switchPlayer=async id=>page.evaluate(id=>{const x=JSON.parse(localStorage.getItem('pelada-app-storage'));x.state.currentPlayerId=id;localStorage.setItem('pelada-app-storage',JSON.stringify(x));},id);
+ try{
+  await go('/plataforma');await page.getByText('Times e campos',{exact:true}).click();await fill('Motivo administrativo','Preparar arena do nosso parceiro');await fill('Nome do novo estabelecimento','Arena Parceira');await page.getByText('Preparar estabelecimento',{exact:true}).click();
+  await page.getByText('Arena Parceira · Aguardando responsável',{exact:true}).waitFor();await fill('Nome do campo/quadra','Society principal');await fill('Endereço','Bairro Centro');await page.getByText('Adicionar campo',{exact:true}).click();
+  await page.getByText('Society principal · futebol · Bairro Centro',{exact:true}).waitFor();
+  await page.getByText('Society principal',{exact:true}).click();await fill('Preço por horário (R$)','200');await page.getByText('Preparar horário e preço',{exact:true}).click();
+  await page.getByText(/dia 6 · 08:00–22:00/).waitFor();await page.getByText('Diego Alves',{exact:true}).last().click();await page.getByText('Convidar responsável',{exact:true}).click();await page.getByText('Arena Parceira · Convite enviado',{exact:true}).waitFor();
+  await page.screenshot({path:path.join(out,'01-cadastro-assistido.png'),fullPage:true});
+  await switchPlayer('p4');await go('/');await page.getByText('Assumir Arena Parceira?',{exact:true}).waitFor();await page.getByText('Aceitar estabelecimento',{exact:true}).click();await page.getByText(/Estabelecimento vinculado/).waitFor();
+  const venue=await page.evaluate(()=>JSON.parse(localStorage.getItem('pelada-app-storage')).state.establishments.find(e=>e.name==='Arena Parceira'));assert.equal(venue.ownerPlayerId,'p4');assert.equal(venue.pixKey,null);
+  await go(`/bora?establishmentId=${venue.id}`);await page.getByText('Publicar',{exact:true}).click();await fill('Data (AAAA-MM-DD)','2099-01-10');await fill('Início (HH:mm)','18:00');await fill('Preço habitual do horário (R$)','200');await fill('Preço de oportunidade (R$)','150');await page.getByText('Publicar horário com desconto',{exact:true}).click();await page.getByText('Retirar Society principal', {exact:false}).waitFor();
+  await page.getByText('Oportunidades',{exact:true}).click();await page.getByText(/em vez de R\$\s*200,00/).waitFor();await page.screenshot({path:path.join(out,'02-oportunidade.png'),fullPage:true});
+  await switchPlayer('p1');await go('/bora');await page.getByText('Pedir reserva para meu time',{exact:true}).click();await page.getByText('Meus pedidos',{exact:true}).click();await page.getByText('Aguardando campo',{exact:true}).waitFor();
+  await switchPlayer('p4');await go('/bora');await page.getByText('Meus pedidos',{exact:true}).click();await page.getByText('Confirmar horário',{exact:true}).click();await page.getByText('Reserva confirmada; pagamento a combinar',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'03-reserva.png'),fullPage:true});
+  await switchPlayer('p1');await page.evaluate(()=>{const x=JSON.parse(localStorage.getItem('pelada-app-storage'));const source=x.state.games[0];x.state.games.push({...source,id:'hub-buddy',scheduledAt:'2099-01-11T21:00:00Z',status:'open',maxPlayers:4});localStorage.setItem('pelada-app-storage',JSON.stringify(x));});
+  await go('/jogo/hub-buddy');await page.getByText('Divulgar na descoberta',{exact:true}).locator('..').locator('input').check();await page.getByText('Salvar divulgação',{exact:true}).click();await page.getByText(/Jogo divulgado/).waitFor();
+  await switchPlayer('p4');await go('/descobrir?gameId=hub-buddy');await fill('Data disponível (AAAA-MM-DD, opcional)','2099-01-11');await fill('Das (HH:mm)','18:00');await fill('Até (HH:mm)','23:00');await page.getByText('Buscar jogos',{exact:true}).click();await page.getByText('Quero entrar com um amigo',{exact:true}).click();
+  const code=await page.evaluate(()=>JSON.parse(localStorage.getItem('borajogo-play-hub-demo-v1')).data.buddies.find(b=>b.game_id==='hub-buddy').code);assert.ok(code);
+  await switchPlayer('p3');await go(`/descobrir?buddyCode=${code}`);await page.getByText('Confirmar interesse com meu amigo',{exact:true}).click();await page.getByText(/Interesse confirmado/).waitFor();
+  await switchPlayer('p1');await go('/jogo/hub-buddy');await page.getByText('Aprovar dupla',{exact:true}).click();await page.getByText(/Dupla aprovada/).waitFor();await page.screenshot({path:path.join(out,'04-dupla.png'),fullPage:true});
+  await page.evaluate(()=>{const x=JSON.parse(localStorage.getItem('pelada-app-storage'));const g={...x.state.games[0],id:'hub-recap',status:'finished'};x.state.games.push(g);x.state.teams.push({id:'recap-a',gameId:g.id,name:'Azul',color:'#3366ff',queueOrder:0},{id:'recap-b',gameId:g.id,name:'Verde',color:'#00aa55',queueOrder:1});const at=new Date().toISOString();x.state.matchTurns.push({id:'recap-turn',gameId:g.id,teamAId:'recap-a',teamBId:'recap-b',startedAt:at,endedAt:at,durationSeconds:600,winnerTeamId:'recap-a',rosterSnapshot:[{teamId:'recap-a',playerId:'p1',joinedAt:at,leftAt:null},{teamId:'recap-b',playerId:'p4',joinedAt:at,leftAt:null}]});localStorage.setItem('recap-test-game',g.id);localStorage.setItem('pelada-app-storage',JSON.stringify(x));});
+  const recapId=await page.evaluate(()=>localStorage.getItem('recap-test-game'));await go(`/jogo/${recapId}/resumo`);await page.getByText('Resenha do jogo',{exact:true}).last().waitFor();await page.getByText('Votar em Diego Alves',{exact:true}).click();await page.getByText(/Diego Alves lidera/).waitFor();await page.screenshot({path:path.join(out,'05-resumo.png'),fullPage:true});
+  await go('/comecar');await page.getByText('Organizo um time',{exact:true}).click();await page.getByText('Salvar e começar',{exact:true}).click();await page.waitForURL(/criar-pelada/);await page.screenshot({path:path.join(out,'06-primeiro-passo.png'),fullPage:true});
+  assert.deepEqual(errors,[]);console.log('PASS: mobile guided onboarding, assisted preparation and owner consent, price opportunity + actual booking, discovery availability + buddy consent/approval, roster recap voting.');
+ }catch(e){await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});console.log('PAGE:',(await page.locator('body').innerText()).slice(-3500));throw e;}finally{await browser.close();}
+}
+run().catch(e=>{console.error(e);process.exitCode=1;});

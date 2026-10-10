@@ -10,6 +10,7 @@ import { useCommercialStore } from '@/store/useCommercialStore';
 import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
 import { useProStore } from '@/store/useProStore';
 import type { CommercialAudience } from '@/types/pro';
+import { CommercialCheckout } from '@/components/CommercialCheckout';
 
 export function CommercialOffers({ audience, targetId }: { audience: CommercialAudience; targetId?: string }) {
   const { agreements }=useCommercialAccess(audience,targetId);
@@ -30,7 +31,7 @@ export function CommercialOffers({ audience, targetId }: { audience: CommercialA
     <Text style={styles.copy}>{a.kind==='license'?'Benefícios gratuitos, sem assinatura paga.':`${formatBRL(a.agreedMonthlyPrice)}/mês por ${a.durationMonths} mensalidades · preço de referência ${formatBRL(a.listMonthlyPrice)}${a.discountPercent!==null?` · desconto ${a.discountPercent}%`:''}`}</Text>
     <Text style={styles.copy}>{a.expiresAt?`${a.kind==='license'?'Licença até':'Responder até'} ${new Date(a.expiresAt).toLocaleDateString('pt-BR')}`:'Licença sem prazo definido; pode ser revogada pelo proprietário.'}</Text>
     {!!a.note && <Text style={styles.copy}>{a.note}</Text>}
-    {a.status==='accepted' && <Text style={styles.copy}>A condição foi aceita, mas não há assinatura ativa nem pagamento confirmado. A duração negociada começa no contrato pago, não no aceite.</Text>}
+    {a.status==='accepted' && <><Text style={styles.copy}>Aceite não é pagamento. Consulte a confirmação abaixo; somente o webhook validado libera o período pago.</Text><CommercialCheckout agreementId={a.id} /></>}
     {a.status==='offered' && a.expiresAt && Date.parse(a.expiresAt)>Date.now() && <View style={styles.row}>
       <Button small label="Aceitar oferta" disabled={!!busy} loading={busy===a.id} onPress={()=>void respond(a.id,a.revision,true)} />
       <Button small variant="outline" label="Recusar" disabled={!!busy} onPress={()=>void respond(a.id,a.revision,false)} />

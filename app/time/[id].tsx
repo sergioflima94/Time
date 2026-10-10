@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
+import { Button as HubButton } from '@/components/ui/Button';
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -315,6 +316,7 @@ export default function TimeDetailScreen() {
         </Card>
       )}
 
+      {isAdmin&&<HubButton small variant="outline" label="Procurar adversário e horário" onPress={()=>router.push({pathname:'/bora',params:{teamId:id}})} />}
       {(isAdmin || pelada.memberInvitePermissions.canInviteNewMembers) && <InvitePeladaSection pelada={pelada} />}
 
       {friendlyMatches.length > 0 && (

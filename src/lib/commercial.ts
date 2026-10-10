@@ -7,7 +7,7 @@ export function licenseIsActive(license: LicenseAccess, now = Date.now()): boole
 }
 export function agreementLabel(a: CommercialAgreement, now = Date.now()): string {
   if (a.status === 'revoked') return 'Revogada';
-  if (a.status === 'accepted') return 'Aceita · contratação pendente';
+  if (a.status === 'accepted') return 'Oferta aceita';
   if (a.status === 'declined') return 'Recusada';
   if (a.expiresAt && Date.parse(a.expiresAt) <= now) return 'Expirada';
   return a.kind === 'license' ? 'Licença ativa' : 'Aguardando resposta';

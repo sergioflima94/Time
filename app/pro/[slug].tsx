@@ -101,8 +101,8 @@ function Plans() {
     {!subscriberId && <Text style={styles.caption}>Você precisa administrar um time ou ser dono de um estabelecimento para escolher esta oferta.</Text>}
     <CommercialOffers audience={audience} targetId={subscriberId} />
     {plans.filter(p => p.audience === audience && p.active).map(plan => {
-      const exempt = !!subscriberId && (access.owner || access.license?.planId===plan.id);
-      const active = exempt || subscriptions.some(s => s.planId === plan.id && s.subscriberId === subscriberId && ['trial','active'].includes(s.status) && Date.parse(s.currentPeriodEnd) > Date.now());
+      const exempt = !!subscriberId && (access.owner || access.license?.planId===plan.id&&!access.license.paid);
+      const active = exempt || !!(access.license?.paid&&access.license.planId===plan.id) || subscriptions.some(s => s.planId === plan.id && s.subscriberId === subscriberId && ['trial','active'].includes(s.status) && Date.parse(s.currentPeriodEnd) > Date.now());
       return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{exempt ? 'Sem mensalidade' : currency(plan.monthlyPrice)}{!exempt && <Text style={styles.caption}> / mês</Text>}</Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={exempt ? access.owner?'Liberado para o proprietário':'Liberado por licença' : active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && !exempt && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
     })}<Info icon="card" text="Em demonstração não há cobrança. A ativação real exige callback da loja ou webhook validado, e ficará disponível após homologação comercial." /></>;
 }

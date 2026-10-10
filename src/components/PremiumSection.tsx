@@ -75,6 +75,7 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
   }
 
   if (license) {
+    if(license.paid)return <Card style={[styles.card,styles.cardActive]}><Text style={styles.titleActive}>Premium · período pago confirmado</Text><Text style={styles.subText}>Válido até {new Date(license.expiresAt!).toLocaleDateString('pt-BR')}. Sem renovação automática neste contrato mensal. A renovação é feita após o encerramento, pelo checkout comercial.</Text>{active&&<Text style={styles.subText}>Há também uma assinatura anterior; este contrato não cancela a renovação dela.</Text>}</Card>;
     return <Card style={[styles.card,styles.cardActive]}>
       <Text style={styles.titleActive}>Premium por licença concedida</Text>
       <Text style={styles.subText}>{license.expiresAt?`Benefícios gratuitos até ${new Date(license.expiresAt).toLocaleDateString('pt-BR')}.`:'Benefícios gratuitos sem prazo definido, enquanto a licença estiver ativa.'}</Text>

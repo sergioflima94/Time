@@ -1,0 +1,11 @@
+const ts=require('typescript'),fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+function moduleFrom(path,requireFn){const source=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const module={exports:{}};vm.runInNewContext(source,{module,exports:module.exports,require:requireFn,Date,Set,Object,Number,Math,Error,Uint8Array,TextEncoder,crypto:require('node:crypto').webcrypto});return module.exports;}
+const hub=moduleFrom('src/lib/playHub.ts',()=>({}));
+assert.throws(()=>hub.localDateTime('2026-02-30','19:00'),/inválida/);assert.throws(()=>hub.localDateTime('2026-10-10','25:00'),/horário/);
+const date='2026-10-15',game={scheduledAt:hub.localDateTime(date,'19:00'),durationMinutes:60,level:'beginner'};
+assert.equal(hub.matchesAvailability(game,date,'18:00','20:00','beginner'),true);assert.equal(hub.matchesAvailability(game,date,'18:00','19:30','beginner'),false);assert.equal(hub.matchesAvailability(game,date,'18:00','20:00','advanced'),false);
+const performance=moduleFrom('src/lib/performance.ts',()=>({}));const goals=moduleFrom('src/lib/goals.ts',()=>({}));
+const turn={id:'t',teamAId:'a',teamBId:'b',endedAt:'2026-10-15T20:00:00Z',winnerTeamId:'a',rosterSnapshot:[{playerId:'p',teamId:'a',joinedAt:'2026-10-15T19:00:00Z',leftAt:'2026-10-15T19:05:00Z'}]};
+assert.equal(performance.computePlayerRecord('p',[],[turn]).wins,1);
+assert.equal(goals.computePlayerGoalStats('p',[],[turn],[{matchTurnId:'t',teamId:'a',scoredAt:'2026-10-15T19:01:00Z'},{matchTurnId:'t',teamId:'b',scoredAt:'2026-10-15T19:06:00Z'}]).balance,1);
+(async()=>{const {validSignature}=moduleFrom('supabase/functions/_shared/commercialSignature.ts',()=>({}));const crypto=require('node:crypto');const digest=crypto.createHmac('sha256','secret').update('id:123;request-id:abc;ts:100;').digest('hex');assert.equal(await validSignature(`ts=100,v1=${digest}`,'abc','123','secret'),true);assert.equal(await validSignature(`ts=100,v1=${digest}`,'abc','124','secret'),false);assert.equal(await validSignature(null,'abc','123','secret'),false);console.log('PASS: availability, calendar validation, roster historical results, time-scoped goal balance, signed webhook forgery rejection.');})().catch(e=>{console.error(e);process.exitCode=1;});

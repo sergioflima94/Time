@@ -17,6 +17,14 @@ export function computePlayerGoalStats(
   const myTeamIds = new Set(teamPlayers.filter((tp) => tp.playerId === playerId).map((tp) => tp.teamId));
   let balance = 0;
   for (const turn of turns) {
+    if(turn.rosterSnapshot){
+      const intervals=turn.rosterSnapshot.filter(r=>r.playerId===playerId);
+      for(const goal of goals.filter(g=>g.matchTurnId===turn.id)){
+        const entry=intervals.find(r=>Date.parse(goal.scoredAt)>=Date.parse(r.joinedAt)&&(!r.leftAt||Date.parse(goal.scoredAt)<Date.parse(r.leftAt)));
+        if(entry)balance+=goal.teamId===entry.teamId?1:-1;
+      }
+      continue;
+    }
     let myTeamId: string | null = null;
     let oppTeamId: string | null = null;
     if (myTeamIds.has(turn.teamAId)) {
