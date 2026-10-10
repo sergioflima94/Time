@@ -41,11 +41,14 @@ async function run() {
   await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6)',[owner,'owner@test.invalid',member,'member@test.invalid',support,'support@test.invalid']);
   await db.query("insert into platform_admin_accounts(auth_user_id,role) values($1,'owner'),($2,'support')",[owner,support]);
   await identity(member);
+  assert.equal((await db.query('select platform_admin_role() as role')).rows[0].role,null);
   await fails('select platform_console_snapshot()',[],/exclusivo/);
   await fails("insert into platform_admin_accounts(auth_user_id,role) values($1,'owner')",[member],/permission denied/);
   await identity(support);
+  assert.equal((await db.query('select platform_admin_role() as role')).rows[0].role,'support');
   await fails("select platform_console_action('account',$1,'{}'::jsonb,'teste de acesso')",[member],/Suporte/);
   await identity(owner);
+  assert.equal((await db.query('select platform_admin_role() as role')).rows[0].role,'owner');
   const snapshot = (await db.query('select platform_console_snapshot() as s')).rows[0].s;
   assert.equal(snapshot.role,'owner');
   await db.exec('reset role');
@@ -106,6 +109,14 @@ async function run() {
   await fails('delete from platform_admin_audit',[],/permission denied/);
   const audit = (await db.query('select platform_console_snapshot() as s')).rows[0].s.audit;
   assert(audit.some(a=>a.action==='sport'&&a.targetId==='beach-tennis'));
+  await db.exec('reset role');
+  await db.query('update platform_admin_accounts set active=false where auth_user_id=$1',[owner]);
+  await identity(owner);
+  assert.equal((await db.query('select platform_admin_role() as role')).rows[0].role,null);
+  await fails('select platform_console_snapshot()',[],/exclusivo/);
+  await db.exec('reset role');
+  assert.equal((await db.query('select premium_until from players where auth_user_id=$1',[owner])).rows[0].premium_until,null);
+  assert.equal((await db.query('select count(*)::int as n from commercial_subscriptions')).rows[0].n,0);
   console.log('PASS: permissions, NULL validation, last owner, sport revisions, discovery opt-in, approval capacity/idempotency, public read, suspension and immutable audit.');
   await db.close();
 }

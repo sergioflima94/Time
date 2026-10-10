@@ -16,6 +16,7 @@ import { colors, spacing } from '@/constants/theme';
 import { getSport, scoreLabel } from '@/constants/sports';
 import { useMyPeladas } from '@/hooks/useCurrentPelada';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
 import { formatGameDateShort } from '@/lib/format';
 import { computePlayerGoalStats, computePlayerGoalStatsByGroup } from '@/lib/goals';
 import { pickProfilePhoto } from '@/lib/photo';
@@ -27,6 +28,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function PerfilScreen() {
   const platformRole = usePlatformAdmin();
+  const ownerBenefits = useOwnerBenefits();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId)!);
   const ratings = useAppStore((s) => s.ratings);
@@ -52,7 +54,7 @@ export default function PerfilScreen() {
   const goalStats = computePlayerGoalStats(currentPlayerId, teamPlayers, matchTurns, goals);
   const goalStatsByGroup = computePlayerGoalStatsByGroup(currentPlayerId, teamPlayers, matchTurns, goals, games, myPeladas);
   const pendingGames = getPendingRatingGames(games, attendances, ratings, currentPlayerId);
-  const isPremium = isPremiumActive(player);
+  const isPremium = ownerBenefits || isPremiumActive(player);
 
   async function handleChangePhoto() {
     setPickingPhoto(true);

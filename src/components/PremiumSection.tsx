@@ -8,6 +8,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { daysUntilExpiry, isPremiumActive } from '@/lib/premium';
 import { isMockMode } from '@/lib/supabase';
 import { useProStore } from '@/store/useProStore';
+import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
 
 const BENEFITS = [
   'Sem anúncios em nenhuma tela',
@@ -31,6 +32,7 @@ interface PremiumSectionProps {
 }
 
 export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscribe, onCancelAutoRenew }: PremiumSectionProps) {
+  const ownerBenefits = useOwnerBenefits();
   const offer = useProStore(s => s.plans.find(p => p.audience === 'player' && p.active));
   const price = offer?.monthlyPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -55,6 +57,17 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
       Linking.openURL(MANAGE_SUBSCRIPTION_URL).catch(() => {});
     }
     if (isMockMode) onCancelAutoRenew();
+  }
+
+  if (ownerBenefits) {
+    return <Card style={[styles.card, styles.cardActive]}>
+      <View style={styles.headerRow}>
+        <Ionicons name="shield-checkmark" size={18} color={colors.gold} />
+        <Text style={styles.titleActive}>Acesso completo do proprietário</Text>
+      </View>
+      <Text style={styles.subText}>Premium sem anúncios e benefícios Pro liberados, sem assinatura ou cobrança mensal, enquanto seu papel de proprietário estiver ativo.</Text>
+      <Text style={styles.subText}>Consumo, reservas e serviços externos continuam sendo pagos normalmente.</Text>
+    </Card>;
   }
 
   if (active) {

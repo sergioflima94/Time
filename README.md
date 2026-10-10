@@ -10,6 +10,29 @@ do estabelecimento. Papéis globais são verificados no Supabase, nunca por
 - **Administrador**: usuários, ofertas, configurações, esportes e denúncias.
 - **Suporte**: consulta e tratamento de denúncias, sem alterar preços ou regras.
 
+### Acesso completo do proprietário
+
+O papel global **`owner` ativo** inclui Premium individual (fundo da carta e
+sem anúncios), benefícios Time Pro e Estabelecimento Pro **sem mensalidade**.
+Não cria assinatura fictícia, período pago, saldo ou receita. Administradores
+operacionais (`admin`), suporte e administradores de time não recebem essa
+isenção automaticamente.
+
+O aplicativo consulta `platform_admin_role()` no Supabase, não o e-mail nem
+`user_metadata`. O acesso comercial não é persistido no aparelho; é atualizado
+no login, ao voltar ao app e a cada minuto em primeiro plano. Falha de consulta,
+revogação, suspensão ou troca de conta remove a isenção. A interface pode levar
+até um minuto para refletir uma revogação; os RPCs administrativos continuam
+checando o papel no servidor em cada requisição.
+
+O console oferece atalhos para times, criação de time, estabelecimentos, recursos
+e Operação Pro. Para organizar jogos/campeonatos, comandas, aulas ou reservas,
+o proprietário usa seus próprios times/campos ou uma organização em que tenha
+permissão: a isenção **não contorna RLS nem assume a identidade de clientes**.
+Não inclui consumo, produtos, inscrições, aluguel de campo, créditos de carteira
+ou taxas/custos externos (gateway, WhatsApp, geração de imagem etc.). Integrações
+pendentes de credenciais/homologação continuam pendentes também para o proprietário.
+
 O painel reúne indicadores reais do banco, busca de usuários/times/campos,
 suspensão sem exclusão de histórico, catálogo de planos, moderação e auditoria.
 Toda alteração exige motivo. O último proprietário ativo não pode ser removido.
@@ -99,6 +122,7 @@ node node_modules/typescript/bin/tsc --noEmit
 node scripts/test-sports-domain.cjs
 npm install --prefix .test-runtime --no-audit --no-fund @electric-sql/pglite
 node scripts/test-platform-sql.cjs
+node scripts/test-owner-access.cjs
 ```
 
 O teste SQL executa a cadeia de migrações num PostgreSQL local em memória com

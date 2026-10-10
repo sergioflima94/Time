@@ -10,6 +10,9 @@ const { SPORTS, sportRules, validateSport, setSportCatalog, getSport } = require
 const { buildSportScoreboard } = require('../src/lib/sportScoreboard.ts');
 const { segmentCanFinish, scoreboardTotal } = require('../src/lib/growth.ts');
 const { computePlayerActivitySummary } = require('../src/lib/performance.ts');
+const { hasOwnerBenefits } = require('../src/lib/featureAccess.ts');
+assert.equal(hasOwnerBenefits('owner'),true);
+for (const role of [null,'admin','support','member']) assert.equal(hasOwnerBenefits(role),false);
 const defaults = SPORTS.map(s=>({...s,active:true,revision:1,rules:sportRules(s)}));
 assert(defaults.every(validateSport));
 const sport = {...defaults[1],id:'queimada',label:'Queimada',hasGoalkeeper:false,suggestedTeamSize:5,rules:{...defaults[1].rules,mode:'total',periods:1,targetPoints:null,winByTwo:false,setsToWin:null,scoreValues:[1,2]}};

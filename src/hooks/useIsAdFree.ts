@@ -3,14 +3,17 @@ import { useShallow } from 'zustand/react/shallow';
 import { isAdFree } from '@/lib/payments';
 import { isPremiumActive } from '@/lib/premium';
 import { useAppStore } from '@/store/useAppStore';
+import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
 
-/** true quando o jogador atual não deve ver anúncios: é Premium ou já pagou o rateio de algum jogo. */
+/** Sem anúncios: proprietário ativo, Premium ou rateio já pago. */
 export function useIsAdFree(): boolean {
-  return useAppStore(
+  const ownerBenefits = useOwnerBenefits();
+  const paidAccess = useAppStore(
     useShallow((s) => {
       const player = s.players.find((p) => p.id === s.currentPlayerId);
       if (!player) return false;
       return isAdFree(isPremiumActive(player), player.id, s.payments);
     }),
   );
+  return ownerBenefits || paidAccess;
 }

@@ -47,6 +47,17 @@ export default function PlatformConsoleScreen() {
     <View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Voltar" hitSlop={12}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable><View style={{ flex: 1 }}><Text style={styles.title}>Admin da plataforma</Text><Text style={styles.caption}>BoraJogo · gestão global</Text></View>{role && <Badge label={role === 'owner' ? 'Proprietário' : role === 'admin' ? 'Administrador' : 'Suporte'} color={colors.special} />}</View>
     {loading && !role ? <Text style={styles.caption}>Verificando suas permissões...</Text> : !role || !snapshot ? <Card><Text style={styles.sectionTitle}>Acesso restrito</Text><Text style={styles.copy}>{error || 'Este painel não pertence à administração de um time. Sua conta precisa de autorização da plataforma.'}</Text><Button label="Verificar novamente" small onPress={() => void load()} loading={loading} /></Card> : <>
       {isMockMode && <Text style={styles.warning}>Demonstração: este administrador existe somente nos dados de exemplo. Nenhum usuário real recebe o papel automaticamente.</Text>}
+      {role === 'owner' && <Card>
+        <Text style={styles.sectionTitle}>Usar todas as áreas do aplicativo</Text>
+        <Text style={styles.copy}>Seu papel de proprietário inclui os benefícios Premium e Pro, sem mensalidade. Crie seus times e estabelecimentos para usar agenda, campeonatos, comandas e aulas com dados separados dos clientes.</Text>
+        <View style={[styles.row, { flexWrap: 'wrap' }]}>
+          <Button small variant="outline" label="Meus times" onPress={() => router.push('/(tabs)/times')} />
+          <Button small variant="outline" label="Criar time" onPress={() => router.push('/criar-pelada')} />
+          <Button small variant="outline" label="Meus estabelecimentos" onPress={() => router.push('/estabelecimento')} />
+          <Button small variant="outline" label="Todos os recursos" onPress={() => router.push('/central')} />
+          <Button small variant="outline" label="Operação Pro" onPress={() => router.push('/operacao-pro')} />
+        </View>
+      </Card>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => t !== 'Equipe admin' || role === 'owner').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       {pending && <Card style={{ borderColor: colors.warning }}><Text style={styles.sectionTitle}>Confirmar alteração</Text><Text style={styles.copy}>{pending.description}</Text><TextField label="Motivo (mínimo 8 caracteres)" value={reason} onChangeText={setReason} multiline placeholder="Explique a decisão para a auditoria" /><View style={styles.row}><Button label="Cancelar" variant="ghost" small onPress={() => setPending(null)} disabled={busy} /><Button label="Confirmar e registrar" small onPress={() => void confirm()} loading={busy} disabled={reason.trim().length < 8} /></View></Card>}

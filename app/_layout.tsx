@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
+import { usePlatformAccessSync } from '@/hooks/usePlatformAccessSync';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { initializeAds } from '@/lib/ads';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -14,6 +15,7 @@ import { usePlatformStore } from '@/store/usePlatformStore';
 export default function RootLayout() {
   useNotificationNavigation();
   useSupabaseSync();
+  usePlatformAccessSync();
   const initializeAuth = useAuthStore((state) => state.initialize);
   useEffect(() => {
     initializeAds();
