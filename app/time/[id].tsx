@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { Button as HubButton } from '@/components/ui/Button';
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
+import { ConversationEntry } from '@/components/ConversationEntry';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -196,6 +197,7 @@ export default function TimeDetailScreen() {
       {pelada.description && <Text style={styles.description}>{pelada.description}</Text>}
 
       <View style={styles.actionsRow}>
+        <ConversationEntry kind="team" contextId={pelada.id} label="Conversa do time" />
         <Button label="Ver agenda" small variant="secondary" onPress={handleAgenda} />
         <Button label="Vaquinhas" small variant="secondary" onPress={() => router.push(`/time/${pelada.id}/vaquinhas`)} />
         {isAdmin && <Button label="Administrar" small onPress={handleManage} />}

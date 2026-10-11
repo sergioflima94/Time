@@ -1480,6 +1480,267 @@ export type Database = {
           },
         ]
       }
+      community_chat_blocks: {
+        Row: {
+          blocked_player_id: string
+          player_id: string
+        }
+        Insert: {
+          blocked_player_id: string
+          player_id: string
+        }
+        Update: {
+          blocked_player_id?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_chat_blocks_blocked_player_id_fkey"
+            columns: ["blocked_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_chat_blocks_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_chat_preferences: {
+        Row: {
+          friends_only: boolean
+          player_id: string
+        }
+        Insert: {
+          friends_only?: boolean
+          player_id: string
+        }
+        Update: {
+          friends_only?: boolean
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_chat_preferences_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_chat_reads: {
+        Row: {
+          player_id: string
+          read_at: string
+          room_id: string
+        }
+        Insert: {
+          player_id: string
+          read_at?: string
+          room_id: string
+        }
+        Update: {
+          player_id?: string
+          read_at?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_chat_reads_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_chat_reads_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "community_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_messages: {
+        Row: {
+          created_at: string
+          id: string
+          nonce: string
+          room_id: string
+          sender_id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nonce: string
+          room_id: string
+          sender_id: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nonce?: string
+          room_id?: string
+          sender_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "community_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_report_evidence: {
+        Row: {
+          message_id: string
+          report_id: string
+          reporter_id: string
+        }
+        Insert: {
+          message_id: string
+          report_id: string
+          reporter_id: string
+        }
+        Update: {
+          message_id?: string
+          report_id?: string
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_report_evidence_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "community_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_report_evidence_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_report_evidence_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_rooms: {
+        Row: {
+          a: string | null
+          b: string | null
+          booking_kind: string | null
+          context_id: string
+          created_at: string
+          id: string
+          kind: string
+          requester_id: string | null
+          room_key: string
+          status: string
+          title: string
+        }
+        Insert: {
+          a?: string | null
+          b?: string | null
+          booking_kind?: string | null
+          context_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          requester_id?: string | null
+          room_key: string
+          status?: string
+          title: string
+        }
+        Update: {
+          a?: string | null
+          b?: string | null
+          booking_kind?: string | null
+          context_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          requester_id?: string | null
+          room_key?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_rooms_a_fkey"
+            columns: ["a"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_rooms_b_fkey"
+            columns: ["b"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_rooms_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_team_chat: {
+        Row: {
+          admin_only: boolean
+          mode: string
+          team_id: string
+          whatsapp_url: string | null
+        }
+        Insert: {
+          admin_only?: boolean
+          mode?: string
+          team_id: string
+          whatsapp_url?: string | null
+        }
+        Update: {
+          admin_only?: boolean
+          mode?: string
+          team_id?: string
+          whatsapp_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_team_chat_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "peladas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_push_tokens: {
         Row: {
           active: boolean
@@ -5799,6 +6060,27 @@ export type Database = {
       commercial_target_member: {
         Args: { p_audience: string; p_target: string }
         Returns: boolean
+      }
+      community_booking_people: {
+        Args: { p_id: string; p_kind: string }
+        Returns: string[]
+      }
+      community_chat_access: {
+        Args: { p_messages?: boolean; p_room: string }
+        Returns: boolean
+      }
+      community_chat_action: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
+      }
+      community_chat_me: { Args: never; Returns: string }
+      community_chat_snapshot: {
+        Args: { p_before?: string; p_room?: string }
+        Returns: Json
+      }
+      community_room_json: {
+        Args: { r: Database["public"]["Tables"]["community_rooms"]["Row"] }
+        Returns: Json
       }
       directory_registered: { Args: { p_field: string }; Returns: boolean }
       fundraising_campaign_feed: {

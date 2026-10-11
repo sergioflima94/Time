@@ -68,6 +68,75 @@ não substituem validação num aparelho Android. Esta mudança de Home está no
 código-fonte e **não está no APK 1.0.4 abaixo**; o APK instalado não se atualiza
 automaticamente e precisa de um novo build para receber este layout.
 
+## Conversas dos times, amigos e reservas
+
+Entrada principal: **Amigos → Conversas e solicitações** ou **Perfil → Conversas
+e privacidade**. Nos detalhes de cada time há **Conversa do time**; nos perfis
+dos amigos, **Conversar**. Para jogadores de fora aparece **Solicitar conversa**.
+
+- **Time:** um canal por time, acessível somente aos membros ativos. Admins
+  escolhem **Interno**, **WhatsApp** ou **Ambos** e podem limitar publicações aos
+  administradores. O link do grupo aceita apenas convites HTTPS válidos de
+  `chat.whatsapp.com`; aparece apenas para membros. Próximo jogo/jogo ao vivo,
+  enquetes abertas e vaquinhas têm atalhos fixados. O WhatsApp abre externamente;
+  mensagens de lá não são sincronizadas com o chat interno.
+- **Amigos:** uma conversa privada por dupla, sem publicar telefone. Amigos
+  aceitos podem começar a conversar; solicitações anteriores recusadas não são
+  automaticamente reabertas. O chat não adiciona alguém à lista de amigos.
+- **Pessoas de fora:** solicitação sem mensagem inicial. Só o destinatário aceita
+  ou recusa; o remetente não pode aceitar o próprio pedido. Antes do aceite não
+  há envio de texto. Pedidos recusados não podem ser reenviados pelo mesmo par.
+  Em privacidade é possível receber novas conversas somente de amigos.
+- **Bloqueio:** impede envio e oculta o histórico das conversas diretas nos dois
+  sentidos. Pode ser desfeito pela pessoa que bloqueou. Não expulsa participantes
+  nem altera canais de time ou atendimento de reservas.
+- **Denúncia:** escolha uma mensagem recebida e o motivo. O servidor confere
+  que ela pertence à conversa acessível e guarda texto/remetente/identificadores
+  como evidência no fluxo **Admin da plataforma → Denúncias**. Repetir a denúncia
+  não cria cópias; o denunciante não pode fabricar evidência de outro canal.
+- **Reserva:** **Conversar sobre esta reserva** nos pedidos de oportunidade,
+  reserva automática e agenda do estabelecimento. O canal é exclusivo dos admins
+  dos times envolvidos, dono atual do estabelecimento e, em reservas da agenda,
+  criador registrado. Membros comuns não leem negociações privadas. Conversar
+  não confirma disponibilidade, presença, pagamento ou reserva: esses estados
+  continuam sendo modificados somente pelos fluxos próprios.
+
+O chat básico não exige Premium. `app/conversas.tsx` usa as RPCs
+`community_chat_snapshot` e `community_chat_action`; as tabelas `community_*`
+não recebem escritas diretas do cliente e não entram na fila otimista genérica.
+Identidade, vínculo ativo, configuração do canal, bloqueio e consentimento são
+checados no servidor, inclusive após revogação/suspensão. Nonce único por envio
+impede duplicações no retry; a mensagem digitada é mantida em caso de falha.
+Há limites de 2.000 caracteres, 20 mensagens/minuto por remetente e 20 novas
+solicitações/dia. Histórico retorna 50 mensagens por página, com carregar anteriores;
+a caixa de entrada retorna até 200 conversas. Não inclui áudio, anexos ou
+criptografia ponta a ponta.
+
+Mensagens usam Supabase Realtime com SELECT condicionado por RLS. A tela também
+revalida a cada 10 segundos e ao voltar ao primeiro plano; encerra assinatura e
+timer ao sair da tela. A revalidação protege acesso revogado e traz solicitações.
+Não há notificações push de mensagens em segundo plano implementadas neste fluxo.
+Canais legados em **Central → Conversas** foram preservados, com acesso à nova central.
+
+Migração `20261011010000_community_conversations.sql` publicada no Supabase em
+11/10/2026; tipos regenerados do projeto ligado. Validação isolada de produção:
+
+```powershell
+node scripts/test-conversations.cjs
+node scripts/test-conversations-sql.cjs
+# Expo web demo, sem variáveis Supabase; Playwright + Chrome instalados:
+$env:TEST_URL='http://localhost:19015'
+node scripts/test-conversations-ui.cjs
+```
+
+Os testes SQL usam PostgreSQL local em memória (PGlite), incluindo RLS, recusa,
+bloqueios, isolamento de reserva, evidência verificada, idempotência e suspensão.
+Os prints da interface real estão em `.test-runtime/conversations-ui` (390/320 px).
+Login/saída e rotas protegidas também foram testados com Supabase interceptado.
+Nenhum teste cria conta, manda WhatsApp/e-mail ou cobra clientes reais.
+**O APK 1.0.4 abaixo não contém esta interface nem a nova Home**; um novo build
+Android é necessário. Nenhum novo APK foi gerado nesta alteração.
+
 ## APK de validação Android
 
 ### Correção de saída da conta (1.0.4)

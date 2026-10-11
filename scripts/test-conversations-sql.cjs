@@ -1,0 +1,80 @@
+// Real PostgreSQL engine in memory. No project credentials, users, emails or production writes.
+const {PGlite}=require('../.test-runtime/node_modules/@electric-sql/pglite');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const db=new PGlite();
+const users=[1,2,3,4].map(i=>`00000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
+const q=async(sql,args=[])=>(await db.query(sql,args)).rows;
+async function identity(id,role='authenticated'){await db.exec('reset role');await q("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec(`set role ${role}`);}
+const act=async(name,data)=>(await q('select community_chat_action($1,$2::jsonb) as result',[name,JSON.stringify(data)]))[0].result;
+const snap=async room=>(await q('select community_chat_snapshot($1) as data',[room??null]))[0].data;
+const send=(roomId,text,nonce=randomUUID())=>act('send',{roomId,text,nonce});
+async function run(){try{
+ await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema vault;
+ create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');create table vault.decrypted_secrets(id uuid primary key,decrypted_secret text);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create function auth.role() returns text language sql stable as $$select current_user::text$$;
+ grant usage on schema public,auth to authenticated,anon,service_role;grant execute on all functions in schema auth to authenticated,anon,service_role;`);
+ for(const n of fs.readdirSync(path.join(__dirname,'../supabase/migrations')).filter(n=>n.endsWith('.sql')).sort())await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',n),'utf8').replace(/^create extension if not exists .*;\r?$/gm,''));
+ for(const [i,u] of users.entries())await q('insert into auth.users(id,email) values($1,$2)',[u,`chat${i}@test.invalid`]);
+ const ps=await q('select id,auth_user_id from players');const player=u=>ps.find(p=>p.auth_user_id===u).id;
+ const team=(await q("insert into peladas(name,invite_code,created_by) values('Time teste','CHATTEST',$1) returning id",[player(users[0])]))[0].id;
+ await q("insert into pelada_memberships(pelada_id,player_id,role,active) values($1,$2,'admin',true),($1,$3,'member',true)",[team,player(users[0]),player(users[1])]);
+ await q("insert into friendships(requester_id,addressee_id,status) values($1,$2,'accepted')",[player(users[0]),player(users[1])]);
+ const venue=(await q("insert into establishments(owner_player_id,name,payout_method,access_code) values($1,'Arena teste','in_person','CHATVENUE') returning id",[player(users[3])]))[0].id;
+ const field=(await q("insert into fields(establishment_id,name,created_by) values($1,'Campo teste',$2) returning id",[venue,player(users[3])]))[0].id;
+ const booking=(await q("insert into field_bookings(field_id,establishment_id,pelada_id,team_name,recurrence,date,time,created_by) values($1,$2,$3,'Time teste','single','2099-01-10','18:00',$4) returning id",[field,venue,team,player(users[0])]))[0].id;
+ await identity(users[0]);const room=(await act('open',{kind:'team',contextId:team})).id;
+ assert.equal((await act('open',{kind:'team',contextId:team})).id,room);
+ const nonce=randomUUID();await send(room,'Quem leva a bola?',nonce);await send(room,'Quem leva a bola?',nonce);assert.equal((await snap(room)).messages.length,1);
+ await assert.rejects(send(room,'Mensagem diferente',nonce),/já utilizado/);
+ await assert.rejects(q('insert into community_messages(room_id,sender_id,text,nonce) values($1,$2,$3,$4)',[room,player(users[1]),'Forjado',randomUUID()]),/permission denied/);
+ await identity(users[1]);assert.equal((await snap(room)).room.unread,1);await act('read',{roomId:room});assert.equal((await snap(room)).room.unread,0);
+ await assert.rejects(act('team_config',{teamId:team,config:{mode:'internal',whatsappUrl:null,adminOnly:true}}),/administrador/);
+ await identity(users[0]);await act('team_config',{teamId:team,config:{mode:'both',whatsappUrl:'https://chat.whatsapp.com/abcdefghijklmnop',adminOnly:true}});
+ await assert.rejects(act('team_config',{teamId:team,config:{mode:'both',whatsappUrl:'https://chat.whatsapp.com.evil/abcdefghijklmnop',adminOnly:false}}),/convite HTTPS/);
+ await identity(users[1]);assert.equal((await snap(room)).canPost,false);await assert.rejects(send(room,'Não pode'),/não permitido/);
+ await db.exec('reset role');await q('update pelada_memberships set active=false where pelada_id=$1 and player_id=$2',[team,player(users[1])]);
+ await identity(users[1]);await assert.rejects(snap(room),/indisponível/);assert.equal((await q('select * from community_messages where room_id=$1',[room])).length,0);
+ await db.exec('reset role');await q('update pelada_memberships set active=true where pelada_id=$1 and player_id=$2',[team,player(users[1])]);
+ await identity(users[0]);const friend=(await act('open',{kind:'direct',contextId:player(users[1])})).id;assert.equal((await snap(friend)).room.status,'accepted');await send(friend,'Bora jogar?');
+ const direct=(await act('open',{kind:'direct',contextId:player(users[2])})).id;assert.equal((await snap(direct)).room.status,'pending');await assert.rejects(send(direct,'Sem aceite'),/aceite/);await assert.rejects(act('respond',{roomId:direct,accept:true}),/indisponível/);
+ await identity(users[2]);assert.equal((await snap(direct)).messages.length,0);await act('respond',{roomId:direct,accept:true});assert.equal((await act('open',{kind:'direct',contextId:player(users[0])})).id,direct);
+ await send(direct,'Mensagem recebida');const message=(await snap(direct)).messages[0];
+ await identity(users[0]);const report=await act('report',{roomId:direct,messageId:message.id,reason:'spam'});assert.equal((await act('report',{roomId:direct,messageId:message.id,reason:'spam'})).id,report.id);
+ await assert.rejects(act('report',{roomId:friend,messageId:message.id,reason:'spam'}),/Selecione/);
+ await act('block',{playerId:player(users[2])});assert.equal((await snap(direct)).messages.length,0);assert.equal((await q('select * from community_messages where room_id=$1',[direct])).length,0);
+ await assert.rejects(send(direct,'Bloqueado'),/bloqueio/);
+ await identity(users[2]);await assert.rejects(send(direct,'Bloqueado'),/bloqueio/);await assert.rejects(act('open',{kind:'direct',contextId:player(users[0])}),/indisponível/);
+ await identity(users[0]);await act('unblock',{playerId:player(users[2])});await send(direct,'Liberado');
+ await identity(users[3]);await act('settings',{friendsOnly:true});await identity(users[0]);await assert.rejects(act('open',{kind:'direct',contextId:player(users[3])}),/apenas de amigos/);
+ await identity(users[3]);await act('settings',{friendsOnly:false});await identity(users[0]);const refused=(await act('open',{kind:'direct',contextId:player(users[3])})).id;
+ await identity(users[3]);await act('respond',{roomId:refused,accept:false});await identity(users[0]);assert.equal((await act('open',{kind:'direct',contextId:player(users[3])})).id,refused);await assert.rejects(send(refused,'Recusado'),/aceite/);
+ const service=(await act('open',{kind:'booking',contextId:booking,bookingKind:'field'})).id;await send(service,'Qual entrada?');
+ await identity(users[3]);await send(service,'Portão principal');assert.equal((await snap(service)).messages.length,2);
+ await identity(users[1]);await assert.rejects(snap(service),/indisponível/); // Membro comum não lê negociação privada.
+ await identity(users[2]);await assert.rejects(snap(service),/indisponível/);await assert.rejects(act('open',{kind:'booking',contextId:booking,bookingKind:'field'}),/permissão/);
+ await db.exec('reset role');
+ const schedule=(await q("insert into schedules(pelada_id,field_id,recurrence,day_of_week,time,start_date,created_by) values($1,$2,'weekly',1,'19:00','2099-01-01',$3) returning id",[team,field,player(users[0])]))[0].id;
+ const game=(await q("insert into games(pelada_id,schedule_id,field_id,scheduled_at,max_players,players_per_team,status,draw_method,created_by) values($1,$2,$3,'2099-01-11 19:00:00-03',10,5,'open','random',$4) returning id",[team,schedule,field,player(users[0])]))[0].id;
+ const automatic=(await q("insert into game_booking_requests(game_id,schedule_id,field_id,code,requested_start_at,duration_minutes,expires_at) values($1,$2,$3,'CHAT-AUTO','2099-01-11 19:00:00-03',60,'2099-01-11 18:00:00-03') returning id",[game,schedule,field]))[0].id;
+ const slot=(await q("insert into opportunity_slots(field_id,starts_at,duration_minutes,regular_price,offer_price) values($1,'2099-01-12 19:00:00-03',60,150,100) returning id",[field]))[0].id;
+ const opportunity=(await q("insert into opportunity_requests(slot_id,pelada_id,price,commission_percent) values($1,$2,100,0) returning id",[slot,team]))[0].id;
+ await identity(users[0]);
+ for(const [bookingKind,contextId] of [['automatic',automatic],['opportunity',opportunity]]){
+   const id=(await act('open',{kind:'booking',contextId,bookingKind})).id;await send(id,`Dúvida ${bookingKind}`);
+   await identity(users[3]);assert.equal((await snap(id)).messages.length,1);
+   await identity(users[2]);await assert.rejects(snap(id),/indisponível/);
+   await identity(users[0]);
+ }
+ await db.exec('reset role');assert.equal((await q('select status from game_booking_requests where id=$1',[automatic]))[0].status,'awaiting_owner');assert.equal((await q('select status from opportunity_requests where id=$1',[opportunity]))[0].status,'pending');
+ await identity(users[3]);for(let i=0;i<19;i++)await send(service,`Mensagem ${i}`);await assert.rejects(send(service,'Excesso'),/Muitas mensagens/);
+ await db.exec('reset role');
+ for(let i=0;i<55;i++)await q("insert into community_messages(room_id,sender_id,text,nonce,created_at) values($1,$2,$3,$4,now()-interval '2 days'+$5*interval '1 minute')",[service,player(users[3]),`Histórico ${i}`,randomUUID(),i]);
+ await identity(users[3]);const page=await snap(service);assert.equal(page.messages.length,50);assert.equal(page.hasOlder,true);const older=(await q('select community_chat_snapshot($1,$2) data',[service,page.messages[0].createdAt]))[0].data;assert.equal(older.messages.length,26);assert.equal(older.hasOlder,false);
+ await db.exec('reset role');assert.equal((await q('select count(*) as n from field_bookings'))[0].n,1);assert.match((await q('select details from moderation_reports where id=$1',[report.id]))[0].details,/Mensagem recebida/);
+ await q("insert into platform_account_controls(player_id,suspended,reason) values($1,true,'Teste de revogação')",[player(users[0])]);
+ await identity(users[0]);await assert.rejects(snap(room),/Entre/);await assert.rejects(send(room,'Suspenso'),/Entre/);assert.equal((await q('select * from community_messages')).length,0);
+ await identity(null,'anon');await assert.rejects(snap(room),/permission denied/);
+ console.log('PASS: SQL RPCs + RLS: current membership, admin mode/link validation, no forged writes, nonce uniqueness, read/unread, friends vs consent, refusal, blocks both ways, verified/idempotent report, private booking, no reservation mutations, suspension and anon denial.');
+}finally{await db.close();}}
+run().catch(e=>{console.error(e);process.exitCode=1;});

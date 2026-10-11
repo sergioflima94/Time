@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { Button } from '@/components/ui/Button';
+import { ConversationEntry } from '@/components/ConversationEntry';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -158,6 +159,7 @@ export default function EstablishmentBookingsScreen() {
                   {b.durationMinutes} min)
                 </Text>
                 {b.notes && <Text style={styles.hint}>{b.notes}</Text>}
+                <ConversationEntry kind="booking" contextId={b.id} bookingKind="field" label="Conversa da reserva" />
               </View>
               <Pressable onPress={() => removeFieldBooking(b.id)} hitSlop={8}>
                 <Ionicons name="trash-outline" size={18} color={colors.danger} />

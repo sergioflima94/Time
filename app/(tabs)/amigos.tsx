@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { AdBanner } from '@/components/AdBanner';
+import { ConversationEntry } from '@/components/ConversationEntry';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -88,6 +89,7 @@ export default function AmigosScreen() {
       </View>
 
       <TextField label="Buscar jogador" placeholder="Nome ou apelido" value={query} onChangeText={setQuery} />
+      <Button label="Conversas e solicitações" variant="outline" small style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
       {searchResults.length > 0 && (
         <Card style={styles.section}>
           {searchResults.map((p) => (
@@ -125,7 +127,8 @@ export default function AmigosScreen() {
       ) : (
         <View style={styles.grid}>
           {sortedFriends.map((item) => (
-            <Pressable key={item.id} style={styles.cardWrap} onPress={() => router.push(`/jogador/${item.id}`)}>
+            <View key={item.id} style={styles.cardWrap}>
+            <Pressable onPress={() => router.push(`/jogador/${item.id}`)}>
               <PlayerCard
                 name={item.name}
                 nickname={item.nickname}
@@ -138,6 +141,8 @@ export default function AmigosScreen() {
                 width={150}
               />
             </Pressable>
+            <ConversationEntry kind="direct" contextId={item.id} label={`Conversar com ${item.nickname || item.name.split(' ')[0]}`} />
+            </View>
           ))}
         </View>
       )}

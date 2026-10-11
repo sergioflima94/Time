@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { PLAYER_CARD_ASPECT, PlayerCard } from '@/components/PlayerCard';
 import { PlayerCardBack } from '@/components/PlayerCardBack';
 import { RotatingCard } from '@/components/RotatingCard';
+import { ConversationEntry } from '@/components/ConversationEntry';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -118,6 +119,7 @@ export default function JogadorPerfilScreen() {
       <Text style={styles.name}>{player.name}</Text>
       {player.nickname && <Text style={styles.nickname}>"{player.nickname}"</Text>}
 
+      {!isMe && <View style={{marginVertical:spacing.md}}><ConversationEntry kind="direct" contextId={player.id} label={friendship.status==='friends'?'Conversar':'Solicitar conversa'} /></View>}
       {!isMe && (
         <View style={styles.friendAction}>
           {friendship.status === 'none' && (

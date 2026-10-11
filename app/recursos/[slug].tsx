@@ -107,6 +107,7 @@ function Conversations() {
   }
 
   return <>
+    <Card style={styles.section}><Text style={styles.cardTitle}>Conversas integradas</Text><Text style={styles.caption}>Times, amigos, solicitações privadas e atendimento de reservas, com privacidade e denúncia.</Text><Button label="Abrir minhas conversas" onPress={() => router.push('/conversas')} /><Text style={styles.caption}>Os canais anteriores abaixo foram preservados; novos chats integrados ficam na central.</Text></Card>
     <Card style={styles.section}>
       <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.cardTitle}>Notificações do app</Text><Text style={styles.caption}>Push para mudanças urgentes; WhatsApp continua como fallback.</Text></View><Switch value={notificationOptIn} onValueChange={togglePush} /></View>
       {!!pushMessage && <Text style={styles.notice}>{pushMessage}</Text>}

@@ -1,5 +1,8 @@
 -- =========================================================================
 -- Schema do app de Pelada (futebol amador)
+-- Base histórica. Para um projeto atualizado, use supabase/migrations via db push.
+-- Conversas integradas/RLS/RPCs: 20261011010000_community_conversations.sql.
+-- Não reaplique esta base sobre um banco que já recebeu as migrações.
 -- Rode este arquivo no SQL Editor do seu projeto Supabase (supabase.com).
 -- =========================================================================
 

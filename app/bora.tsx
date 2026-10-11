@@ -11,6 +11,7 @@ import { usePlayHubStore } from '@/store/usePlayHubStore';
 import { compatibleWindows, localDateTime } from '@/lib/playHub';
 import { formatBRL } from '@/lib/payments';
 import { getSport } from '@/constants/sports';
+import { ConversationEntry } from '@/components/ConversationEntry';
 
 export default function BoraScreen(){
   const params=useLocalSearchParams<{teamId?:string;establishmentId?:string;fieldId?:string}>();const {data,error,loading,refresh}=usePlayHub();
@@ -39,6 +40,7 @@ export default function BoraScreen(){
     </Card>}
     {mode==='requests'&&<>{!data.requests.length&&<Text style={st.copy}>Nenhum pedido disponível.</Text>}{data.requests.map(r=>{const venueOwner=app.establishments.some(e=>e.ownerPlayerId===app.currentPlayerId&&app.fields.some(f=>f.establishmentId===e.id&&f.id===data.slots.find(s=>s.id===r.slot_id)?.field_id));return <Card key={r.id} style={st.card}><Text style={st.title}>{r.team_name}{r.opponent_name?` × ${r.opponent_name}`:''}</Text><Text style={st.copy}>{r.field_name} · {new Date(r.starts_at).toLocaleString('pt-BR')} · {formatBRL(r.price)}</Text><Text style={st.copy}>{r.status==='confirmed'?'Reserva confirmada; pagamento a combinar':r.status==='pending'?r.opponent_pelada_id&&!r.opponent_accepted?'Aguardando outro time':'Aguardando campo':r.status==='declined'?'Recusada':'Cancelada'}</Text><Text style={st.copy}>Comissão configurada: {r.commission_percent}%. Não é cobrada por este fluxo; confirmação não comprova receita nem pagamento.</Text>
         {r.status==='pending'&&<View style={st.row}>{r.opponent_pelada_id&&app.isAdmin(app.currentPlayerId,r.opponent_pelada_id)&&!r.opponent_accepted&&<><Button small label="Aceitar desafio" disabled={busy} onPress={()=>void run('opponent_respond',{id:r.id,accept:true})} /><Button small variant="outline" label="Recusar desafio" disabled={busy} onPress={()=>void run('opponent_respond',{id:r.id,accept:false})} /></>}{venueOwner&&<><Button small label="Confirmar horário" disabled={busy||!!r.opponent_pelada_id&&!r.opponent_accepted} onPress={()=>void run('slot_respond',{id:r.id,accept:true})} /><Button small variant="outline" label="Recusar horário" disabled={busy} onPress={()=>void run('slot_respond',{id:r.id,accept:false})} /></>}{app.isAdmin(app.currentPlayerId,r.pelada_id)&&<Button small variant="ghost" label="Cancelar solicitação" disabled={busy} onPress={()=>void run('request_cancel',{id:r.id})} />}</View>}
+        <ConversationEntry kind="booking" contextId={r.id} bookingKind="opportunity" label="Conversar sobre esta reserva" />
         {r.match_id&&<Button small label="Abrir partida" onPress={()=>router.push(`/desafio/${r.match_id}`)} />}
       </Card>;})}</>}
   </Screen>;

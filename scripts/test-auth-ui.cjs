@@ -141,7 +141,7 @@ async function run() {
     assert.equal((await savedAuth()).authUserId, null);
     assert.deepEqual(logoutScopes, ['local']);
     await page.screenshot({ path: path.join(out, '09-apos-sair.png'), fullPage: true });
-    for (const protectedRoute of ['/perfil', '/admin', '/times', '/plataforma', '/estabelecimento', '/operacao']) {
+      for (const protectedRoute of ['/perfil', '/admin', '/times', '/plataforma', '/estabelecimento', '/operacao', '/conversas']) {
       await go(protectedRoute);
       await page.getByRole('button', { name: 'Entrar', exact: true }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Sair', exact: true }).count(), 0);

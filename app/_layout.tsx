@@ -47,6 +47,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth/callback" />
             <Stack.Protected guard={isLoggedIn}>
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="conversas" />
               <Stack.Screen name="jogo/[id]" />
               <Stack.Screen name="time/[id]" />
               <Stack.Screen name="time/[id]/agendamento-automatico" />
