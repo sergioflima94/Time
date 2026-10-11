@@ -42,6 +42,32 @@ Regressão: `node scripts/test-branding.cjs`. Abertura nativa deve ser validada
 no APK de release; Expo Go não reproduz integralmente o splash configurado.
 Referência: [SplashScreen no Expo 57](https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/).
 
+## Home pessoal e compacta
+
+A Home reúne a agenda de **todos os times com vínculo ativo** do jogador; o
+filtro de esporte também delimita as avaliações, partidas e estatísticas.
+A partida em andamento vem primeiro, mesmo depois do seu horário de início;
+na ausência dela, aparece o próximo jogo. Jogos cancelados e sorteios antigos
+não ocupam esse destaque, e o jogo destacado não se repete na lista seguinte.
+
+Depois da agenda vêm a atividade pessoal e os atalhos dos próprios times.
+Quem ainda não recebeu avaliações vê **Sem avaliações**, sem a nota padrão 60.
+Campos próximos, descoberta, oportunidades/desafios e aulas ficam em uma única
+grade compacta. Configuração inicial passa a um atalho secundário; convites
+para assumir estabelecimentos continuam disponíveis com aceite e recusa.
+
+**Avaliar é opcional**: não votar não bloqueia partidas, reservas ou pagamentos.
+Ainda não há uma configuração para deixar de receber avaliações esportivas.
+O **Modo Resenha** é independente e desativa apenas os selos de brincadeira;
+não deve ser apresentado como uma opção para desativar notas.
+
+Validação: `node scripts/test-home.cjs`, `node scripts/test-home-ui.cjs`
+(demo em `TEST_URL`), regressões de autenticação e cadastro assistido. Prints
+reais da interface web em `.test-runtime/home-ui`, com larguras 320/390/430 px;
+não substituem validação num aparelho Android. Esta mudança de Home está no
+código-fonte e **não está no APK 1.0.4 abaixo**; o APK instalado não se atualiza
+automaticamente e precisa de um novo build para receber este layout.
+
 ## APK de validação Android
 
 ### Correção de saída da conta (1.0.4)
@@ -341,7 +367,7 @@ persistir licença real no aparelho. A demonstração usa armazenamento separado
 
 ### Jogar, convidar e ocupar horários reais
 
-- **Home → Bora jogar hoje?**: descoberta opt-in por esporte, bairro/endereço,
+- **Home → Encontrar um jogo**: descoberta opt-in por esporte, bairro/endereço,
   nível, data e intervalo de disponibilidade. A duração inteira do jogo deve
   caber na janela escolhida. Região é busca textual, não rastreamento preciso.
   A busca atual traz até 100 jogos futuros publicados; nenhum jogo privado é
