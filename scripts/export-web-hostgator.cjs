@@ -24,6 +24,10 @@ const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, enc
 const output = path.join(root, '.test-runtime', `web-hostgator-${crypto.randomUUID()}`);
 execFileSync(process.execPath, [path.join(root, 'node_modules/expo/bin/cli'), 'export', '--platform', 'web', '--output-dir', output, '--max-workers', '2'], { cwd: root, env, stdio: 'inherit' });
 if (!fs.existsSync(path.join(output, 'index.html'))) throw new Error('Exportação não gerou index.html.');
+const htmlPath = path.join(output, 'index.html');
+const html = fs.readFileSync(htmlPath, 'utf8').replace('<html lang="en">', '<html lang="pt-BR">')
+  .replace('You need to enable JavaScript to run this app.', 'Ative o JavaScript para usar o MarcouJogou.');
+fs.writeFileSync(htmlPath, html);
 fs.writeFileSync(path.join(output, 'release.json'), JSON.stringify({
   app: 'MarcouJogou', version: require('../package.json').version,
   sourceRepository: 'https://github.com/sergioflima94/Time', sourceCommit,
