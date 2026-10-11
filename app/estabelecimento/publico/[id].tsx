@@ -137,6 +137,7 @@ export default function PublicEstablishmentScreen() {
 
       {fields.length > 0 && (
         <Card style={styles.section}>
+          <Button small variant="outline" label="Ver avaliações do estabelecimento" onPress={()=>router.push({pathname:'/avaliacoes',params:{establishmentId}})} />
           <Text style={styles.sectionTitle}>Marcar um jogo</Text>
 
           <Text style={styles.hint}>Campo</Text>

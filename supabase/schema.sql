@@ -4,6 +4,7 @@
 -- Conversas integradas/RLS/RPCs: 20261011010000_community_conversations.sql.
 -- Histórico operacional/triggers/RPC: 20261011020000_activity_history.sql.
 -- Quadras híbridas/agenda física única: 20261011030000_hybrid_fields.sql.
+-- Avaliações verificadas/comentários/NPS: 20261011040000_venue_reviews.sql.
 -- Não reaplique esta base sobre um banco que já recebeu as migrações.
 -- Rode este arquivo no SQL Editor do seu projeto Supabase (supabase.com).
 -- =========================================================================

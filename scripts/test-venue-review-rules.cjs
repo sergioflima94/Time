@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const resolve=Module._resolveFilename;Module._resolveFilename=function(name,parent,...rest){return resolve.call(this,name.startsWith('@/')?path.resolve('src',name.slice(2)):name,parent,...rest);};
+require.extensions['.ts']=(m,file)=>m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);
+const {validateReview,reviewText,summarizeReviews,summarizeNps}=require('../src/lib/venueReviewRules.ts');
+const criteria={structure:5,lighting:4,cleanliness:5,maintenance:3};
+validateReview('field',5,criteria,null);validateReview('establishment',3,{service:4,organization:3},0);
+for(const score of [null,0,6,3.5,'5',NaN])assert.throws(()=>validateReview('field',score,criteria,null));
+for(const invalid of [{},{...criteria,lighting:undefined},{...criteria,x:5},{...criteria,lighting:'4'},[]])assert.throws(()=>validateReview('field',5,invalid,null));
+assert.throws(()=>validateReview('field',5,criteria,10));assert.throws(()=>validateReview('establishment',3,{service:4,organization:3},11));
+assert.equal(reviewText('  Boa quadra  '),'Boa quadra');assert.throws(()=>reviewText('x'.repeat(1501)));assert.throws(()=>reviewText(' ',true));
+const rows=[{score:5,criteria,hidden:false},{score:3,criteria:{...criteria,lighting:2},hidden:false},{score:1,criteria,hidden:true}];
+assert.deepEqual(summarizeReviews(rows),{count:2,average:4,criteria:{structure:5,lighting:3,cleanliness:5,maintenance:3}});
+assert.equal(summarizeReviews([]).average,null);assert.equal(summarizeNps([10,9,0,0]).value,null);
+assert.equal(summarizeNps([10,9,8,7,0]).value,20);assert.equal(summarizeNps([9,9,10,10,10]).value,100);assert.equal(summarizeNps([0,1,2,3,6]).value,-100);
+console.log('PASS: critérios obrigatórios/opcionais, limites, estrelas e NPS separados, amostra mínima e exclusão de conteúdo moderado.');

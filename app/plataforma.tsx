@@ -64,6 +64,7 @@ export default function PlatformConsoleScreen() {
       </Card>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => !['Equipe admin','Licenças e ofertas'].includes(t) || role === 'owner').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
+      {tab==='Denúncias'&&<Button small variant="outline" label="Moderar avaliações de campos e estabelecimentos" onPress={()=>router.push({pathname:'/avaliacoes',params:{moderation:'1'}})} />}
       {['Usuários','Times e campos','Equipe admin','Licenças e ofertas'].includes(tab) && <><TextField label="Buscar nome" value={query} onChangeText={setQuery} placeholder="Jogador, time ou estabelecimento" /><Button label="Buscar na plataforma" small variant="outline" onPress={() => void load(query)} loading={loading} /><Text style={styles.caption}>Até 100 resultados por categoria. Refine o nome para localizar contas mais antigas.</Text></>}
       {tab==='Licenças e ofertas' && role==='owner' && <CommercialLicensePanel snapshot={snapshot}
         onReview={(input,description)=>setPending({action:'commercial',id:null,payload:{...input},description})}

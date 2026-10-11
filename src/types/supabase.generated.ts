@@ -5880,6 +5880,231 @@ export type Database = {
           },
         ]
       }
+      venue_review_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: number
+          reason: string
+          review_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: never
+          reason: string
+          review_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: never
+          reason?: string
+          review_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_review_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_review_audit_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "venue_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_review_reports: {
+        Row: {
+          created_at: string
+          details: string
+          id: string
+          moderation_report_id: string
+          player_id: string
+          reason: string
+          review_id: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          details: string
+          id?: string
+          moderation_report_id: string
+          player_id: string
+          reason: string
+          review_id: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          details?: string
+          id?: string
+          moderation_report_id?: string
+          player_id?: string
+          reason?: string
+          review_id?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_review_reports_moderation_report_id_fkey"
+            columns: ["moderation_report_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_review_reports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_review_reports_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "venue_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_review_visits: {
+        Row: {
+          booking_id: string
+          confirmed_by: string
+          created_at: string
+          id: string
+          occurrence_date: string
+          player_id: string
+        }
+        Insert: {
+          booking_id: string
+          confirmed_by: string
+          created_at?: string
+          id?: string
+          occurrence_date: string
+          player_id: string
+        }
+        Update: {
+          booking_id?: string
+          confirmed_by?: string
+          created_at?: string
+          id?: string
+          occurrence_date?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_review_visits_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "field_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_review_visits_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_review_visits_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_reviews: {
+        Row: {
+          comment: string
+          created_at: string
+          criteria: Json
+          establishment_id: string
+          experience_id: string
+          experience_kind: string
+          field_id: string
+          hidden: boolean
+          id: string
+          player_id: string
+          recommendation_score: number | null
+          replied_at: string | null
+          reply: string | null
+          reply_hidden: boolean
+          score: number
+          target: string
+        }
+        Insert: {
+          comment?: string
+          created_at?: string
+          criteria: Json
+          establishment_id: string
+          experience_id: string
+          experience_kind: string
+          field_id: string
+          hidden?: boolean
+          id?: string
+          player_id: string
+          recommendation_score?: number | null
+          replied_at?: string | null
+          reply?: string | null
+          reply_hidden?: boolean
+          score: number
+          target: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          criteria?: Json
+          establishment_id?: string
+          experience_id?: string
+          experience_kind?: string
+          field_id?: string
+          hidden?: boolean
+          id?: string
+          player_id?: string
+          recommendation_score?: number | null
+          replied_at?: string | null
+          reply?: string | null
+          reply_hidden?: boolean
+          score?: number
+          target?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_reviews_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_reviews_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_reviews_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waiting_players: {
         Row: {
           game_id: string
@@ -6349,6 +6574,40 @@ export type Database = {
       settle_sale_payment_intent: {
         Args: { p_intent_id: string }
         Returns: string
+      }
+      venue_review_action: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
+      }
+      venue_review_candidates: {
+        Args: { p_venue: string }
+        Returns: {
+          booking_id: string
+          label: string
+          occurrence_date: string
+          player_id: string
+          player_name: string
+        }[]
+      }
+      venue_review_experiences: {
+        Args: { p_player: string }
+        Returns: {
+          at: string
+          establishment_id: string
+          field_id: string
+          id: string
+          kind: string
+          label: string
+        }[]
+      }
+      venue_review_snapshot: {
+        Args: {
+          p_before?: string
+          p_field?: string
+          p_moderation?: boolean
+          p_venue?: string
+        }
+        Returns: Json
       }
       vote_game_highlight: {
         Args: { p_game: string; p_player: string }

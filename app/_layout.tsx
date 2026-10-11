@@ -74,6 +74,7 @@ export default function RootLayout() {
             <Stack.Screen name="jogador/[id]" />
             <Stack.Screen name="descobrir" />
             <Stack.Screen name="campos" />
+            <Stack.Screen name="avaliacoes" />
             <Stack.Screen name="convite/[code]" />
             <Stack.Screen name="aulas" />
             <Stack.Screen name="campeonato" />

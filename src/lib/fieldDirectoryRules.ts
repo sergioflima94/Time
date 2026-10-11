@@ -10,6 +10,7 @@ export interface DirectoryInput {
 }
 export interface DirectoryRow extends DirectoryInput {
   id: string; registered: boolean; distanceKm: number | null; updatedAt: string;
+  reviewAverage?: number | null; reviewCount?: number;
 }
 export interface ManagedEntry extends DirectoryInput { id: string; revision: number; updatedAt: string }
 export interface LinkableField { id: string; name: string; address: string | null; sportId: string; sportIds?: string[]; latitude: number | null; longitude: number | null; establishmentName: string }

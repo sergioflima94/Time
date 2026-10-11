@@ -328,6 +328,7 @@ export default function GameDetailScreen() {
 
       {game.status === 'finished' && (
         <>
+          {establishment&&<View style={{gap:spacing.sm}}><Button label="Avaliar campo / quadra" small variant="outline" onPress={()=>router.push({pathname:'/avaliacoes',params:{fieldId:game.fieldId}})} /><Button label="Avaliar estabelecimento" small variant="outline" onPress={()=>router.push({pathname:'/avaliacoes',params:{establishmentId:establishment.id}})} /></View>}
           <Button label="Resumo e destaque do jogo" variant="outline" onPress={()=>router.push(`/jogo/${game.id}/resumo`)} />
           <Button
             label="Avaliar jogadores"

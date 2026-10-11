@@ -1,5 +1,24 @@
 # MarcouJogou
 
+## Avaliações verificadas, comentários e NPS
+
+- **Campo/quadra:** nota geral de 1–5 estrelas, estrutura, iluminação, limpeza e conservação.
+- **Estabelecimento:** nota geral de 1–5, atendimento e organização; lanchonete é opcional para quem utilizou. Comentário público opcional de até 1.500 caracteres. Nome/apelido visível; o formulário informa isso antes da publicação.
+- **NPS separado:** recomendação opcional de 0–10 somente para o estabelecimento. Promotores 9–10, neutros 7–8, detratores 0–6; `100 × (promotores − detratores) / respostas`. O painel do proprietário mostra o agregado de −100 a 100 a partir de **5 respostas**. As RPCs públicas não retornam a nota individual nem o NPS agregado. Não é média de estrelas.
+- **Presença, não apenas reserva/pagamento:** partidas encerradas, horário concluído, check-in registrado, confirmado e sem falta; aulas concluídas com chamada `present`; reservas avulsas/fixas precisam de confirmação explícita do proprietário para o cliente cadastrado ou membro elegível. Apenas passar do horário não prova comparecimento. O proprietário não pode se avaliar.
+- Em **Avaliações e NPS → Conferir reservas encerradas**, o dono registra quem compareceu. A lista considera reservas dos últimos 90 dias; nas semanais, a ocorrência mais recente já encerrada. Não duplica uma ocorrência já vinculada a um jogo. Reservas sem cliente cadastrado/elenco identificável não geram avaliações verificadas inventadas.
+- Uma avaliação por participante, experiência e tipo de local. A mesma experiência pode avaliar **a quadra e o estabelecimento**, sem repetir o NPS por quadra. Não há edição/revoto da avaliação enviada nesta versão.
+- **Resposta do proprietário:** pública, até 1.500 caracteres, sem poder excluir/ocultar a crítica. Resposta denunciada em análise ou ocultada não pode ser alterada para apagar a evidência. A denúncia guarda uma cópia do conteúdo para a administração.
+- **Denúncias:** avaliação e resposta podem ser denunciadas separadamente; repetir o envio não duplica denúncia. Não há remoção automática por volume de denúncias. Só a administração da plataforma pode ocultar/restaurar, com justificativa de 10–1.000 caracteres. Ocultar apenas a resposta preserva estrelas/NPS da avaliação. Ocultar a avaliação remove-a dos agregados; restaurar recalcula os resultados.
+- Se o proprietário editar uma resposta depois de concluída a análise, a nova versão pode ser denunciada novamente; a evidência da denúncia anterior permanece na central. A migração complementar `20261011042000_venue_review_reply_reports.sql` aplica essa regra, sem reescrever migrações já publicadas.
+- **Sem reputação comprada:** plano/patrocínio não entram no cálculo. A busca conserva cadastro/proximidade como ordenação e exibe estrelas reais + quantidade de avaliações da quadra. Contatos sem campo/estabelecimento cadastrado não recebem selo/nota verificada.
+
+Entradas: **Campos próximos → Ver avaliações**, jogo encerrado → **Avaliar campo / quadra** ou **Avaliar estabelecimento**, página pública, aulas e painel do dono → **Avaliações e NPS**. **Admin da plataforma → Denúncias → Moderar avaliações** abre a fila própria; as denúncias também chegam à central existente. Leitura pública sem login; publicação/resposta/denúncia exigem conta ativa. Cada lista carrega 50 registros, com paginação; médias consideram todos os registros publicados, não só a página.
+
+Backend canônico: migrações `20261011040000_venue_reviews.sql` e `20261011041000_venue_review_presence_guard.sql`, RPCs `venue_review_snapshot` / `venue_review_action`. Tabelas de avaliações, presenças, denúncias e auditoria não permitem leitura/escrita direta por clientes. O servidor deriva pessoa/local/experiência da sessão e dos registros; nunca aceita selo ou proprietário informados pelo app. Check-in/falta exige administrador do time; o jogador não pode forjar esses campos pela API direta nem transferir uma presença para outro jogo/pessoa. Moderação registra auditoria específica e global. NPS/comentários reais não são persistidos em cache offline nesta interface; sem conexão, não é anunciada publicação fictícia. Dados em AsyncStorage deste módulo são exclusivos do modo demo.
+
+Validação: `node scripts/test-venue-review-rules.cjs`, `node scripts/test-venue-reviews-sql.cjs` (PostgreSQL isolado) e `node scripts/test-venue-reviews-ui.cjs` (Chrome móvel/demo, 320/390 px). Nenhuma avaliação/conta real é criada pelos testes. As mudanças de interface precisam de **novo APK**; o APK 1.0.4 já distribuído não recebe atualização OTA.
+
 ## Quadras híbridas (vários esportes no mesmo espaço)
 
 Em **Meus estabelecimentos → Campos**, selecione um ou mais esportes ao criar

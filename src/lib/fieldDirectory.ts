@@ -6,6 +6,7 @@ import { useSportCatalog } from '@/constants/sports';
 import { recordDemoPlatformAudit } from '@/store/usePlatformStore';
 import { fieldSportIds, fieldSupportsSport, validateFieldSports } from '@/lib/fieldSports';
 import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
+import { demoFieldReviewSummaries } from '@/lib/venueReviews';
 import type { Json } from '@/types/supabase.generated';
 
 import { rankDirectory, validateDirectoryInput, type DirectoryInput, type DirectoryRow, type ManagedEntry, type DirectorySearch, type DirectoryManagement, type LinkableField } from '@/lib/fieldDirectoryRules';
@@ -45,7 +46,8 @@ export async function searchFieldDirectory(search: DirectorySearch): Promise<{en
   try{slots=JSON.parse(await AsyncStorage.getItem('borajogo-play-hub-demo-v1')??'{}').data?.slots??[];}catch{/* No demo opportunities. */}
   const available=(s:typeof slots[number])=>{const at=new Date(s.starts_at);const candidate={fieldId:s.field_id,recurrence:'single',dayOfWeek:null,date:`${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,'0')}-${String(at.getDate()).padStart(2,'0')}`,time:`${String(at.getHours()).padStart(2,'0')}:${String(at.getMinutes()).padStart(2,'0')}`,durationMinutes:s.duration_minutes};const app=useAppStore.getState();return !findBookingConflicts(app.fieldBookings,{...candidate,recurrence:'single'}).length&&!findClassBookingConflicts(app.classSessions,app.classPrograms,{...candidate,recurrence:'single'}).length;};
   const rows=rankDirectory(demo.map(e=>({...e,...(useAppStore.getState().fields.find(f=>f.id===e.fieldId)?{sportIds:fieldSportIds(useAppStore.getState().fields.find(f=>f.id===e.fieldId)!)}:{}),registered:demoRegistered(e.fieldId),online:e.online&&demoRegistered(e.fieldId)&&slots.some(s=>s.field_id===e.fieldId&&s.active&&Date.parse(s.starts_at)>Date.now()&&available(s)),distanceKm:null})),search);
-  return {entries:rows.slice(search.offset??0,(search.offset??0)+60),total:rows.length};
+  const page=rows.slice(search.offset??0,(search.offset??0)+60),summaries=await demoFieldReviewSummaries(page.map(e=>e.fieldId));
+  return {entries:page.map(e=>({...e,reviewAverage:e.fieldId?summaries[e.fieldId]?.average??null:null,reviewCount:e.fieldId?summaries[e.fieldId]?.count??0:0})),total:rows.length};
 }
 export async function manageFieldDirectory(): Promise<DirectoryManagement> {
   if(!directorySession())throw new Error('Entre no aplicativo.');
