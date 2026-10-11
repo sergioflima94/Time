@@ -19,6 +19,52 @@ Backend canônico: migrações `20261011040000_venue_reviews.sql` e `20261011041
 
 Validação: `node scripts/test-venue-review-rules.cjs`, `node scripts/test-venue-reviews-sql.cjs` (PostgreSQL isolado) e `node scripts/test-venue-reviews-ui.cjs` (Chrome móvel/demo, 320/390 px). Nenhuma avaliação/conta real é criada pelos testes. As mudanças de interface precisam de **novo APK**; o APK 1.0.4 já distribuído não recebe atualização OTA.
 
+## Dados fictícios vinculados à conta admin
+
+Criados no Supabase em **11/10/2026**, associados à conta existente
+**sergioferreiralima09@gmail.com** — não é necessário outro login:
+
+- **Times → Você é dono → [DEMO] Resenha FC**: futebol society, 12 integrantes
+  (o administrador + 11 convidados fictícios, incluindo dois goleiros).
+- **Meus estabelecimentos → [DEMO] Arena Multiesportes → Campos**: cinco
+  espaços físicos: society, vôlei, basquete, handebol e areia híbrida
+  **Vôlei / Futevôlei**, com uma única agenda para o espaço híbrido.
+- O campo society está vinculado ao time demo. A mesma conta é administradora
+  desse time e proprietária do estabelecimento, sem alteração de seu perfil
+  ou de sua permissão administrativa na plataforma.
+
+São cadastros persistidos no backend real, não o modo demo local do aplicativo.
+Reabra o aplicativo conectado; se os dados não aparecerem, saia e entre
+novamente para carregar a sincronização do Supabase. **Não precisa gerar um
+novo APK apenas para receber esses cadastros**; funções de interface mais
+recentes continuam dependendo da versão instalada.
+
+Nomes e endereço estão marcados como fictícios. Não foram criadas contas Auth,
+telefones, coordenadas, avaliações, presenças, reservas, cobranças ou mensagens.
+Recebimento configurado **na hora**, sem chave Pix ou gateway conectado.
+Os espaços não foram publicados no diretório de proximidade. Não publique
+esses cadastros como locais reais nem conecte automações de mensagens/pagamento
+enquanto forem usados para testes.
+
+Para inspecionar ou repetir explicitamente o cadastro, com o Supabase CLI
+autenticado e vinculado ao projeto correto, use PowerShell:
+
+```powershell
+pwsh -NoProfile -File scripts/seed-admin-demo.ps1 -Action Inspect
+pwsh -NoProfile -File scripts/seed-admin-demo.ps1 -Action Apply
+node scripts/test-admin-demo-sql.cjs
+```
+
+`Inspect` é somente leitura; `Apply` valida e-mail, UUID esperado, papel admin
+ativo, conta não suspensa e cinco esportes ativos. Insere em uma transação,
+com identificadores determinísticos por proprietário e trava contra execução
+simultânea. Repetir não duplica registros nem sobrescreve edições; divergência
+de proprietário causa rollback. Alterações são auditadas em
+`platform_admin_audit`. O token do CLI permanece em memória e nunca vai para
+o app, SQL ou Git. O script SQL é **opt-in**, não uma migração automática.
+O teste usa PostgreSQL isolado e verifica vínculos, permissões de leitura,
+idempotência, preservação e rollback; não toca dados reais.
+
 ## Quadras híbridas (vários esportes no mesmo espaço)
 
 Em **Meus estabelecimentos → Campos**, selecione um ou mais esportes ao criar
