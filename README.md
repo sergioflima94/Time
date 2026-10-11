@@ -2,6 +2,13 @@
 
 ## Site público e páginas para Google Play
 
+Repositório dedicado do site: **[sergioflima94/marcoujogou-site](https://github.com/sergioflima94/marcoujogou-site)**,
+privado, branch `main`; checkout local `C:\wamp64\www\marcoujogou-site`.
+A manutenção do site deve ocorrer nele. O diretório `website/public` deste
+repositório é o snapshot inicial, preservado para referência; não há sincronização
+automática entre os dois. Os scripts abaixo continuam reproduzindo esse snapshot;
+para a versão mantida do site, use `npm run package` no repositório dedicado.
+
 Estrutura escolhida: **marcoujogou.com.br** para o site de apresentação,
 **app.marcoujogou.com.br** para a versão web do aplicativo, ambos na HostGator
 compartilhada; Supabase permanece como backend do app e do APK.
