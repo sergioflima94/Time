@@ -42,6 +42,69 @@ Regressão: `node scripts/test-branding.cjs`. Abertura nativa deve ser validada
 no APK de release; Expo Go não reproduz integralmente o splash configurado.
 Referência: [SplashScreen no Expo 57](https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/).
 
+## Histórico pessoal e do estabelecimento
+
+- **Meu histórico:** Home → Sua evolução → Meu histórico, ou Perfil → Meu histórico.
+  Reúne atividade acessível dos times com vínculo ativo, registros próprios de
+  presença/descanso, pagamentos, reservas, consumo, vaquinhas e aulas. Não depende
+  do `currentPeladaId`; filtros por tipo, período e time atendem o uso multitime.
+- **Estabelecimento:** seu painel → Histórico. Mostra registros das quadras,
+  reservas, comandas, cobranças e aulas do estabelecimento; permite filtrar por
+  campo e período. Dono, gerente e caixa ativos têm acesso, não toda a equipe.
+  Meu histórico também oferece atalhos para todos os estabelecimentos em que
+  você tem esse vínculo, incluindo gerentes e caixas sem painel de proprietário.
+- **Linha do tempo:** os detalhes do jogo, comanda e pedidos de reserva têm
+  atalhos próprios. Uma entrada da central também abre a linha do tempo do
+  contexto, inclusive quando a reserva já foi removida da agenda.
+- Criação, alteração e remoção registram horário do servidor, responsável
+  autenticado quando disponível e campos operacionais antes/depois. Alterações
+  sem diferença nos campos monitorados não criam eventos duplicados. O horário
+  é o de registro/sincronização, não necessariamente o momento de uma ação offline.
+- Registros anteriores à instalação da migração aparecem como **Estado inicial**:
+  uma fotografia do estado existente, sem inventar autor, pagamento confirmado
+  ou sequência de alterações antigas. O banco não permite ao cliente inserir,
+  editar ou apagar a trilha; evento e mudança de origem usam a mesma transação.
+- Paginação de 50 entradas por cursor, sem corte fixo no histórico. Retorno à
+  tela/ao primeiro plano e botão Atualizar consultam o banco novamente. Não há
+  exportação, retenção automática ou acesso offline ao histórico de produção.
+
+Cobertura explícita (22 tabelas): jogos, presenças, rodadas, placar, descanso,
+pagamentos dos jogos; reservas manuais, automáticas e de oportunidade, sinais;
+comandas, pedidos, itens, divisões do consumo, pagamentos e intenções de cobrança;
+enquetes de horário; vaquinhas, contribuições e despesas; sessões e inscrições
+nas aulas. A trilha conserva o estado **registrado pelo fluxo de origem**, não
+transforma uma baixa manual em comprovação bancária nem altera reserva/pagamento.
+
+Não é um registro de cada clique nem de todo campo de cada cadastro. Só os campos
+operacionais enumerados em `activity_history_fields` são capturados: não inclui
+pesquisas, GPS de busca, telefones, credenciais, código Pix, URL de checkout,
+mensagens privadas, informações médicas ou votos individuais de avaliações.
+Configurações administrativas/licenças/catálogo de campos continuam na Auditoria
+da plataforma; conversas continuam com seu próprio histórico. Campeonatos,
+caixa, notas e demais módulos conservam os registros existentes, mas ainda não
+têm todas as mudanças incorporadas à nova linha do tempo.
+
+Permissões são verificadas pelo servidor em cada página: membro ativo para
+eventos comuns do time; titular/pagador, admin do time ou responsável financeiro
+para eventos restritos; cliente/participante da comanda para seu contexto.
+Sair de um time remove o acesso aos eventos coletivos, preservando os registros
+próprios. Admin da plataforma **não** ganha leitura irrestrita de histórico privado.
+Bloqueio do acesso à plataforma também bloqueia esta consulta. Nenhuma mensagem
+privada é copiada para a central.
+
+Backend: `supabase/migrations/20261011020000_activity_history.sql`, aplicada ao
+projeto vinculado em 11/10/2026; tipos regenerados do remoto. Demonstração usa
+`marcoujogou-history-demo-v1`, isolado do banco, e registra mudanças nas stores
+locais; não é uma trilha confiável para produção. A lista filtrada de oportunidades
+não é tratada como exclusão: o journal usa seu cache canônico de demonstração.
+
+Validação: `node scripts/test-history.cjs`, `node scripts/test-history-sql.cjs`
+(PostgreSQL local/PGlite, inclusive as 22 fontes, privacidade, transação,
+cancelamento/remoção, paginação e filtros) e `scripts/test-history-ui.cjs`
+(Chrome real em 390/320 px, dados de demonstração, sem usuários/pagamentos reais).
+Esta atualização de fonte e backend **ainda não está no APK 1.0.4** já distribuído:
+é necessário gerar e instalar um novo APK; não há atualização OTA configurada.
+
 ## Home pessoal e compacta
 
 A Home reúne a agenda de **todos os times com vínculo ativo** do jogador; o

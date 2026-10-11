@@ -87,6 +87,7 @@ export default function PerfilScreen() {
       <Text style={styles.pageTitle}>Seu perfil</Text>
       <Text style={styles.pageSubtitle}>Sua evolução, sua carta e tudo que você construiu em quadra.</Text>
       <Button small variant="outline" label="Conversas e privacidade" style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
+      <Button small variant="outline" label="Meu histórico" style={{marginBottom:spacing.md}} onPress={() => router.push('/historico')} />
       {platformRole && <Button label="Admin da plataforma" variant="outline" small onPress={() => router.push('/plataforma')} style={{ marginBottom: spacing.md }} />}
       <Pressable style={styles.cardCenter} onPress={handleChangePhoto} disabled={pickingPhoto}>
         <PlayerCard

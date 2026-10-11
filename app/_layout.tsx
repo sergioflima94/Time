@@ -10,11 +10,13 @@ import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { usePlatformAccessSync } from '@/hooks/usePlatformAccessSync';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { initializeAds } from '@/lib/ads';
+import { startDemoHistory } from '@/lib/history';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function RootLayout() {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
+  useEffect(() => isLoggedIn ? startDemoHistory() : undefined, [isLoggedIn]);
   useNotificationNavigation();
   useAuthSession();
   useSupabaseSync();
@@ -48,6 +50,7 @@ export default function RootLayout() {
             <Stack.Protected guard={isLoggedIn}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="conversas" />
+              <Stack.Screen name="historico" />
               <Stack.Screen name="jogo/[id]" />
               <Stack.Screen name="time/[id]" />
               <Stack.Screen name="time/[id]/agendamento-automatico" />

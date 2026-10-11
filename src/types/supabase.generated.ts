@@ -71,6 +71,63 @@ export type Database = {
           },
         ]
       }
+      activity_history: {
+        Row: {
+          actor_id: string | null
+          after_value: Json | null
+          before_value: Json | null
+          context_id: string
+          establishment_id: string | null
+          field_id: string | null
+          kind: string
+          operation: string
+          pelada_id: string | null
+          private: boolean
+          recorded_at: string
+          sequence: number
+          source: string
+          source_id: string
+          subject_ids: string[]
+          title: string
+        }
+        Insert: {
+          actor_id?: string | null
+          after_value?: Json | null
+          before_value?: Json | null
+          context_id: string
+          establishment_id?: string | null
+          field_id?: string | null
+          kind: string
+          operation: string
+          pelada_id?: string | null
+          private?: boolean
+          recorded_at?: string
+          sequence?: never
+          source: string
+          source_id: string
+          subject_ids?: string[]
+          title: string
+        }
+        Update: {
+          actor_id?: string | null
+          after_value?: Json | null
+          before_value?: Json | null
+          context_id?: string
+          establishment_id?: string | null
+          field_id?: string | null
+          kind?: string
+          operation?: string
+          pelada_id?: string | null
+          private?: boolean
+          recorded_at?: string
+          sequence?: never
+          source?: string
+          source_id?: string
+          subject_ids?: string[]
+          title?: string
+        }
+        Relationships: []
+      }
       activity_likes: {
         Row: {
           activity_id: string
@@ -6029,6 +6086,39 @@ export type Database = {
       }
     }
     Functions: {
+      activity_history_access: {
+        Args: { e: Database["public"]["Tables"]["activity_history"]["Row"] }
+        Returns: boolean
+      }
+      activity_history_context: {
+        Args: { p_row: Json; p_source: string }
+        Returns: Json
+      }
+      activity_history_fields: { Args: { p_source: string }; Returns: string[] }
+      activity_history_finance: { Args: { p_venue: string }; Returns: boolean }
+      activity_history_read: {
+        Args: {
+          p_before?: number
+          p_context?: string
+          p_field?: string
+          p_from?: string
+          p_kind?: string
+          p_scope?: string
+          p_team?: string
+          p_to?: string
+          p_venue?: string
+        }
+        Returns: Json
+      }
+      activity_history_record: {
+        Args: {
+          p_operation: string
+          p_previous: Json
+          p_row: Json
+          p_source: string
+        }
+        Returns: undefined
+      }
       can_operate_establishment: {
         Args: { p_establishment_id: string }
         Returns: boolean

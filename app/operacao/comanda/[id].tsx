@@ -14,6 +14,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { contactlessReadiness, startContactlessPayment } from '@/lib/contactlessPayments';
 import { formatMoney, orderStatusLabel, tabStatusLabel, tabTotals } from '@/lib/establishmentOperations';
 import { getGateway, outstandingByParticipant, paymentMethodLabel } from '@/lib/paymentGateways';
+import { HistoryEntryLink } from '@/components/HistoryEntryLink';
 import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import type { PaymentMethod } from '@/types';
@@ -159,6 +160,7 @@ export default function TabDetailScreen() {
         <Total label="Pago" value={totals.paid} />
         <Total label="Saldo" value={totals.balance} highlight />
       </View>
+      <HistoryEntryLink kind="tab" contextId={tab.id} label="Histórico desta comanda" />
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Pessoas na comanda</Text>

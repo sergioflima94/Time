@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConversationEntry } from '@/components/ConversationEntry';
+import { HistoryEntryLink } from '@/components/HistoryEntryLink';
 import { colors, spacing } from '@/constants/theme';
 import { formatBRL } from '@/lib/payments';
 import { useAppStore } from '@/store/useAppStore';
@@ -83,6 +84,7 @@ export function BookingAutomationCard({ gameId, isAdmin }: { gameId: string; isA
           <View style={styles.deliveryRow}><Ionicons name={lastDelivery?.status === 'sent' ? 'checkmark-done' : 'alert-circle'} size={15} color={lastDelivery?.status === 'sent' ? colors.primary : colors.warning} /><Text style={styles.deliveryText}>{lastDelivery?.status === 'sent' ? `WhatsApp enviado para ${maskPhone(lastDelivery.phone)}` : 'WhatsApp não enviado: configure e autorize o número comercial.'}</Text></View>
           {latest.failureReason && <Text style={styles.error}>{latest.failureReason}</Text>}
           {(isAdmin || establishment?.ownerPlayerId === currentPlayerId) && <ConversationEntry kind="booking" contextId={latest.id} bookingKind="automatic" label="Conversar sobre esta reserva" />}
+          {(isAdmin || establishment?.ownerPlayerId === currentPlayerId) && <HistoryEntryLink kind="booking" contextId={latest.id} label="Histórico desta reserva" />}
         </View>
       )}
 

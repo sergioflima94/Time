@@ -49,6 +49,9 @@ async function run() {
   try {
     await go('/cadastro');
     await page.getByLabel('MarcouJogou', { exact: true }).waitFor();
+    // SSR paints inputs before client hydration; wait for the mounted auth effect
+    // so first-field typing cannot be discarded by React's initial hydration.
+    await page.waitForFunction(() => !!localStorage.getItem('pelada-auth-storage'));
     assert.equal(await page.getByText(/BoraJogo/i).count(), 0);
     await page.getByPlaceholder('Seu nome', { exact: true }).fill('Validação');
     await page.getByPlaceholder('voce@email.com', { exact: true }).fill('validation@example.invalid');
@@ -141,7 +144,7 @@ async function run() {
     assert.equal((await savedAuth()).authUserId, null);
     assert.deepEqual(logoutScopes, ['local']);
     await page.screenshot({ path: path.join(out, '09-apos-sair.png'), fullPage: true });
-      for (const protectedRoute of ['/perfil', '/admin', '/times', '/plataforma', '/estabelecimento', '/operacao', '/conversas']) {
+      for (const protectedRoute of ['/perfil', '/admin', '/times', '/plataforma', '/estabelecimento', '/operacao', '/conversas', '/historico']) {
       await go(protectedRoute);
       await page.getByRole('button', { name: 'Entrar', exact: true }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Sair', exact: true }).count(), 0);

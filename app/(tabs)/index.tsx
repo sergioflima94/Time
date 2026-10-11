@@ -118,6 +118,9 @@ export default function AgendaScreen() {
           <Text style={styles.perfLinkText}>Ver perfil completo</Text>
           <Ionicons name="chevron-forward" size={14} color={colors.primary} />
         </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Meu histórico" style={styles.perfLink} onPress={()=>router.push('/historico')}>
+          <Text style={styles.perfLinkText}>Meu histórico</Text><Ionicons name="time-outline" size={14} color={colors.primary} />
+        </Pressable>
       </Card>
 
       {myPeladas.length > 0 && (

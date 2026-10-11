@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { NearbyFreeAgentsSection } from '@/components/NearbyFreeAgentsSection';
 import { BookingAutomationCard } from '@/components/BookingAutomationCard';
+import { HistoryEntryLink } from '@/components/HistoryEntryLink';
 import { PaymentSplitSection } from '@/components/PaymentSplitSection';
 import { OpenGameSection } from '@/components/OpenGameSection';
 import { Avatar } from '@/components/ui/Avatar';
@@ -106,6 +107,7 @@ export default function GameDetailScreen() {
         <Ionicons name="location" size={14} color={colors.textMuted} />
         <Text style={styles.metaText}>{field?.name ?? 'Local a definir'} · reserva de {game.durationMinutes ?? 90} min</Text>
       </View>
+      <HistoryEntryLink kind="game" contextId={game.id} label="Histórico deste jogo" />
 
       <Pressable style={styles.matchDay} onPress={() => router.push(`/jogo/${game.id}/dia-do-jogo`)}>
         <View style={styles.matchDayIcon}><Ionicons name="flash" size={21} color={colors.onPrimary} /></View>
