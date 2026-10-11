@@ -44,17 +44,40 @@ Referência: [SplashScreen no Expo 57](https://docs.expo.dev/versions/v57.0.0/sd
 
 ## APK de validação Android
 
-Build anterior à troca de marca, de 10/10/2026: [baixar APK 1.0.2 para Android](https://expo.dev/artifacts/eas/T76USngEc1dD_X4QqO5s6DrGObJddE6-cUjFqIY_Lug.apk).
+Build **MarcouJogou 1.0.3**, concluído em 10/10/2026:
+[baixar o APK para Android](https://expo.dev/artifacts/eas/BZnMv3dsicq5l1WnZWLVVOROKQwSfKVfUQULXUK_x0A.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
-verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/3c1eb6c8-5120-4304-8003-3a6992150a98).
-Versão Android `versionCode=3`, com a mesma assinatura das versões anteriores:
-instale por cima do APK 1.0.0/1.0.1, sem desinstalar. Inclui a correção do cadastro,
-do retorno da confirmação e a alternativa para colar o link no próprio app,
-sem seguir um redirect antigo para localhost. O modelo de e-mail personalizado
+verificada. [Detalhes do build concluído](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/ab214240-5802-4499-9196-a9282ccdc879).
+Versão Android `versionCode=4`, com a mesma assinatura das versões anteriores:
+instale por cima do APK 1.0.0/1.0.1/1.0.2, sem desinstalar. Inclui a marca
+MarcouJogou, nova logo no app, ícone adaptativo e splash. Preserva a correção
+do cadastro, retorno da confirmação e alternativa para colar o link no próprio
+app, sem seguir um redirect antigo para localhost. O modelo de e-mail personalizado
 está pronto, mas sua publicação continua bloqueada pelo provedor padrão do
 Supabase até configurar SMTP próprio ou alterar o plano — veja os detalhes abaixo.
 A compilação e assinatura foram verificadas; os fluxos ainda precisam ser
 validados no aparelho. O APK não é versionado no Git.
+
+Verificações do arquivo baixado: rótulo **MarcouJogou**, pacote `com.pelada.app`,
+versão `1.0.3`, SDK mínimo 24, target 36, quatro ABIs e callback BROWSABLE
+`pelada://auth/callback`. Recursos nativos de splash, cores claro/escuro e ícones
+adaptativo/temático foram inspecionados no próprio APK; não é um print de um
+aparelho. Tamanho exato: 146.535.611 bytes. SHA-256 do APK:
+`6A7D1F4D52270CCB1758E70ECDC5337E68F3083267E43AAEAE6987D6545221CE`.
+Certificado SHA-256 (igual ao dos APKs anteriores):
+`5ef1865b29185024a7af5e740909faa09cc83d329dc9ec25b6205e2b6fe1ce6e`.
+Código compilado: commit `bc53bae`. A migração de marca foi aplicada no Supabase
+e as cinco funções com mensagens antigas foram publicadas, mantendo suas
+configurações de autenticação. Nenhuma mensagem/pagamento real foi disparado
+durante os testes.
+
+Validação desta versão: TypeScript sem erros, Expo Doctor 21/21, testes de marca,
+Auth, esportes, licenças, permissões, diretório e fluxos de agendamento. Chrome
+mobile validou login/Home com logo, cadastro/confirmação (backend interceptado),
+busca por campos, onboarding, vínculo de responsável, agendamento de oportunidade
+e convite de dupla. Testes SQL usaram PostgreSQL local isolado.
+
+Build anterior, sem a nova identidade: [APK 1.0.2](https://expo.dev/artifacts/eas/T76USngEc1dD_X4QqO5s6DrGObJddE6-cUjFqIY_Lug.apk).
 
 O projeto EAS é `@sergiolima/pelada-app`. O perfil **preview** de `eas.json`
 gera um **APK instalável**, não um AAB de loja nem um cliente que depende do
