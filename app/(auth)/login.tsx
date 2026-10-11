@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/BrandLogo';
+import { PrivacyLinks } from '@/components/PrivacyLinks';
 import { colors, radius, spacing } from '@/constants/theme';
 import { isMockMode } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -72,6 +73,7 @@ export default function LoginScreen() {
             <Text style={styles.footerLink}> Criar conta</Text>
           </Link>
         </View>
+        <PrivacyLinks />
       </View>
     </View>
   );

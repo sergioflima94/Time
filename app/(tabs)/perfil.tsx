@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { FreeAgentInvitesSection } from '@/components/FreeAgentInvitesSection';
 import { FreeAgentSection } from '@/components/FreeAgentSection';
 import { PlayerCard } from '@/components/PlayerCard';
+import { PrivacyLinks } from '@/components/PrivacyLinks';
 import { PremiumSection } from '@/components/PremiumSection';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -78,6 +79,7 @@ export default function PerfilScreen() {
     <Screen>
       <Text style={styles.pageTitle}>Seu perfil</Text>
       <Text style={styles.pageSubtitle}>Seu perfil ainda não carregou. Verifique sua conexão e tente abrir esta tela novamente.</Text>
+      <PrivacyLinks account />
       <LogoutSection />
     </Screen>
   );
@@ -263,6 +265,7 @@ export default function PerfilScreen() {
         onPress={() => router.push('/aulas')}
         style={{ marginTop: spacing.sm }}
       />
+      <PrivacyLinks account />
       <LogoutSection />
     </Screen>
   );

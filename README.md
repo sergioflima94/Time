@@ -1,5 +1,116 @@
 # MarcouJogou
 
+## Site público e páginas para Google Play
+
+Estrutura escolhida: **marcoujogou.com.br** para o site de apresentação,
+**app.marcoujogou.com.br** para a versão web do aplicativo, ambos na HostGator
+compartilhada; Supabase permanece como backend do app e do APK.
+
+O site estático em `website/public` contém três páginas, sem login, bibliotecas
+externas, cookies de rastreamento ou servidor Node/PHP:
+
+- `https://marcoujogou.com.br/`: apresentação multiesporte com a marca atual.
+- `https://marcoujogou.com.br/politica-de-privacidade/`: dados, fornecedores,
+  permissões, direitos, contato, retenção e exclusão.
+- `https://marcoujogou.com.br/excluir-conta/`: canal externo para solicitar
+  exclusão da conta e dos dados associados, inclusive após desinstalar o app.
+
+**Estes são os endereços planejados; criar os arquivos não publica o domínio.**
+Não cadastrar URLs no Play Console enquanto elas não responderem publicamente
+por HTTPS. A política é um texto inicial baseado no código atual, não uma
+certificação jurídica nem garantia de aprovação do Google Play.
+
+### Preparar e publicar na HostGator
+
+```powershell
+node scripts/build-public-site.cjs --zip
+node scripts/preview-public-site.cjs
+# Em outro terminal, com playwright-core disponível:
+node scripts/test-public-site.cjs
+```
+
+A exportação fica em `.test-runtime/public-site/`; o pacote é
+`.test-runtime/marcoujogou-site-hostgator.zip`. O build copia somente o site e
+os assets da marca, **não** `.env`, credenciais, arquivos Supabase ou o código
+do aplicativo. O ZIP inclui `.htaccess`; não omita esse arquivo oculto.
+
+1. Adicione `marcoujogou.com.br` à hospedagem e configure o DNS correto.
+   Preserve registros de e-mail existentes; não substitua toda a zona de DNS.
+2. Ative o certificado SSL para o domínio e `www` antes de subir os arquivos.
+3. No cPanel, confirme a **raiz documental desse domínio** (pode não ser o
+   `public_html` principal). Faça backup de qualquer site e `.htaccess`
+   existentes. Extraia **o conteúdo** do ZIP nessa pasta, não em uma subpasta
+   chamada `public-site`, e não sobrescreva outro site.
+4. Teste as três URLs de um navegador sem login, incluindo links, logo,
+   preparo de e-mail e redirecionamento HTTP → HTTPS. A configuração Apache
+   precisa permitir `DirectoryIndex`, `mod_rewrite` e os headers usados.
+5. Cadastre a política e a página de exclusão nos campos correspondentes do
+   Play Console. O site de apresentação ajuda a divulgar o produto; não
+   substitui o formulário **Segurança dos dados**.
+
+O subdomínio `app` tem raiz separada: esse pacote **não** é a exportação web
+do Expo. A publicação do app web ainda precisa de build, rotas e URLs de
+redirecionamento da autenticação próprios. Não há botão fingindo que o app
+já está disponível na loja ou na web.
+
+### Exclusão: solicitação por e-mail, atendimento manual
+
+O contato atual é **sergioferreiralima09@gmail.com**, que já existe. Não foi
+inventada uma caixa `privacidade@marcoujogou.com.br` sem configurar seu
+recebimento. Após criar e testar uma caixa própria, atualize o site e
+`src/constants/publicWebsite.ts` juntos.
+
+O formulário prepara a mensagem **no navegador**; não envia HTTP, não guarda
+dados em localStorage, não gera um protocolo fictício e não confirma exclusão.
+O usuário deve enviar pelo aplicativo de e-mail ou copiar o texto para seu
+webmail. Com JavaScript desligado, as instruções e o contato continuam visíveis.
+Não exige instalar o app, senha, cartão, justificativa ou login na página.
+
+No app: **Perfil → Privacidade e conta → Solicitar exclusão da conta**.
+Cadastro e login também têm o link da política. Os botões abrem as páginas
+externas; erro ao abrir mostra o e-mail de atendimento. Estas alterações exigem
+um **novo build do APK/AAB**; o APK antigo não recebe atualização OTA.
+
+Antes de declarar atendimento de exclusão disponível na loja, o responsável
+precisa manter a caixa monitorada e executar um processo real:
+
+1. Receber e registrar o pedido com acesso restrito; confirmar recebimento.
+2. Verificar a titularidade sem pedir senha/OTP. Se o titular perdeu o e-mail,
+   fornecer alternativa proporcional; não excluir com base em um endereço
+   informado por terceiros.
+3. Informar prazo de conclusão e definir, com revisão jurídica, as durações
+   reais de retenção para transações, obrigações legais, denúncias, segurança
+   e backups. O texto não inventa períodos nem promete um SLA inexistente.
+4. Inventariar dados em Auth, perfil, fotos/arquivos, localização, dispositivos,
+   amizades, mensagens antigas e integradas, votos, avaliações, convites,
+   reservas, aulas, campeonatos, comandas, vaquinhas, caches e provedores.
+5. Tratar times/estabelecimentos administrados e dados de terceiros com
+   transferência/encerramento ou anonimização realmente não identificável.
+   Ser dono não pode impedir o titular de iniciar a solicitação.
+6. Eliminar os dados pessoais sem justificativa de retenção, tratar sessões
+   e prestadores, registrar apenas a evidência mínima necessária e informar
+   a conclusão e as exceções. **Suspensão não é exclusão.** Apagar apenas o
+   usuário no Supabase Auth também não basta: FKs `ON DELETE SET NULL` podem
+   manter o perfil e dados associados. Não executar deletes globais em cascata
+   sem inventário e revisão dos vínculos de outras pessoas.
+7. Assegurar que restauração de backups não reintroduza dados excluídos.
+   Orientar separadamente o cancelamento de cobranças externas, quando houver.
+
+Não há rotina automática de eliminação implementada neste pacote. A página
+oferece o canal de solicitação permitido pelo Google; o atendimento e a
+eliminação continuam sendo obrigação operacional, não uma simulação da UI.
+Revisar também os SDKs (inclusive AdMob e seu consentimento), as permissões,
+declarações de público/faixa etária e práticas reais de compartilhamento antes
+da publicação. Só as três páginas não tornam o restante do app compliant.
+
+Referências oficiais consultadas:
+[exclusão de contas no Google Play](https://support.google.com/googleplay/android-developer/answer/13327111?hl=pt-BR),
+[política de dados do usuário](https://support.google.com/googleplay/android-developer/answer/10144311?hl=pt-BR)
+e [direitos dos titulares — ANPD](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares).
+Teste local: páginas em 320/390/1280 px, links/arquivos, sem login/analytics,
+pedido com encoding seguro, fallback de cópia e acesso sem JavaScript. O
+teste não envia e-mails, não exclui contas reais e não verifica a HostGator.
+
 ## Avaliações verificadas, comentários e NPS
 
 - **Campo/quadra:** nota geral de 1–5 estrelas, estrutura, iluminação, limpeza e conservação.

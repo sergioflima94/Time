@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { Avatar } from '@/components/ui/Avatar';
 import { BrandLogo } from '@/components/BrandLogo';
+import { PrivacyLinks } from '@/components/PrivacyLinks';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
 import { useSports } from '@/constants/sports';
@@ -134,6 +135,7 @@ export default function CadastroScreen() {
       </View>
 
       {authError && <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{authError}</Text>}
+      <PrivacyLinks />
       <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
     </ScrollView>
