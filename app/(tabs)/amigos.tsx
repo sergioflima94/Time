@@ -6,6 +6,8 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { AdBanner } from '@/components/AdBanner';
 import { ConversationEntry } from '@/components/ConversationEntry';
+import { FriendDiscoverySection } from '@/components/FriendDiscoverySection';
+import { respondFriend } from '@/lib/friendDiscovery';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +16,7 @@ import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
-import { useFriendRequests, useFriends, useFriendshipWith, type FriendRequest } from '@/hooks/useFriends';
+import { useFriendRequests, useFriends, type FriendRequest } from '@/hooks/useFriends';
 import { useIsAdFree } from '@/hooks/useIsAdFree';
 import { useUnreadNotificationsCount } from '@/hooks/useNotifications';
 import { computeActivityFeed, type ActivityItem } from '@/lib/activity';
@@ -34,13 +36,11 @@ export default function AmigosScreen() {
   const games = useAppStore((s) => s.games);
   const memberships = useAppStore((s) => s.memberships);
   const peladas = useAppStore((s) => s.peladas);
-  const sendFriendRequest = useAppStore((s) => s.sendFriendRequest);
   const adFree = useIsAdFree();
 
   const friends = useFriends();
   const { incoming } = useFriendRequests();
   const unreadCount = useUnreadNotificationsCount();
-  const [query, setQuery] = useState('');
 
   const overalls = computeAllOveralls(
     players.map((p) => p.id),
@@ -53,14 +53,6 @@ export default function AmigosScreen() {
     goals,
   );
 
-  const searchResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return players
-      .filter((p) => !p.isGuest && p.id !== currentPlayerId)
-      .filter((p) => p.name.toLowerCase().includes(q) || p.nickname?.toLowerCase().includes(q))
-      .slice(0, 15);
-  }, [query, players, currentPlayerId]);
 
   const feed = useMemo(() => {
     const ids = [currentPlayerId, ...friends.map((f) => f.id)];
@@ -88,15 +80,8 @@ export default function AmigosScreen() {
         {incoming.length > 0 && <View style={[styles.networkPill, styles.networkPillAlert]}><Text style={styles.networkPillText}>{incoming.length} pedidos</Text></View>}
       </View>
 
-      <TextField label="Buscar jogador" placeholder="Nome ou apelido" value={query} onChangeText={setQuery} />
+      <FriendDiscoverySection />
       <Button label="Conversas e solicitações" variant="outline" small style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
-      {searchResults.length > 0 && (
-        <Card style={styles.section}>
-          {searchResults.map((p) => (
-            <SearchResultRow key={p.id} player={p} onAdd={() => sendFriendRequest(currentPlayerId, p.id)} />
-          ))}
-        </Card>
-      )}
 
       {incoming.length > 0 && (
         <Card style={styles.section}>
@@ -150,26 +135,9 @@ export default function AmigosScreen() {
   );
 }
 
-function SearchResultRow({ player, onAdd }: { player: Player; onAdd: () => void }) {
-  const state = useFriendshipWith(player.id);
-  return (
-    <Pressable style={styles.resultRow} onPress={() => router.push(`/jogador/${player.id}`)}>
-      <Avatar name={player.name} photoUrl={player.avatarUrl} size={36} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.resultName} numberOfLines={1}>
-          {player.nickname || player.name}
-        </Text>
-      </View>
-      {state.status === 'none' && <Button label="Adicionar" small variant="outline" onPress={onAdd} />}
-      {state.status === 'pending_sent' && <Text style={styles.pendingLabel}>Pendente</Text>}
-      {state.status === 'pending_received' && <Text style={styles.pendingLabel}>Te chamou</Text>}
-      {state.status === 'friends' && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
-    </Pressable>
-  );
-}
-
 function FriendRequestRow({ request }: { request: FriendRequest }) {
-  const respondFriendRequest = useAppStore((s) => s.respondFriendRequest);
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  async function respond(accept:boolean){setBusy(true);setError('');try{await respondFriend(request.friendship.id,accept);}catch(e){setError(e instanceof Error?e.message:'Não foi possível responder.');}finally{setBusy(false);}}
   return (
     <View style={styles.requestRow}>
       <Pressable style={styles.requestInfo} onPress={() => router.push(`/jogador/${request.player.id}`)}>
@@ -179,13 +147,14 @@ function FriendRequestRow({ request }: { request: FriendRequest }) {
         </Text>
       </Pressable>
       <View style={styles.requestActions}>
-        <Pressable style={styles.requestBtn} onPress={() => respondFriendRequest(request.friendship.id, true)}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Aceitar amizade de ${request.player.name}`} disabled={busy} style={styles.requestBtn} onPress={() => void respond(true)}>
           <Ionicons name="checkmark" size={18} color={colors.success} />
         </Pressable>
-        <Pressable style={styles.requestBtn} onPress={() => respondFriendRequest(request.friendship.id, false)}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Recusar amizade de ${request.player.name}`} disabled={busy} style={styles.requestBtn} onPress={() => void respond(false)}>
           <Ionicons name="close" size={18} color={colors.danger} />
         </Pressable>
       </View>
+      {!!error&&<Text accessibilityRole="alert" style={{color:colors.danger,fontSize:12}}>{error}</Text>}
     </View>
   );
 }

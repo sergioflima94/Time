@@ -13,6 +13,7 @@ import { initializeAds } from '@/lib/ads';
 import { startDemoHistory } from '@/lib/history';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { FriendInviteNavigation } from '@/components/FriendInviteNavigation';
 
 export default function RootLayout() {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
@@ -47,6 +48,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="auth/callback" />
+            <Stack.Screen name="amigo/[token]" />
             <Stack.Protected guard={isLoggedIn}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="conversas" />
@@ -79,6 +81,7 @@ export default function RootLayout() {
             <Stack.Screen name="aulas" />
             <Stack.Screen name="campeonato" />
           </Stack>
+          <FriendInviteNavigation />
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ThemeProvider>

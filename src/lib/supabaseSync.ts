@@ -46,6 +46,12 @@ interface StartOptions {
 }
 
 let applyingRemote = false;
+/** Canonical RPC results update the cache without being re-sent as optimistic writes. */
+export function applyFriendCache(patch: Partial<Pick<ReturnType<typeof useAppStore.getState>, 'players' | 'friendships'>>) {
+  const previous = applyingRemote;
+  applyingRemote = true;
+  try { useAppStore.setState(patch); } finally { applyingRemote = previous; }
+}
 let activeStop: (() => void) | null = null;
 let writeChain = Promise.resolve();
 let pendingWrites = 0;

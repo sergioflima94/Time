@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Button as HubButton } from '@/components/ui/Button';
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
 import { ConversationEntry } from '@/components/ConversationEntry';
+import { FriendButton } from '@/components/FriendButton';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -521,7 +522,7 @@ export default function TimeDetailScreen() {
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Elenco ({roster.length})</Text>
         {roster.map((p) => (
-          <Pressable key={p.id} style={styles.rosterRow} onPress={() => router.push(`/jogador/${p.id}`)}>
+          <View key={p.id} style={{gap:6,marginBottom:8}}><Pressable style={styles.rosterRow} onPress={() => router.push(`/jogador/${p.id}`)}>
             <Avatar name={p.name} photoUrl={p.avatarUrl} size={32} />
             <View style={{ flex: 1 }}>
               <Text style={styles.rosterName}>{p.name}</Text>
@@ -529,7 +530,7 @@ export default function TimeDetailScreen() {
             </View>
             <Text style={styles.rosterOverall}>{overalls[p.id]?.overall ?? '—'}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
-          </Pressable>
+          </Pressable><FriendButton playerId={p.id}/></View>
         ))}
         {roster.length === 0 && <Text style={styles.hint}>Nenhum jogador nesse time ainda.</Text>}
       </Card>

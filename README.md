@@ -1,5 +1,51 @@
 # MarcouJogou
 
+## Amigos: contatos, e-mail/celular, proximidade e convite de cadastro
+
+- Em **Amigos → Buscar**, pesquisa no servidor por nome/apelido (3+ letras),
+  celular completo com DDD ou e-mail exato. Não depende mais de conhecer alguém
+  do mesmo time. E-mail usa o endereço confirmado no Auth; telefone usa o perfil,
+  normalizado com DDI/DDD, **não valida identidade**. Números duplicados não geram
+  uma associação arbitrária. E-mail/telefone nunca aparecem nos resultados.
+- **Privacidade** permite aparecer por celular/e-mail, desligado por padrão.
+  Contatos não encontrados podem ter desativado a descoberta: a UI não afirma
+  que uma pessoa não tem conta. Buscar por nome continua disponível.
+- **Contatos** pede permissão somente após tocar no botão. Mostra até 500 contatos
+  localmente; a pessoa seleciona até 50 telefones/e-mails por comparação. Só esses
+  identificadores são enviados ao RPC; nomes/agenda inteira não ficam no banco,
+  nem em cache persistido do app. Pode limpar a lista. Sem permissão, busca manual
+  funciona. No navegador, usa o seletor de contatos quando suportado em contexto
+  seguro; nos demais, orienta usar Android/busca manual.
+- Quem aparece no app pode receber pedido; quem não aparece pode receber link
+  pelo compartilhamento, WhatsApp ou SMS. **Não envia mensagem sozinho** nem exige
+  integração WhatsApp paga. O link abre `app.marcoujogou.com.br/amigo/<token>`;
+  não há link fictício de Google Play (a loja ainda não foi configurada).
+- O convite é válido por 7 dias, guarda apenas hash do token no servidor e pode
+  ser retomado após cadastro/confirmação/login no mesmo navegador/dispositivo.
+  Ao retomar, cria um **pedido pendente**, não amizade automática. O remetente
+  aceita ou recusa. Trocar navegador/dispositivo exige abrir novamente o link:
+  não há deferred deep-link automático de instalação da loja nem vinculação
+  por um número não verificado. Convite encaminhado exige consentimento explícito.
+- **Perto** usa localização em primeiro plano e opt-in dos dois lados, válido
+  por até 2 horas. Raio de 1–20 km; distância arredondada por km, sem coordenadas
+  ou endereço público. Desligar remove a localização dessa descoberta. Sem
+  renovação, o cadastro deixa de aparecer; coordenadas vencidas são apagadas na
+  próxima operação de descoberta. Isso é separado de jogadores avulsos.
+- **Time → Elenco** tem “Chamar pra ser amigo”, pedido enviado, aceite ou amigo,
+  sem transformar participação no time em amizade nem permitir autoaceite.
+- RPC canônico `friend_discovery`, tabelas privadas/RLS, bloqueios e suspensão,
+  limite por conta (200 identificadores/operações por minuto, 2.000/dia;
+  30 links/dia), trava de par para evitar pedidos simultâneos duplicados.
+  Contadores guardam quantidades, não dados de contatos. Uma recusa não é
+  reiniciada automaticamente. O cache recebe resultados sem reenviar writes.
+
+Migrações: `20261011050000_friend_discovery.sql` e
+`20261011051000_friend_discovery_expiration.sql`. Testes SQL isolados em
+`scripts/test-friend-discovery-sql.cjs`, além da regressão de conversas/avaliações.
+O APK anterior não tem `expo-contacts`: **exige novo APK/AAB** para ler agenda.
+Android solicita leitura, não escrita de contatos. Atualize a política pública
+e a declaração Segurança dos dados antes de distribuir essa versão.
+
 ## Site público e páginas para Google Play
 
 Repositório dedicado do site: **[sergioflima94/marcoujogou-site](https://github.com/sergioflima94/marcoujogou-site)**,

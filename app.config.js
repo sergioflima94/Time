@@ -34,6 +34,7 @@ module.exports = {
       },
       predictiveBackGestureEnabled: false,
       package: 'com.pelada.app',
+      blockedPermissions: ['android.permission.WRITE_CONTACTS'],
     },
     web: {
       favicon: './assets/branding/marcoujogou-icon.png',
@@ -45,6 +46,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-sharing',
+      ['expo-contacts', { contactsPermission: 'Leia contatos escolhidos para encontrar amigos no MarcouJogou. Sua agenda não será salva pelo app.' }],
       'expo-notifications',
       [
         'expo-camera',

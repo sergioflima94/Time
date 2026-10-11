@@ -2341,6 +2341,115 @@ export type Database = {
           },
         ]
       }
+      friend_discovery_limits: {
+        Row: {
+          player_id: string
+          units: number
+          window_at: string
+        }
+        Insert: {
+          player_id: string
+          units?: number
+          window_at: string
+        }
+        Update: {
+          player_id?: string
+          units?: number
+          window_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friend_discovery_limits_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friend_discovery_preferences: {
+        Row: {
+          by_email: boolean
+          by_phone: boolean
+          latitude: number | null
+          located_at: string | null
+          longitude: number | null
+          nearby: boolean
+          player_id: string
+        }
+        Insert: {
+          by_email?: boolean
+          by_phone?: boolean
+          latitude?: number | null
+          located_at?: string | null
+          longitude?: number | null
+          nearby?: boolean
+          player_id: string
+        }
+        Update: {
+          by_email?: boolean
+          by_phone?: boolean
+          latitude?: number | null
+          located_at?: string | null
+          longitude?: number | null
+          nearby?: boolean
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friend_discovery_preferences_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friend_join_invites: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          inviter_id: string
+          token_hash: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inviter_id: string
+          token_hash: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inviter_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friend_join_invites_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friend_join_invites_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friendly_match_goals: {
         Row: {
           id: string
@@ -6414,6 +6523,23 @@ export type Database = {
         Returns: Json
       }
       directory_registered: { Args: { p_field: string }; Returns: boolean }
+      friend_discovery: {
+        Args: { p_action: string; p_data?: Json }
+        Returns: Json
+      }
+      friend_discovery_core: {
+        Args: { p_action: string; p_data?: Json }
+        Returns: Json
+      }
+      friend_discovery_visible: {
+        Args: { p_me: string; p_other: string }
+        Returns: boolean
+      }
+      friend_phone_key: { Args: { p_value: string }; Returns: string }
+      friend_public_row: {
+        Args: { p_me: string; p_other: string }
+        Returns: Json
+      }
       fundraising_campaign_feed: {
         Args: { p_campaign_id: string }
         Returns: {
