@@ -4,8 +4,8 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const config = require('../app.config.js').expo;
 assert.equal(config.name, 'MarcouJogou');
-assert.equal(config.version, '1.0.3');
-assert.equal(config.android.versionCode, 4);
+assert.equal(config.version, '1.0.4');
+assert.equal(config.android.versionCode, 5);
 // Upgrade/session/callback compatibility is deliberate, not old public branding.
 assert.equal(config.android.package, 'com.pelada.app');
 assert.equal(config.ios.bundleIdentifier, 'com.pelada.app');

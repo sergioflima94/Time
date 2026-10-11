@@ -21,7 +21,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email?: string, password?: string) => Promise<boolean>;
   register: (email: string, password: string, profile?: { name: string; phone: string | null; preferredPosition: string; favoriteSports: string[] }) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
 }
 
 /**
@@ -30,7 +30,7 @@ interface AuthState {
  */
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       isLoggedIn: false,
       authReady: false,
       loading: false,
@@ -118,8 +118,24 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) { set({ loading: false, error: authErrorMessage(error) }); return false; }
       },
       logout: async () => {
-        if (!isMockMode && supabase) await supabase.auth.signOut();
-        set({ isLoggedIn: false, authUserId: null, pendingEmail: null, error: null });
+        if (get().loading) return false;
+        set({ loading: true, error: null });
+        try {
+          if (!isMockMode && supabase) {
+            const { error } = await supabase.auth.signOut({ scope: 'local' });
+            if (error) {
+              // O SDK pode remover a sessão local mesmo se a revogação remota
+              // falhar. Só confirme a saída após verificar o estado real.
+              const restored = await supabase.auth.getSession();
+              if (restored.error || restored.data.session) throw error;
+            }
+          }
+          set({ loading: false, authReady: true, isLoggedIn: false, authUserId: null, pendingEmail: null, error: null });
+          return true;
+        } catch {
+          set({ loading: false, error: 'Não foi possível sair. Verifique sua conexão e tente novamente.' });
+          return false;
+        }
       },
     }),
     {

@@ -5,13 +5,19 @@ const path = require('node:path');
 const Module = require('node:module');
 const ts = require('typescript');
 let mode = 'pending', fail = false, signupOptions, resendOptions, verifyOptions, verifies = 0;
+let logoutMode = 'success', logoutOptions, logoutCalls = 0, releaseLogout;
 const session = { user: { id: 'new-auth-user' } };
 const auth = {
-  getSession: async () => { if (fail) throw new Error('offline'); return { data: { session: null }, error: null }; },
+  getSession: async () => { if (fail) throw new Error('offline'); return { data: { session: logoutMode === 'retained' ? session : null }, error: null }; },
   signUp: async (input) => { signupOptions = input; if (fail) throw new Error('offline'); return { data: { user: session.user, session: mode === 'session' ? session : null }, error: null }; },
   signInWithPassword: async () => { if (fail) throw new Error('offline'); return mode === 'pending' ? { data: { session: null }, error: { code: 'email_not_confirmed' } } : { data: { session }, error: null }; },
   resend: async (input) => { resendOptions = input; return { error: mode === 'limited' ? { code: 'over_email_send_rate_limit' } : null }; },
-  signOut: async () => {},
+  signOut: async (options) => {
+    logoutOptions = options; logoutCalls++;
+    if (logoutMode === 'pending') await new Promise(resolve => { releaseLogout = resolve; });
+    if (logoutMode === 'throw') throw new Error('private-token');
+    return { error: ['retained', 'cleared'].includes(logoutMode) ? new Error('private-token') : null };
+  },
   verifyOtp: async (input) => { verifyOptions = input; verifies++; if (fail) throw new Error('private-code'); return mode === 'session' ? { data: { session }, error: null } : { data: { session: null }, error: { code: 'otp_expired' } }; },
 };
 const mocks = new Map([
@@ -79,7 +85,33 @@ async function run() {
   assert.equal(store.getState().pendingEmail, null);
   store.getState().setSession(null); assert.equal(store.getState().isLoggedIn, false);
   store.getState().setSession(session); assert.equal(store.getState().isLoggedIn, true);
-  await store.getState().logout(); assert.equal(store.getState().authUserId, null);
+  assert.equal(await store.getState().logout(), true); assert.equal(store.getState().authUserId, null);
+  assert.deepEqual(logoutOptions, { scope: 'local' });
+  assert.equal(store.getState().isLoggedIn, false);
+  assert.equal(store.getState().loading, false);
+  for (const failure of ['retained', 'throw']) {
+    store.getState().setSession(session); logoutMode = failure;
+    assert.equal(await store.getState().logout(), false);
+    assert.equal(store.getState().isLoggedIn, true);
+    assert.equal(store.getState().authUserId, session.user.id);
+    assert.equal(store.getState().loading, false);
+    assert.match(store.getState().error, /Não foi possível sair/);
+    assert(!store.getState().error.includes('private-token'));
+  }
+  logoutMode = 'cleared';
+  assert.equal(await store.getState().logout(), true); // Remote failure, local session actually removed.
+  assert.equal(store.getState().isLoggedIn, false);
+  assert.equal(store.getState().error, null);
+  store.getState().setSession(session); logoutMode = 'pending';
+  const signingOut = store.getState().logout();
+  assert.equal(store.getState().loading, true);
+  const calls = logoutCalls;
+  assert.equal(await store.getState().logout(), false);
+  assert.equal(logoutCalls, calls); // Repeated taps cannot start another request.
+  releaseLogout(); assert.equal(await signingOut, true);
+  logoutMode = 'success';
+  await store.getState().initialize();
+  assert.equal(store.getState().isLoggedIn, false);
   fail = true;
   assert.equal(await store.getState().confirmEmailCode('new@test.invalid', '12345678'), false);
   assert.equal(store.getState().loading, false);
@@ -102,6 +134,14 @@ async function run() {
   const template = fs.readFileSync(path.resolve('config/mobile-auth/confirmation.html'), 'utf8');
   assert.match(template, /href="{{ \.ConfirmationURL }}"/); assert.match(template, /{{ \.Token }}/);
   assert(!/localhost|127\.0\.0\.1/.test(template));
-  console.log('PASS: signup/session, redirect, resend, invalid/expired/valid code, OTP server validation + offline, callback, safe email template, no secret echo.');
+  mocks.get(path.resolve('src/lib/supabase.ts')).isMockMode = true;
+  store.getState().setSession(session);
+  store.setState({ pendingEmail: 'demo@test.invalid' });
+  const remoteCalls = logoutCalls;
+  assert.equal(await store.getState().logout(), true);
+  assert.equal(logoutCalls, remoteCalls);
+  assert.equal(store.getState().isLoggedIn, false);
+  assert.equal(store.getState().pendingEmail, null);
+  console.log('PASS: signup/session, redirect, resend, OTP + offline, callback, local-device logout, loading/repeated taps, logout failure/retry and removed-session recovery, safe email template, no secret echo.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

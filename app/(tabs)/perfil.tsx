@@ -31,7 +31,7 @@ export default function PerfilScreen() {
   const platformRole = usePlatformAdmin();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const { included } = useCommercialAccess('player',currentPlayerId);
-  const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId)!);
+  const player = useAppStore((s) => s.players.find((p) => p.id === currentPlayerId));
   const ratings = useAppStore((s) => s.ratings);
   const games = useAppStore((s) => s.games);
   const attendances = useAppStore((s) => s.attendances);
@@ -46,7 +46,6 @@ export default function PerfilScreen() {
   const setPlayerBanterOptIn = useAppStore((s) => s.setPlayerBanterOptIn);
   const renewPremium = useAppStore((s) => s.renewPremium);
   const cancelPremiumAutoRenew = useAppStore((s) => s.cancelPremiumAutoRenew);
-  const logout = useAuthStore((s) => s.logout);
   const [pickingPhoto, setPickingPhoto] = useState(false);
   const [pickingBg, setPickingBg] = useState(false);
   const [showLockNotice, setShowLockNotice] = useState(false);
@@ -55,7 +54,7 @@ export default function PerfilScreen() {
   const goalStats = computePlayerGoalStats(currentPlayerId, teamPlayers, matchTurns, goals);
   const goalStatsByGroup = computePlayerGoalStatsByGroup(currentPlayerId, teamPlayers, matchTurns, goals, games, myPeladas);
   const pendingGames = getPendingRatingGames(games, attendances, ratings, currentPlayerId);
-  const isPremium = included || isPremiumActive(player);
+  const isPremium = included || (player ? isPremiumActive(player) : false);
 
   async function handleChangePhoto() {
     setPickingPhoto(true);
@@ -74,6 +73,14 @@ export default function PerfilScreen() {
     if (uri) setPlayerCardBackground(currentPlayerId, uri);
     setPickingBg(false);
   }
+
+  if (!player) return (
+    <Screen>
+      <Text style={styles.pageTitle}>Seu perfil</Text>
+      <Text style={styles.pageSubtitle}>Seu perfil ainda não carregou. Verifique sua conexão e tente abrir esta tela novamente.</Text>
+      <LogoutSection />
+    </Screen>
+  );
 
   return (
     <Screen>
@@ -254,8 +261,20 @@ export default function PerfilScreen() {
         onPress={() => router.push('/aulas')}
         style={{ marginTop: spacing.sm }}
       />
-      <Button label="Sair" variant="outline" onPress={logout} style={{ marginTop: spacing.sm }} />
+      <LogoutSection />
     </Screen>
+  );
+}
+
+function LogoutSection() {
+  const logout = useAuthStore(s => s.logout);
+  const loading = useAuthStore(s => s.loading);
+  const error = useAuthStore(s => s.error);
+  return (
+    <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
+      {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: 13 }}>{error}</Text>}
+      <Button label={loading ? 'Saindo…' : 'Sair'} variant="outline" loading={loading} onPress={() => { void logout(); }} />
+    </View>
   );
 }
 

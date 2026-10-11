@@ -44,6 +44,21 @@ Referência: [SplashScreen no Expo 57](https://docs.expo.dev/versions/v57.0.0/sd
 
 ## APK de validação Android
 
+### Correção de saída da conta (1.0.4)
+
+O botão **Sair** exibe “Saindo…” enquanto encerra a sessão deste aparelho
+(`scope: local`), sem desconectar os demais dispositivos. Após a saída, o app
+retorna ao login e remove telas da conta do histórico de navegação; o botão
+voltar, recarregar ou abrir o endereço privado não deve reabrir a conta.
+Campos próximos, descoberta de jogos e convites públicos continuam acessíveis.
+Se o SDK retornar erro, a store consulta a sessão real antes de confirmar a
+saída: sessão removida localmente significa saída concluída; sessão mantida
+exibe erro e permite tentar novamente, sem expor detalhes ou tokens.
+O perfil mantém um botão de saída mesmo se seus dados não carregarem.
+
+Esta correção requer o APK 1.0.4 (`versionCode=5`); o APK 1.0.3 abaixo não se
+atualiza automaticamente. Não há mudança de layout da Home nesta correção.
+
 Build **MarcouJogou 1.0.3**, concluído em 10/10/2026:
 [baixar o APK para Android](https://expo.dev/artifacts/eas/BZnMv3dsicq5l1WnZWLVVOROKQwSfKVfUQULXUK_x0A.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
@@ -174,6 +189,10 @@ Regressões: `node scripts/test-auth-flow.cjs` testa a store e parsing sem servi
 `node scripts/test-auth-ui.cjs` testa cadastro, confirmação/reenvio, login pendente
 e callback, código e link colado em Chrome mobile, com as respostas de Auth interceptadas (sem criar
 contas ou enviar e-mails reais). O callback Android ainda deve ser validado no aparelho.
+Os testes de saída cobrem escopo local, toques repetidos/carregamento, falha com
+sessão mantida, erro remoto com sessão removida pelo SDK, retorno pelo histórico,
+recarregamento, rotas da conta e saída com o perfil indisponível. TypeScript e
+Expo Doctor (21/21) também passaram na preparação da versão 1.0.4.
 
 ## Campos perto de você
 
