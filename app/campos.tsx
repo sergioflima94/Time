@@ -11,6 +11,7 @@ import { hubStyles as st } from '@/components/PlayHubPanels';
 import { colors, spacing } from '@/constants/theme';
 import { getSport, useSports } from '@/constants/sports';
 import { getCurrentLocation } from '@/lib/location';
+import { fieldSportIds } from '@/lib/fieldSports';
 import { directorySession, searchFieldDirectory, phoneLink, routeLink, type DirectoryRow, type DirectorySearch } from '@/lib/fieldDirectory';
 import { isMockMode } from '@/lib/supabase';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
@@ -42,7 +43,7 @@ export default function NearbyFieldsScreen() {
     {([true,false] as const).map(registered=>{const group=visible.filter(e=>e.registered===registered);return group.length?<View key={String(registered)} style={{gap:spacing.sm}}><Text style={st.title}>{registered?'Cadastrados no MarcouJogou':'Contato direto'}</Text>{group.map(e=><Card key={e.id} style={st.card}>
       <View style={st.row}><Text style={[st.title,{flex:1}]}>{getSport(e.sportId).icon} {e.name}</Text><Text style={st.copy}>{e.distanceKm===null?'Distância indisponível':`${e.distanceKm<1?e.distanceKm.toFixed(1):e.distanceKm.toFixed(0)} km`}</Text></View>
       <Badge label={e.registered?'Cadastrado no MarcouJogou':'Contato direto · sem reserva online'} color={e.registered?colors.success:colors.textMuted} />
-      <Text style={st.copy}>{e.address}</Text><Text selectable style={st.copy}>{e.phone} · {getSport(e.sportId).label}</Text><Text style={st.copy}>Ficha atualizada em {new Date(e.updatedAt).toLocaleDateString('pt-BR')}</Text>
+      <Text style={st.copy}>{e.address}</Text><Text selectable style={st.copy}>{e.phone} · {fieldSportIds(e).map(id => getSport(id).label).join(' · ')}</Text>{fieldSportIds(e).length > 1 && <Text style={st.copy}>Quadra híbrida · agenda única</Text>}<Text style={st.copy}>Ficha atualizada em {new Date(e.updatedAt).toLocaleDateString('pt-BR')}</Text>
       <View style={st.row}><Button small variant="outline" label="Ligar" accessibilityLabel={`Ligar para ${e.name}`} onPress={()=>void open(phoneLink(e.phone))} />{e.whatsapp&&<Button small variant="outline" label="WhatsApp" accessibilityLabel={`WhatsApp de ${e.name}`} onPress={()=>void open(phoneLink(e.phone,true))} />}<Button small variant="ghost" label="Ver rota" accessibilityLabel={`Ver rota para ${e.name}`} onPress={()=>void open(routeLink(e))} /></View>
       {e.online&&e.fieldId?<Button small label="Ver horários no app" accessibilityLabel={`Ver horários no app de ${e.name}`} onPress={()=>router.push({pathname:'/bora',params:{fieldId:e.fieldId!}})} />:<Text style={st.copy}>Agendamento diretamente com o local. Não há horários online disponíveis nesta ficha.</Text>}
     </Card>)}</View>:null;})}

@@ -1,5 +1,35 @@
 # MarcouJogou
 
+## Quadras híbridas (vários esportes no mesmo espaço)
+
+Em **Meus estabelecimentos → Campos**, selecione um ou mais esportes ao criar
+uma quadra. **Editar** permite transformar uma quadra existente em híbrida,
+sem mudar seu identificador nem perder reservas. Exemplo: a mesma quadra de
+areia aceita **Vôlei + Futevôlei**. Só marque modalidades que o espaço comporta.
+
+- O catálogo usa os esportes ativos configurados pela plataforma, inclusive novos esportes.
+- Busca por proximidade, recomendações e preferências de agendamento reconhecem todas as modalidades. A ficha aparece uma vez, com todos os esportes e a indicação de quadra híbrida.
+- Fichas vinculadas herdam as modalidades da quadra; contatos sem agendamento online também aceitam múltiplos esportes, configurados pela plataforma.
+- A modalidade da **reserva** é única: escolhida para time avulso ou herdada do time cadastrado. Uma reserva de vôlei bloqueia também o futevôlei naquele espaço/horário.
+- Oportunidades são publicadas uma vez por espaço/horário. Times de modalidades compatíveis podem solicitar, mas só uma reserva pode ser confirmada. Adversários continuam sendo do mesmo esporte do time solicitante.
+- Aulas e campeonatos selecionam espaços compatíveis. Aulas e reservas bloqueiam o mesmo espaço nos dois sentidos; cancelar uma aula libera seu horário. Reservas fixas semanais também bloqueiam outras modalidades.
+- Não remova modalidades usadas por compromissos futuros: reservas, pedidos automáticos em aberto, programas de aula ativos ou campeonatos em andamento. Trate esses compromissos primeiro.
+
+`sportId` continua como modalidade principal para compatibilidade; `fields.sport_ids`
+é a lista de modalidades. Cadastros antigos recebem `[sport_id]`, sem mudança
+de identidade ou duplicação de campos. Os conflitos são validados pelo `field_id`
+e intervalos de horário, com trava da linha da quadra no banco — nunca pelo esporte.
+A quadra híbrida **não representa duas áreas independentes**; espaços utilizáveis
+simultaneamente devem ter cadastros separados. Regras/placar do jogo continuam
+vinculados à modalidade do time/evento.
+
+Migrações: `20261011030000_hybrid_fields.sql` e
+`20261011031000_hybrid_field_owner_visibility.sql`. A função `trigger-auto-booking`
+também precisa ser publicada junto desta versão. Os testes `test-hybrid-fields.cjs`,
+`test-hybrid-fields-sql.cjs` e `test-hybrid-fields-ui.cjs` usam dados locais/demo,
+sem criar reservas reais. A demonstração inclui a Quadra 2 de Vila Nova como
+híbrida. Estas alterações de interface exigem novo APK; não há atualização OTA.
+
 ## Marca MarcouJogou
 
 Nome público do produto: **MarcouJogou**. A identidade conecta o calendário

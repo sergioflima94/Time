@@ -12,7 +12,7 @@ async function run(){
  try{
   await go('/plataforma');await page.getByText('Times e campos',{exact:true}).click();await fill('Motivo administrativo','Preparar arena do nosso parceiro');await fill('Nome do novo estabelecimento','Arena Parceira');await page.getByText('Preparar estabelecimento',{exact:true}).click();
   await page.getByText('Arena Parceira · Aguardando responsável',{exact:true}).waitFor();await fill('Nome do campo/quadra','Society principal');await fill('Endereço','Bairro Centro');await page.getByText('Adicionar campo',{exact:true}).click();
-  await page.getByText('Society principal · futebol · Bairro Centro',{exact:true}).waitFor();
+  await page.getByText('Society principal · Futebol · Bairro Centro',{exact:true}).waitFor();
   await page.getByText('Society principal',{exact:true}).click();await fill('Preço por horário (R$)','200');await page.getByText('Preparar horário e preço',{exact:true}).click();
   await page.getByText(/dia 6 · 08:00–22:00/).waitFor();await page.getByText('Diego Alves',{exact:true}).last().click();await page.getByText('Convidar responsável',{exact:true}).click();await page.getByText('Arena Parceira · Convite enviado',{exact:true}).waitFor();
   await page.screenshot({path:path.join(out,'01-cadastro-assistido.png'),fullPage:true});

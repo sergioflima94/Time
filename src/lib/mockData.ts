@@ -186,7 +186,7 @@ export const MOCK_FIELDS: Field[] = [
   // Campos próprios do Complexo Esportivo Vila Nova (est2, dono = p1) — um por esporte,
   // sem depender de nenhuma pelada.
   { id: 'f2', peladaId: null, name: 'Quadra 1 - Society', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futebol', location: { latitude: -23.596, longitude: -46.645 }, averageRating: 4.6, cancellationRate: 0.01, createdBy: 'p1' },
-  { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', createdBy: 'p1' },
+  { id: 'f3', peladaId: null, name: 'Quadra 2 - Vôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'volei', sportIds: ['volei', 'futvolei'], createdBy: 'p1' },
   { id: 'f4', peladaId: null, name: 'Quadra 3 - Basquete', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'basquete', createdBy: 'p1' },
   { id: 'f5', peladaId: null, name: 'Arena de Areia - Futevôlei', address: 'Av. Vila Nova, 500', notes: null, establishmentId: 'est2', sportId: 'futvolei', createdBy: 'p1' },
   { id: 'f6', peladaId: null, name: 'Quadra 4 - Futsal', address: 'Av. Vila Nova, 500', notes: 'Vestiário e estacionamento inclusos', establishmentId: 'est2', sportId: 'futebol', location: { latitude: -23.596, longitude: -46.645 }, averageRating: 4.7, cancellationRate: 0.01, createdBy: 'p1' },

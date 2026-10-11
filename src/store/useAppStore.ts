@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { fieldSportIds, fieldSupportsSport, validateFieldSports } from '@/lib/fieldSports';
+import { useSportCatalog } from '@/constants/sports';
 
 import {
   CURRENT_PLAYER_ID,
@@ -64,7 +66,7 @@ import {
 import { advanceWinner, generateKnockoutFixtures, generateRoundRobinFixtures, normalizeChampionshipBudget } from '@/lib/championship';
 import { banterExpiresAt } from '@/lib/banter';
 import { createBookingCode, findAlternativeSlots, nextBookingCandidate, normalizeWhatsAppPhone } from '@/lib/bookingAutomation';
-import { findBookingConflicts } from '@/lib/fieldBooking';
+import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { isMockMode } from '@/lib/supabase';
 import { getSport, sportRules } from '@/constants/sports';
@@ -336,7 +338,8 @@ interface AppState {
   linkFieldToEstablishment: (fieldId: string, accessCode: string) => boolean;
   unlinkFieldEstablishment: (fieldId: string) => void;
   /** Campo próprio do estabelecimento (sem pelada) — o dono cadastra direto, escolhendo o esporte. */
-  addEstablishmentField: (establishmentId: string, ownerPlayerId: string, input: { name: string; address: string; sportId: string }) => Field;
+  addEstablishmentField: (establishmentId: string, ownerPlayerId: string, input: { name: string; address: string; sportId: string; sportIds?: string[] }) => Field;
+  updateEstablishmentField: (fieldId: string, input: { name: string; address: string; sportIds: string[] }) => void;
   removeEstablishmentField: (fieldId: string) => void;
   addSchedule: (input: {
     peladaId: string;
@@ -477,6 +480,7 @@ interface AppState {
       fieldId: string;
       peladaId: string | null;
       teamName: string;
+      sportId?: string;
       recurrence: FieldBookingRecurrence;
       dayOfWeek: number | null;
       date: string | null;
@@ -992,6 +996,9 @@ export const useAppStore = create<AppState>()(
       },
 
       addEstablishmentField: (establishmentId, ownerPlayerId, input) => {
+        if (ownerPlayerId !== get().currentPlayerId || !get().establishments.some(e => e.id === establishmentId && e.ownerPlayerId === ownerPlayerId)) throw new Error('Somente o dono cadastra campos.');
+        const sportIds = fieldSportIds(input);
+        validateFieldSports(sportIds, useSportCatalog.getState().catalog);
         const field: Field = {
           id: uid(),
           peladaId: null,
@@ -999,11 +1006,27 @@ export const useAppStore = create<AppState>()(
           address: input.address || null,
           notes: null,
           establishmentId,
-          sportId: input.sportId,
+          sportId: sportIds[0],
+          sportIds,
           createdBy: ownerPlayerId,
         };
         set((state) => ({ fields: [...state.fields, field] }));
         return field;
+      },
+
+      updateEstablishmentField: (fieldId, input) => {
+        const state = get();
+        const field = state.fields.find(f => f.id === fieldId);
+        if (!field || !state.establishments.some(e => e.id === field.establishmentId && e.ownerPlayerId === state.currentPlayerId)) throw new Error('Somente o dono altera campos.');
+        validateFieldSports(input.sportIds, useSportCatalog.getState().catalog);
+        if (!input.name.trim()) throw new Error('Informe o nome da quadra.');
+        // Preserve existing commitments; owners cannot remove a sport still in use.
+        const removed = fieldSportIds(field).filter(id => !input.sportIds.includes(id));
+        if (removed.some(id => state.fieldBookings.some(b => b.fieldId === fieldId && (b.sportId ?? state.peladas.find(p => p.id === b.peladaId)?.sportId ?? field.sportId) === id && (b.recurrence === 'weekly' || !b.date || b.date >= new Date().toISOString().slice(0, 10)))
+          || state.classPrograms.some(p => p.fieldId === fieldId && p.active && p.sportId === id)
+          || state.championships.some(c => c.fieldId === fieldId && c.status !== 'finished' && c.sportId === id)
+          || state.gameBookingRequests.some(r => r.fieldId === fieldId && r.status === 'awaiting_owner' && state.peladas.find(p => p.id === state.games.find(g => g.id === r.gameId)?.peladaId)?.sportId === id))) throw new Error('Há reservas, pedidos automáticos, aulas ou campeonatos usando esse esporte. Mantenha-o até tratar os compromissos.');
+        set(s => ({ fields: s.fields.map(f => f.id === fieldId ? { ...f, name: input.name.trim(), address: input.address.trim() || null, sportId: input.sportIds[0], sportIds: [...input.sportIds] } : f) }));
       },
 
       removeEstablishmentField: (fieldId) => {
@@ -1011,6 +1034,11 @@ export const useAppStore = create<AppState>()(
       },
 
       addFieldBooking: (establishmentId, createdBy, input) => {
+        const field = get().fields.find(f => f.id === input.fieldId && f.establishmentId === establishmentId);
+        const teamSport = get().peladas.find(p => p.id === input.peladaId)?.sportId;
+        const sportId = input.sportId ?? teamSport ?? field?.sportId;
+        if (!field || !fieldSupportsSport(field, sportId) || (teamSport && sportId !== teamSport)) throw new Error('Esporte incompatível com a quadra ou o time.');
+        if (findClassBookingConflicts(get().classSessions, get().classPrograms, input).length) throw new Error('Horário ocupado por aula nesta quadra.');
         const conflicts = findBookingConflicts(get().fieldBookings, {
           fieldId: input.fieldId,
           recurrence: input.recurrence,
@@ -1027,6 +1055,7 @@ export const useAppStore = create<AppState>()(
           fieldId: input.fieldId,
           peladaId: input.peladaId,
           teamName: input.teamName,
+          sportId,
           recurrence: input.recurrence,
           dayOfWeek: input.dayOfWeek,
           date: input.date,
@@ -1510,6 +1539,7 @@ export const useAppStore = create<AppState>()(
       },
 
       createClassProgram: (establishmentId, input) => {
+        if (!get().fields.some(f => f.id === input.fieldId && f.establishmentId === establishmentId && fieldSupportsSport(f, input.sportId))) throw new Error('Quadra incompatível com o esporte da aula.');
         const program: ClassProgram = { id: uid(), establishmentId, name: input.name.trim(), sportId: input.sportId, format: input.format, coachId: input.coachId, fieldId: input.fieldId, level: input.level.trim() || 'Todos os níveis', capacity: input.format === 'private' ? 1 : Math.max(2, input.capacity), durationMinutes: Math.max(15, input.durationMinutes), price: Math.max(0, input.price), billingType: input.billingType, active: true, createdAt: nowIso() };
         set((state) => ({ classPrograms: [...state.classPrograms, program] }));
         return program;
@@ -1529,7 +1559,8 @@ export const useAppStore = create<AppState>()(
         });
         const gameConflict = state.games.some((game) => game.fieldId === program.fieldId && game.status !== 'cancelled' && overlaps(new Date(game.scheduledAt), new Date(new Date(game.scheduledAt).getTime() + (game.durationMinutes ?? 90) * 60_000)));
         const championshipConflict = state.championshipMatches.some((match) => match.fieldId === program.fieldId && match.scheduledAt && match.status !== 'finished' && overlaps(new Date(match.scheduledAt), new Date(new Date(match.scheduledAt).getTime() + program.durationMinutes * 60_000)));
-        if (classConflict || gameConflict || championshipConflict) return null;
+        const bookingConflict = findBookingConflicts(state.fieldBookings, { fieldId: program.fieldId, recurrence: 'single', dayOfWeek: null, date: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`, time: `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`, durationMinutes: program.durationMinutes }).length > 0;
+        if (classConflict || gameConflict || championshipConflict || bookingConflict) return null;
         const session: ClassSession = { id: uid(), programId, startsAt: start.toISOString(), endsAt: end.toISOString(), status: 'open', cancellationReason: null };
         set((current) => ({ classSessions: [...current.classSessions, session] }));
         return session;
@@ -2072,6 +2103,8 @@ export const useAppStore = create<AppState>()(
           attemptedFieldIds,
           state.fieldAvailabilities,
           state.fieldBookings,
+          state.classSessions,
+          state.classPrograms,
         );
         if (!candidate) return null;
 
@@ -2138,7 +2171,7 @@ export const useAppStore = create<AppState>()(
           durationMinutes: request.durationMinutes,
         });
         const responseAt = nowIso();
-        const finalAccepted = accepted && conflicts.length === 0;
+        const finalAccepted = accepted && conflicts.length === 0 && fieldSupportsSport(field, pelada.sportId) && findClassBookingConflicts(snapshot.classSessions, snapshot.classPrograms, { fieldId: field.id, recurrence: 'single', dayOfWeek: null, date, time, durationMinutes: request.durationMinutes }).length === 0;
         const ownerResponseId = `demo-response-${uid()}`;
         set((state) => {
           const deliveries: WhatsAppDelivery[] = [];
@@ -2169,7 +2202,7 @@ export const useAppStore = create<AppState>()(
           }
           const booking: FieldBooking | null = finalAccepted && field.establishmentId ? {
             id: uid(), fieldId: field.id, establishmentId: field.establishmentId, peladaId: pelada.id,
-            teamName: pelada.name, recurrence: 'single', dayOfWeek: null, date, time,
+            teamName: pelada.name, sportId: pelada.sportId, recurrence: 'single', dayOfWeek: null, date, time,
             durationMinutes: request.durationMinutes, notes: `Confirmado automaticamente pelo WhatsApp (${request.code})`,
             createdBy: game.createdBy, createdAt: responseAt,
           } : null;
@@ -2202,7 +2235,7 @@ export const useAppStore = create<AppState>()(
           .map((row) => row.fieldId);
         const promotedFieldIds = state.fieldPromotions.filter((row) => row.active && row.sportId === pelada.sportId).map((row) => row.fieldId);
         const fieldIds = [...new Set([...preferredFieldIds, ...promotedFieldIds])];
-        const slots = findAlternativeSlots(fieldIds, game.scheduledAt, game.durationMinutes ?? 90, state.fieldAvailabilities, state.fieldBookings, 4);
+        const slots = findAlternativeSlots(fieldIds, game.scheduledAt, game.durationMinutes ?? 90, state.fieldAvailabilities, state.fieldBookings, 4, state.classSessions, state.classPrograms);
         if (slots.length === 0) return null;
         const createdAt = nowIso();
         const activeMemberCount = state.memberships.filter((row) => row.peladaId === pelada.id && row.active).length;

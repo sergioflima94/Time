@@ -1,3 +1,4 @@
+import { fieldSportIds } from '@/lib/fieldSports';
 export type StoreName = 'app' | 'growth' | 'pro';
 
 export interface TableSpec {
@@ -59,6 +60,7 @@ const pro = (stateKey: string, table: string, options: Partial<TableSpec> = {}):
 const playerSpec = app('players', 'players', {
   toRow: (value) => {
     const row = genericToRow(value, ['location']);
+    row.sport_ids = fieldSportIds(value as { sportId: string; sportIds?: string[] });
     row.location_lat = value.location?.latitude ?? null;
     row.location_lng = value.location?.longitude ?? null;
     return row;

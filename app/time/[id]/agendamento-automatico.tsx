@@ -11,6 +11,7 @@ import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { WEEKDAY_LABELS } from '@/lib/format';
 import { recommendFields } from '@/lib/bookingAutomation';
+import { fieldSupportsSport } from '@/lib/fieldSports';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function AutoBookingSettingsScreen() {
@@ -41,7 +42,7 @@ export default function AutoBookingSettingsScreen() {
     () => preferences.filter((row) => row.scheduleId === schedule?.id).sort((a, b) => a.priority - b.priority),
     [preferences, schedule?.id],
   );
-  const compatibleFields = fields.filter((field) => field.sportId === pelada?.sportId && field.establishmentId);
+  const compatibleFields = fields.filter((field) => fieldSupportsSport(field, pelada?.sportId) && field.establishmentId);
   const recommendations = recommendFields(pelada?.sportId ?? '', compatibleFields, availabilities, currentPlayer?.location ?? null);
   const recommendationByField = new Map(recommendations.map((row) => [row.fieldId, row]));
   const availableToAdd = compatibleFields.filter((field) => !ordered.some((row) => row.fieldId === field.id)).sort((a, b) => (recommendationByField.get(b.id)?.score ?? 0) - (recommendationByField.get(a.id)?.score ?? 0));

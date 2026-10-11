@@ -12,6 +12,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { useSports } from '@/constants/sports';
+import { fieldSupportsSport } from '@/lib/fieldSports';
 import { formatChampionshipStatus } from '@/lib/championship';
 import { useAppStore } from '@/store/useAppStore';
 import type { ChampionshipFormat } from '@/types';
@@ -36,7 +37,7 @@ export default function EstablishmentChampionshipsScreen() {
 
   function handleCreate() {
     if (!name.trim()) return;
-    const matchingField = fields.find((f) => f.sportId === sportId) ?? fields[0];
+    const matchingField = fields.find((f) => fieldSupportsSport(f, sportId));
     const championship = createChampionship({ establishmentId, organizerPeladaId: null }, currentPlayerId, {
       name: name.trim(),
       sportId,

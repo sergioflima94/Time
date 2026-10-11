@@ -2029,6 +2029,7 @@ export type Database = {
           notes: string | null
           pelada_id: string | null
           recurrence: string
+          sport_id: string
           team_name: string
           time: string
         }
@@ -2044,6 +2045,7 @@ export type Database = {
           notes?: string | null
           pelada_id?: string | null
           recurrence: string
+          sport_id: string
           team_name: string
           time: string
         }
@@ -2059,6 +2061,7 @@ export type Database = {
           notes?: string | null
           pelada_id?: string | null
           recurrence?: string
+          sport_id?: string
           team_name?: string
           time?: string
         }
@@ -2091,6 +2094,13 @@ export type Database = {
             referencedRelation: "peladas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "field_bookings_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sport_catalog"
+            referencedColumns: ["id"]
+          },
         ]
       }
       field_directory_entries: {
@@ -2107,6 +2117,7 @@ export type Database = {
           phone: string
           revision: number
           sport_id: string
+          sport_ids: string[]
           updated_at: string
           whatsapp: boolean
         }
@@ -2123,6 +2134,7 @@ export type Database = {
           phone: string
           revision?: number
           sport_id: string
+          sport_ids: string[]
           updated_at?: string
           whatsapp?: boolean
         }
@@ -2139,6 +2151,7 @@ export type Database = {
           phone?: string
           revision?: number
           sport_id?: string
+          sport_ids?: string[]
           updated_at?: string
           whatsapp?: boolean
         }
@@ -2217,6 +2230,7 @@ export type Database = {
           notes: string | null
           pelada_id: string | null
           sport_id: string
+          sport_ids: string[]
         }
         Insert: {
           address?: string | null
@@ -2231,6 +2245,7 @@ export type Database = {
           notes?: string | null
           pelada_id?: string | null
           sport_id?: string
+          sport_ids: string[]
         }
         Update: {
           address?: string | null
@@ -2245,6 +2260,7 @@ export type Database = {
           notes?: string | null
           pelada_id?: string | null
           sport_id?: string
+          sport_ids?: string[]
         }
         Relationships: [
           {
@@ -6195,6 +6211,10 @@ export type Database = {
         Returns: boolean
       }
       growth_snapshot: { Args: never; Returns: Json }
+      hybrid_sports_valid: {
+        Args: { ids: string[]; previous?: string[] }
+        Returns: boolean
+      }
       is_admin_of_pelada: { Args: { p_pelada_id: string }; Returns: boolean }
       is_chat_participant: { Args: { p_channel_id: string }; Returns: boolean }
       is_establishment_owner: {

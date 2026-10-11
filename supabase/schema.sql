@@ -3,6 +3,7 @@
 -- Base histórica. Para um projeto atualizado, use supabase/migrations via db push.
 -- Conversas integradas/RLS/RPCs: 20261011010000_community_conversations.sql.
 -- Histórico operacional/triggers/RPC: 20261011020000_activity_history.sql.
+-- Quadras híbridas/agenda física única: 20261011030000_hybrid_fields.sql.
 -- Não reaplique esta base sobre um banco que já recebeu as migrações.
 -- Rode este arquivo no SQL Editor do seu projeto Supabase (supabase.com).
 -- =========================================================================

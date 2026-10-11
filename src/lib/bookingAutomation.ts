@@ -1,7 +1,10 @@
-import { findBookingConflicts } from '@/lib/fieldBooking';
+import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
+import { fieldSupportsSport } from '@/lib/fieldSports';
 import { distanceKm } from '@/lib/geo';
 import type {
   Field,
+  ClassSession,
+  ClassProgram,
   FieldAvailability,
   FieldBooking,
   FieldPromotion,
@@ -73,6 +76,8 @@ export function fieldIsAvailableAt(
   durationMinutes: number,
   availabilities: FieldAvailability[],
   bookings: FieldBooking[],
+  sessions: ClassSession[] = [],
+  programs: ClassProgram[] = [],
 ): boolean {
   const parts = localDateParts(startsAt);
   const start = timeToMinutes(parts.time);
@@ -85,7 +90,7 @@ export function fieldIsAvailableAt(
       start >= timeToMinutes(slot.startTime) &&
       end <= timeToMinutes(slot.endTime),
   );
-  if (!insideWindow) return false;
+  if (!insideWindow || findClassBookingConflicts(sessions, programs, { fieldId, recurrence: 'single', dayOfWeek: null, date: parts.date, time: parts.time, durationMinutes }).length) return false;
   return findBookingConflicts(bookings, {
     fieldId,
     recurrence: 'single',
@@ -103,7 +108,7 @@ export function rankBookingCandidates(
   preferences: ScheduleFieldPreference[],
   promotions: FieldPromotion[],
 ): BookingCandidate[] {
-  const compatibleIds = new Set(fields.filter((field) => field.sportId === sportId).map((field) => field.id));
+  const compatibleIds = new Set(fields.filter((field) => fieldSupportsSport(field, sportId)).map((field) => field.id));
   const teamCandidates = preferences
     .filter((row) => row.scheduleId === scheduleId && compatibleIds.has(row.fieldId))
     .sort((a, b) => a.priority - b.priority)
@@ -129,7 +134,7 @@ export function recommendFields(
   availabilities: FieldAvailability[],
   origin: GeoPoint | null,
 ): FieldRecommendation[] {
-  const compatible = fields.filter((field) => field.sportId === sportId && field.establishmentId);
+  const compatible = fields.filter((field) => fieldSupportsSport(field, sportId) && field.establishmentId);
   const prices = compatible.flatMap((field) => availabilities.filter((row) => row.fieldId === field.id && row.active && row.price !== null).map((row) => row.price as number));
   const minPrice = prices.length ? Math.min(...prices) : 0;
   const maxPrice = prices.length ? Math.max(...prices) : 1;
@@ -173,6 +178,8 @@ export function nextBookingCandidate(
   attemptedFieldIds: string[],
   availabilities: FieldAvailability[],
   bookings: FieldBooking[],
+  sessions: ClassSession[] = [],
+  programs: ClassProgram[] = [],
 ): BookingCandidate | null {
   if (!game.scheduleId) return null;
   const candidates = rankBookingCandidates(game.scheduleId, sportId, fields, preferences, promotions);
@@ -180,7 +187,7 @@ export function nextBookingCandidate(
     candidates.find(
       (candidate) =>
         !attemptedFieldIds.includes(candidate.fieldId) &&
-        fieldIsAvailableAt(candidate.fieldId, game.scheduledAt, game.durationMinutes ?? 90, availabilities, bookings),
+        fieldIsAvailableAt(candidate.fieldId, game.scheduledAt, game.durationMinutes ?? 90, availabilities, bookings, sessions, programs),
     ) ?? null
   );
 }
@@ -192,6 +199,8 @@ export function findAlternativeSlots(
   availabilities: FieldAvailability[],
   bookings: FieldBooking[],
   limit = 4,
+  sessions: ClassSession[] = [],
+  programs: ClassProgram[] = [],
 ): AvailableBookingSlot[] {
   const result: AvailableBookingSlot[] = [];
   const startDate = new Date(fromDate);
@@ -212,7 +221,7 @@ export function findAlternativeSlots(
           const candidate = new Date(day);
           candidate.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
           if (candidate.getTime() <= Date.now()) continue;
-          if (!fieldIsAvailableAt(fieldId, candidate.toISOString(), durationMinutes, availabilities, bookings)) continue;
+          if (!fieldIsAvailableAt(fieldId, candidate.toISOString(), durationMinutes, availabilities, bookings, sessions, programs)) continue;
           result.push({ fieldId, startsAt: candidate.toISOString(), price: window.price });
         }
       }

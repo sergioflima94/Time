@@ -19,7 +19,7 @@ async function run(){try{
  const team=(await q("insert into peladas(name,invite_code,created_by) values('Time histórico','HISTORYTEST',$1) returning id",[player(users[0])]))[0].id;
  await q("insert into pelada_memberships(pelada_id,player_id,role,active) values($1,$2,'admin',true),($1,$3,'member',true)",[team,player(users[0]),player(users[1])]);
  const venue=(await q("insert into establishments(owner_player_id,name,payout_method,access_code) values($1,'Arena histórica','in_person','HISTORYVENUE') returning id",[player(users[3])]))[0].id;
- const field=(await q("insert into fields(establishment_id,name,created_by) values($1,'Quadra histórica',$2) returning id",[venue,player(users[3])]))[0].id;
+ const field=(await q("insert into fields(establishment_id,name,sport_ids,created_by) values($1,'Quadra histórica',array['futebol','volei'],$2) returning id",[venue,player(users[3])]))[0].id;
  const game=(await q("insert into games(pelada_id,field_id,scheduled_at,max_players,players_per_team,created_by) values($1,$2,'2099-01-11 19:00:00-03',10,5,$3) returning id",[team,field,player(users[0])]))[0].id;
  await migrate(migrations.find(n=>n.endsWith('_activity_history.sql')));
  // Supabase default table grants are not part of a plain PGlite database.

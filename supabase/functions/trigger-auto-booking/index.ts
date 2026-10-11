@@ -36,8 +36,8 @@ serve(async (req) => {
     let chosen: any = null;
     for (const candidate of candidates) {
       if (attempted.has(candidate.fieldId)) continue;
-      const { data: field } = await service.from('fields').select('*').eq('id', candidate.fieldId).eq('sport_id', pelada.sport_id).maybeSingle();
-      if (!field?.establishment_id) continue;
+      const { data: field } = await service.from('fields').select('*').eq('id', candidate.fieldId).maybeSingle();
+      if (!field?.establishment_id || !(field.sport_ids?.length ? field.sport_ids : [field.sport_id]).includes(pelada.sport_id)) continue;
       if (await isAvailable(service, candidate.fieldId, game.scheduled_at, game.duration_minutes)) { chosen = { ...candidate, field }; break; }
     }
     if (!chosen) return response({ noAvailableField: true });
@@ -72,7 +72,6 @@ async function isAvailable(service: any, fieldId: string, startsAt: string, dura
   const date = new Date(startsAt);
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(date);
   const part = (type: string) => parts.find((row) => row.type === type)?.value ?? '';
-  const dateText = `${part('year')}-${part('month')}-${part('day')}`;
   const timeText = `${part('hour')}:${part('minute')}`;
   const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const day = dayMap[part('weekday')];
@@ -80,13 +79,8 @@ async function isAvailable(service: any, fieldId: string, startsAt: string, dura
   const start = minutes(timeText);
   const { data: windows } = await service.from('field_availabilities').select('*').eq('field_id', fieldId).eq('day_of_week', day).eq('active', true);
   if (!(windows ?? []).some((window: any) => start >= minutes(window.start_time) && start + durationMinutes <= minutes(window.end_time))) return false;
-  const { data: bookings } = await service.from('field_bookings').select('*').eq('field_id', fieldId);
-  return !(bookings ?? []).some((booking: any) => {
-    if (booking.recurrence === 'single' && booking.date !== dateText) return false;
-    if (booking.recurrence === 'weekly' && booking.day_of_week !== day) return false;
-    const bookingStart = minutes(booking.time);
-    return start < bookingStart + booking.duration_minutes && bookingStart < start + durationMinutes;
-  });
+  const { data: free, error } = await service.rpc('growth_slot_free', { p_field: fieldId, p_start: startsAt, p_minutes: durationMinutes });
+  return !error && free === true;
 }
 
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }); }

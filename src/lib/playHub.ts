@@ -1,7 +1,7 @@
 export interface AssistedVenue {
   establishment_id: string; name: string; target_player_id: string | null;
   status: 'draft' | 'invited' | 'accepted' | 'declined'; revision: number;
-  fields: Array<{ id: string; name: string; sport_id: string; address: string | null }>;
+  fields: Array<{ id: string; name: string; sport_id: string; sport_ids?: string[]; address: string | null }>;
 }
 export interface BuddyInvite {
   id: string; game_id: string; host_player_id: string; buddy_player_id: string | null;
@@ -9,7 +9,7 @@ export interface BuddyInvite {
 }
 export interface OpportunitySlot {
   id: string; field_id: string; field_name: string; establishment_id: string; address: string | null;
-  sport_id: string; starts_at: string; duration_minutes: number; regular_price: number; offer_price: number; active: boolean;
+  sport_id: string; sport_ids?: string[]; starts_at: string; duration_minutes: number; regular_price: number; offer_price: number; active: boolean;
 }
 export interface PlayWindow { id: string; pelada_id: string; team_name: string; sport_id: string; starts_at: string; ends_at: string; level: string; active: boolean }
 export interface OpportunityRequest {
@@ -29,8 +29,9 @@ export function validateSlot(start:string,minutes:number,regular:number,offer:nu
   const a=Date.parse(start);const d=new Date(a),end=new Date(a+minutes*60000);
   if(!Number.isFinite(a)||a<=now||!Number.isInteger(minutes)||minutes<15||minutes>240||d.getDate()!==end.getDate()||!Number.isFinite(regular)||!Number.isFinite(offer)||offer<=0||offer>=regular||Math.abs(offer*100-Math.round(offer*100))>0.000001||Math.abs(regular*100-Math.round(regular*100))>0.000001)throw new Error('Horário/preço inválidos: 15–240 min, mesmo dia e desconto em centavos.');
 }
-export function compatibleWindows(slot: OpportunitySlot, windows: PlayWindow[], teamId: string): PlayWindow[] {
-  return windows.filter(w => w.active && w.pelada_id !== teamId && w.sport_id === slot.sport_id && Date.parse(w.starts_at) <= Date.parse(slot.starts_at)
+export function slotSports(slot: Pick<OpportunitySlot, 'sport_id' | 'sport_ids'>): string[] { return slot.sport_ids?.length ? slot.sport_ids : [slot.sport_id]; }
+export function compatibleWindows(slot: OpportunitySlot, windows: PlayWindow[], teamId: string, selectedSport = slot.sport_id): PlayWindow[] {
+  return windows.filter(w => w.active && w.pelada_id !== teamId && w.sport_id === selectedSport && slotSports(slot).includes(w.sport_id) && Date.parse(w.starts_at) <= Date.parse(slot.starts_at)
     && Date.parse(w.ends_at) >= Date.parse(slot.starts_at) + slot.duration_minutes * 60000);
 }
 export function localDateTime(date: string, time: string): string {

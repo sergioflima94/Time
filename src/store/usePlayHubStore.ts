@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
+import { fieldSportIds } from '@/lib/fieldSports';
 import { isMockMode, supabase } from '@/lib/supabase';
-import { emptyPlayHub, compatibleWindows, validateSlot, validateWindow, type PlayHubSnapshot } from '@/lib/playHub';
+import { emptyPlayHub, compatibleWindows, slotSports, validateSlot, validateWindow, type PlayHubSnapshot } from '@/lib/playHub';
 import { useAppStore } from './useAppStore';
 import { useAuthStore } from './useAuthStore';
 import type { Json } from '@/types/supabase.generated';
@@ -29,7 +31,7 @@ export const usePlayHubStore = create<State>((set,get)=>({
         data={...demo,
           venues:demo.venues.filter(v=>me==='p1'||v.target_player_id===me),
           buddies:demo.buddies.filter(b=>b.host_player_id===me||b.buddy_player_id===me||app.isAdmin(me,app.games.find(g=>g.id===b.game_id)?.peladaId??'')),
-          slots:demo.slots.filter(s=>s.active&&Date.parse(s.starts_at)>Date.now()&&free(s)),
+          slots:demo.slots.map(s=>({...s,sport_ids:app.fields.find(f=>f.id===s.field_id)?fieldSportIds(app.fields.find(f=>f.id===s.field_id)!):s.sport_ids})).filter(s=>s.active&&Date.parse(s.starts_at)>Date.now()&&free(s)),
           windows:demo.windows.filter(w=>w.active&&Date.parse(w.ends_at)>Date.now()),
           requests:demo.requests.filter(r=>app.isAdmin(me,r.pelada_id)||app.isAdmin(me,r.opponent_pelada_id??'')||app.establishments.some(e=>e.id===demo.slots.find(s=>s.id===r.slot_id)?.establishment_id&&e.ownerPlayerId===me)),
           onboarding:prefs.get(me)??null};
@@ -63,8 +65,9 @@ export const usePlayHubStore = create<State>((set,get)=>({
   },
 }));
 function free(slot: {field_id:string;starts_at:string;duration_minutes:number}) {
-  const start=new Date(slot.starts_at); const mins=start.getHours()*60+start.getMinutes();
-  return !useAppStore.getState().fieldBookings.some(b=>b.fieldId===slot.field_id&&(b.recurrence==='weekly'?b.dayOfWeek===start.getDay():b.date===`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`)&&(()=>{const [h,m]=b.time.split(':').map(Number); return h*60+m<mins+slot.duration_minutes&&h*60+m+b.durationMinutes>mins;})());
+  const start=new Date(slot.starts_at), app=useAppStore.getState();
+  const candidate={fieldId:slot.field_id,recurrence:'single' as const,dayOfWeek:null,date:`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`,time:`${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`,durationMinutes:slot.duration_minutes};
+  return !findBookingConflicts(app.fieldBookings,candidate).length&&!findClassBookingConflicts(app.classSessions,app.classPrograms,candidate).length;
 }
 function demoAction(action:string,p:Record<string,unknown>):Record<string,string>{
   const a=useAppStore.getState(); const me=a.currentPlayerId; const name=a.players.find(x=>x.id===me)?.name??'Jogador';
@@ -80,7 +83,7 @@ function demoAction(action:string,p:Record<string,unknown>):Record<string,string
       demo.venues.push({establishment_id:e.id,name:e.name,target_player_id:null,status:'draft',revision:1,fields:[]}); result.id=e.id;
     }else{
       const v=demo.venues.find(v=>v.establishment_id===p.establishmentId); if(!v||v.status==='accepted'||v.revision!==p.revision)throw new Error('Cadastro mudou ou indisponível.');
-      if(action==='venue_field'){const f=a.addEstablishmentField(v.establishment_id,me,{name:String(p.name),address:String(p.address??''),sportId:String(p.sportId)});v.fields.push({id:f.id,name:f.name,address:f.address,sport_id:f.sportId??'futebol'});}
+      if(action==='venue_field'){const f=a.addEstablishmentField(v.establishment_id,me,{name:String(p.name),address:String(p.address??''),sportId:String(p.sportId),sportIds:p.sportIds as string[]|undefined});v.fields.push({id:f.id,name:f.name,address:f.address,sport_id:f.sportId??'futebol',sport_ids:fieldSportIds(f)});}
       else if(action==='venue_availability'){const f=a.fields.find(f=>f.id===p.fieldId&&f.establishmentId===v.establishment_id);if(!f)throw new Error('Campo indisponível.');a.addFieldAvailability(f.id,{dayOfWeek:Number(p.dayOfWeek),startTime:String(p.startTime),endTime:String(p.endTime),slotMinutes:Number(p.slotMinutes),price:Number(p.price)});}
       else if(action==='venue_invite'){if(p.playerId===me||!a.players.some(x=>x.id===p.playerId&&!x.isGuest))throw new Error('Selecione outra conta cadastrada.');v.target_player_id=String(p.playerId);v.status='invited';}else throw new Error('Ação inválida.');
       v.revision++; result.id=v.establishment_id;
@@ -113,13 +116,13 @@ function demoAction(action:string,p:Record<string,unknown>):Record<string,string
     validateSlot(String(p.startsAt),Number(p.durationMinutes),Number(p.regularPrice),Number(p.offerPrice));
     const f=a.fields.find(f=>f.id===p.fieldId);if(!f?.establishmentId)throw new Error('Campo indisponível.');owner(f.establishmentId);
     if(!(Number(p.offerPrice)>0&&Number(p.offerPrice)<Number(p.regularPrice))||Date.parse(String(p.startsAt))<=Date.now())throw new Error('Preço ou data inválidos.');
-    const s={id:uuid(),field_id:f.id,field_name:f.name,address:f.address,establishment_id:f.establishmentId,sport_id:f.sportId??'futebol',starts_at:String(p.startsAt),duration_minutes:Number(p.durationMinutes),regular_price:Number(p.regularPrice),offer_price:Number(p.offerPrice),active:true};if(!free(s))throw new Error('Horário ocupado.');demo.slots.push(s);
+    const s={id:uuid(),field_id:f.id,field_name:f.name,address:f.address,establishment_id:f.establishmentId,sport_id:f.sportId??'futebol',sport_ids:fieldSportIds(f),starts_at:String(p.startsAt),duration_minutes:Number(p.durationMinutes),regular_price:Number(p.regularPrice),offer_price:Number(p.offerPrice),active:true};if(!free(s))throw new Error('Horário ocupado.');demo.slots.push(s);
   }else if(action==='slot_hide'){const s=demo.slots.find(s=>s.id===p.id)!;owner(s.establishment_id);s.active=false;
   }else if(action==='window_hide'){const w=demo.windows.find(w=>w.id===p.id)!;admin(w.pelada_id);w.active=false;
   }else if(action==='slot_request'){
-    const s=demo.slots.find(s=>s.id===p.slotId);const t=a.peladas.find(t=>t.id===p.teamId);admin(String(p.teamId));if(!s?.active||!t||t.sportId!==s.sport_id||!free(s)||Date.parse(s.starts_at)<=Date.now())throw new Error('Horário indisponível.');
+    const s=demo.slots.find(s=>s.id===p.slotId);const t=a.peladas.find(t=>t.id===p.teamId);admin(String(p.teamId));if(!s?.active||!t||!slotSports({...s,sport_ids:fieldSportIds(a.fields.find(f=>f.id===s.field_id)!)}).includes(t.sportId)||!free(s)||Date.parse(s.starts_at)<=Date.now())throw new Error('Horário indisponível.');
     if(demo.requests.some(r=>r.slot_id===s.id&&r.pelada_id===t.id&&['pending','confirmed'].includes(r.status)))return {};
-    const o=a.peladas.find(t=>t.id===p.opponentId);if(p.opponentId&&(!o||!compatibleWindows(s,demo.windows,t.id).some(w=>w.pelada_id===o.id)))throw new Error('Adversário sem disponibilidade compatível.');
+    const o=a.peladas.find(t=>t.id===p.opponentId);if(p.opponentId&&(!o||!compatibleWindows({...s,sport_ids:fieldSportIds(a.fields.find(f=>f.id===s.field_id)!)},demo.windows,t.id,t.sportId).some(w=>w.pelada_id===o.id)))throw new Error('Adversário sem disponibilidade compatível.');
     demo.requests.push({id:uuid(),slot_id:s.id,pelada_id:t.id,team_name:t.name,opponent_pelada_id:o?.id??null,opponent_name:o?.name??null,opponent_accepted:false,status:'pending',price:s.offer_price,commission_percent:usePlatformStore.getState().settings.bookingCommissionPercent,field_name:s.field_name,starts_at:s.starts_at,match_id:null});
   }else if(['slot_respond','opponent_respond','request_cancel'].includes(action)){
     const r=demo.requests.find(r=>r.id===p.id);if(!r||r.status!=='pending')throw new Error('Pedido encerrado.');const s=demo.slots.find(s=>s.id===r.slot_id)!;

@@ -13,6 +13,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { useSports } from '@/constants/sports';
+import { fieldSportIds, fieldSupportsSport } from '@/lib/fieldSports';
 import { WEEKDAY_LABELS } from '@/lib/format';
 import { useAppStore } from '@/store/useAppStore';
 import type { FieldBookingRecurrence } from '@/types';
@@ -34,6 +35,7 @@ export default function EstablishmentBookingsScreen() {
 
   const [open, setOpen] = useState(false);
   const [fieldId, setFieldId] = useState(fields[0]?.id ?? '');
+  const [sportId, setSportId] = useState(fields[0]?.sportId ?? 'futebol');
   const [teamMode, setTeamMode] = useState<'pelada' | 'avulso'>('avulso');
   const [peladaId, setPeladaId] = useState(peladas[0]?.id ?? '');
   const [teamName, setTeamName] = useState('');
@@ -60,9 +62,14 @@ export default function EstablishmentBookingsScreen() {
     const finalTeamName = teamMode === 'pelada' ? peladas.find((p) => p.id === peladaId)?.name ?? '' : teamName.trim();
     if (!finalTeamName) return;
     if (recurrence === 'single' && !date.trim()) return;
+    const selectedField = fieldOf(finalFieldId);
+    const selectedSport = teamMode === 'pelada' ? peladas.find(p => p.id === peladaId)?.sportId : sportId;
+    if (!selectedField || !fieldSupportsSport(selectedField, selectedSport)) { setError('Selecione um esporte/time compatível com a quadra.'); return; }
 
+    try {
     const result = addFieldBooking(establishmentId, currentPlayerId, {
       fieldId: finalFieldId,
+      sportId: selectedSport,
       peladaId: teamMode === 'pelada' ? peladaId : null,
       teamName: finalTeamName,
       recurrence,
@@ -82,6 +89,7 @@ export default function EstablishmentBookingsScreen() {
     setTeamName('');
     setNotes('');
     setOpen(false);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível reservar.'); }
   }
 
   if (establishment && establishment.ownerPlayerId !== currentPlayerId) {
@@ -105,7 +113,7 @@ export default function EstablishmentBookingsScreen() {
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Horários oferecidos no app</Text>
-          <Pressable onPress={() => setAvailabilityOpen((value) => !value)}><Ionicons name={availabilityOpen ? 'close' : 'add-circle'} size={22} color={colors.primary} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Nova disponibilidade" onPress={() => setAvailabilityOpen((value) => !value)}><Ionicons name={availabilityOpen ? 'close' : 'add-circle'} size={22} color={colors.primary} /></Pressable>
         </View>
         <Text style={styles.hint}>Essas janelas alimentam sugestões, automações e enquetes sem prometer um horário já ocupado.</Text>
         {availabilities.map((slot) => {
@@ -136,7 +144,7 @@ export default function EstablishmentBookingsScreen() {
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Reservas</Text>
-          <Pressable onPress={() => setOpen((v) => !v)}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Nova reserva" onPress={() => { setOpen(v => !v); setError(null); }}>
             <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.special} />
           </Pressable>
         </View>
@@ -146,7 +154,7 @@ export default function EstablishmentBookingsScreen() {
 
         {bookings.map((b) => {
           const field = fieldOf(b.fieldId);
-          const fieldSport = field ? sportOf(field.sportId) : null;
+          const fieldSport = field ? sportOf(b.sportId ?? peladas.find(p => p.id === b.peladaId)?.sportId ?? field.sportId) : null;
           return (
             <View key={b.id} style={styles.row}>
               <View style={{ flex: 1 }}>
@@ -155,7 +163,7 @@ export default function EstablishmentBookingsScreen() {
                   {!b.peladaId && ' (avulso)'}
                 </Text>
                 <Text style={styles.hint}>
-                  {field?.name ?? '?'} ·{' '}
+                  {field?.name ?? '?'} · {fieldSport?.label} ·{' '}
                   {b.recurrence === 'weekly' ? `Fixo · ${WEEKDAY_LABELS[b.dayOfWeek ?? 0]}` : b.date} · {b.time} (
                   {b.durationMinutes} min)
                 </Text>
@@ -185,7 +193,7 @@ export default function EstablishmentBookingsScreen() {
                 return (
                   <Pressable
                     key={f.id}
-                    onPress={() => setFieldId(f.id)}
+                    onPress={() => { setFieldId(f.id); setSportId(f.sportId); setPeladaId(peladas.find(p => fieldSupportsSport(f, p.sportId))?.id ?? ''); }}
                     style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
                   >
                     <Text style={styles.sportChipIcon}>{sport.icon}</Text>
@@ -195,6 +203,8 @@ export default function EstablishmentBookingsScreen() {
               })}
             </View>
 
+            <Text style={styles.hint}>Esporte desta reserva — uma única agenda para todos os esportes da quadra</Text>
+            {teamMode === 'avulso' && <View style={styles.sportsGrid}>{fieldSportIds(fieldOf(fieldId) ?? fields[0]).map(id => <Button key={id} small label={sportOf(id).label} variant={sportId === id ? 'primary' : 'outline'} onPress={() => setSportId(id)} />)}</View>}
             <SegmentedControl<'pelada' | 'avulso'>
               label="Time"
               options={[
@@ -208,7 +218,7 @@ export default function EstablishmentBookingsScreen() {
               <TextField label="Nome do time" value={teamName} onChangeText={setTeamName} placeholder="Galera da rua" />
             ) : (
               <View style={styles.sportsGrid}>
-                {peladas.map((p) => {
+                {peladas.filter(p => fieldSupportsSport(fieldOf(fieldId) ?? fields[0], p.sportId)).map((p) => {
                   const active = peladaId === p.id;
                   const sport = sportOf(p.sportId);
                   return (

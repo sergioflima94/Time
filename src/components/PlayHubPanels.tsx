@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
-import { useSports } from '@/constants/sports';
+import { toggleFieldSport } from '@/lib/fieldSports';
+import { getSport, useSports } from '@/constants/sports';
 import { usePlayHubStore } from '@/store/usePlayHubStore';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isMockMode } from '@/lib/supabase';
-import { emptyPlayHub } from '@/lib/playHub';
+import { emptyPlayHub, slotSports } from '@/lib/playHub';
 import type { PlatformSnapshot } from '@/types/platform';
 
 export const hubStyles = { title: { color: colors.text, fontSize: 15, fontWeight: '800' as const }, copy: { color: colors.textMuted, fontSize: 12, lineHeight: 18 }, row: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 }, card: { gap: spacing.sm, marginBottom: spacing.md } };
@@ -24,7 +25,7 @@ export function usePlayHub() {
 export function AssistedVenuePanel({snapshot}:{snapshot:PlatformSnapshot}) {
   const SPORTS=useSports(); const {data,error,refresh}=usePlayHub();
   const [name,setName]=useState('');const [reason,setReason]=useState('');const [selected,setSelected]=useState('');
-  const [fieldName,setFieldName]=useState('');const [address,setAddress]=useState('');const [sport,setSport]=useState('futebol');
+  const [fieldName,setFieldName]=useState('');const [address,setAddress]=useState('');const [sportIds,setSportIds]=useState<string[]>(['futebol']);
   const [availabilityField,setAvailabilityField]=useState('');const [weekday,setWeekday]=useState('6');const [startTime,setStartTime]=useState('08:00');const [endTime,setEndTime]=useState('22:00');const [slotMinutes,setSlotMinutes]=useState('60');const [hourPrice,setHourPrice]=useState('');
   const availabilities=useAppStore(s=>s.fieldAvailabilities);
   const [target,setTarget]=useState('');const [query,setQuery]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
@@ -35,10 +36,10 @@ export function AssistedVenuePanel({snapshot}:{snapshot:PlatformSnapshot}) {
     <TextField label="Nome do novo estabelecimento" value={name} onChangeText={setName} />
     <Button small label="Preparar estabelecimento" disabled={busy||name.trim().length<3||reason.trim().length<8} onPress={()=>void run('venue_create',{name})} />
     <View style={hubStyles.row}>{data.venues.map(v=><Button key={v.establishment_id} small variant={selected===v.establishment_id?'primary':'outline'} label={`${v.name} · ${{draft:'Aguardando responsável',invited:'Convite enviado',accepted:'Vinculado',declined:'Recusado'}[v.status]}`} onPress={()=>setSelected(v.establishment_id)} />)}</View>
-    {venue&&<><Text style={hubStyles.title}>{venue.name}</Text>{venue.fields.map(f=><Text key={f.id} style={hubStyles.copy}>{f.name} · {f.sport_id} · {f.address}</Text>)}{venue.status!=='accepted'&&<>
+    {venue&&<><Text style={hubStyles.title}>{venue.name}</Text>{venue.fields.map(f=><Text key={f.id} style={hubStyles.copy}>{f.name} · {(f.sport_ids??[f.sport_id]).map(id=>getSport(id).label).join(' · ')} · {f.address}</Text>)}{venue.status!=='accepted'&&<>
       <TextField label="Nome do campo/quadra" value={fieldName} onChangeText={setFieldName} /><TextField label="Endereço" value={address} onChangeText={setAddress} />
-      <View style={hubStyles.row}>{SPORTS.map(s=><Button key={s.id} small variant={sport===s.id?'primary':'outline'} label={`${s.icon} ${s.label}`} onPress={()=>setSport(s.id)} />)}</View>
-      <Button small label="Adicionar campo" disabled={busy||fieldName.trim().length<3||reason.trim().length<8} onPress={()=>void run('venue_field',{establishmentId:venue.establishment_id,revision:venue.revision,name:fieldName,address,sportId:sport})} />
+      <View style={hubStyles.row}>{SPORTS.map(s=><Button key={s.id} small variant={sportIds.includes(s.id)?'primary':'outline'} label={`${s.icon} ${s.label}`} onPress={()=>setSportIds(ids=>toggleFieldSport(ids,s.id))} />)}</View>
+      <Button small label="Adicionar campo" disabled={busy||!sportIds.length||fieldName.trim().length<3||reason.trim().length<8} onPress={()=>void run('venue_field',{establishmentId:venue.establishment_id,revision:venue.revision,name:fieldName,address,sportId:sportIds[0],sportIds})} />
       <Text style={hubStyles.title}>Horários e preços preparados</Text>{availabilities.filter(a=>venue.fields.some(f=>f.id===a.fieldId)).map(a=><Text key={a.id} style={hubStyles.copy}>{venue.fields.find(f=>f.id===a.fieldId)?.name} · dia {a.dayOfWeek} · {a.startTime}–{a.endTime} · R$ {a.price} / {a.slotMinutes} min</Text>)}<View style={hubStyles.row}>{venue.fields.map(f=><Button key={f.id} small variant={availabilityField===f.id?'primary':'outline'} label={f.name} onPress={()=>setAvailabilityField(f.id)} />)}</View><TextField label="Dia da semana (0 domingo a 6 sábado)" value={weekday} onChangeText={setWeekday} keyboardType="number-pad" /><View style={hubStyles.row}><View style={{flex:1}}><TextField label="Abertura (HH:mm)" value={startTime} onChangeText={setStartTime} /></View><View style={{flex:1}}><TextField label="Fechamento (HH:mm)" value={endTime} onChangeText={setEndTime} /></View></View><TextField label="Duração do horário (min)" value={slotMinutes} onChangeText={setSlotMinutes} keyboardType="number-pad" /><TextField label="Preço por horário (R$)" value={hourPrice} onChangeText={setHourPrice} keyboardType="decimal-pad" /><Button small label="Preparar horário e preço" disabled={busy||!availabilityField||!hourPrice||reason.trim().length<8} onPress={()=>void run('venue_availability',{establishmentId:venue.establishment_id,revision:venue.revision,fieldId:availabilityField,dayOfWeek:Number(weekday),startTime,endTime,slotMinutes:Number(slotMinutes),price:Number(hourPrice.replace(',','.'))})} />
       <TextField label="Buscar futuro responsável" value={query} onChangeText={setQuery} />
       <Text style={hubStyles.copy}>Contas da busca da plataforma. Se não encontrar, use “Buscar na plataforma” acima. A pessoa precisa ter se cadastrado.</Text>
@@ -50,7 +51,7 @@ export function AssistedVenuePanel({snapshot}:{snapshot:PlatformSnapshot}) {
   </Card>;
 }
 export function HomePlayHub() {
-  const {data}=usePlayHub();const me=useAppStore(s=>s.currentPlayerId);const favoriteSports=useAppStore(s=>s.players.find(p=>p.id===s.currentPlayerId)?.favoriteSports);const suggestions=data.slots.filter(slot=>favoriteSports?.includes(slot.sport_id));const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
+  const {data}=usePlayHub();const me=useAppStore(s=>s.currentPlayerId);const favoriteSports=useAppStore(s=>s.players.find(p=>p.id===s.currentPlayerId)?.favoriteSports);const suggestions=data.slots.filter(slot=>slotSports(slot).some(id=>favoriteSports?.includes(id)));const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
   async function respond(id:string,revision:number,accept:boolean){setBusy(true);try{await usePlayHubStore.getState().act('venue_respond',{establishmentId:id,revision,accept});setNotice(accept?'Estabelecimento vinculado. Configure sua conta de recebimento em Meus estabelecimentos.':'Convite recusado.');}catch(e){setNotice(e instanceof Error?e.message:'Falha ao responder.');}finally{setBusy(false);}}
   return <>{!data.onboarding?.completed&&<View style={{marginBottom:spacing.md}}><Button variant="ghost" label="Configurar minha experiência" onPress={()=>router.push('/comecar')} /></View>}
     {data.onboarding?.completed&&<Button small variant="ghost" label="Minha experiência e sugestões" onPress={()=>router.push('/comecar')} />}

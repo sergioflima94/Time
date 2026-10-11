@@ -5,12 +5,13 @@ import { Card } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { hubStyles as st } from '@/components/PlayHubPanels';
 import { useSports } from '@/constants/sports';
+import { fieldSportIds, toggleFieldSport } from '@/lib/fieldSports';
 import { getCurrentLocation } from '@/lib/location';
 import { directorySession, emptyDirectoryManagement, manageFieldDirectory, saveFieldDirectory, type DirectoryInput, type DirectoryManagement, type ManagedEntry } from '@/lib/fieldDirectory';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
-const blank=():DirectoryInput=>({fieldId:null,name:'',address:'',sportId:'futebol',phone:'',whatsapp:false,latitude:NaN,longitude:NaN,online:false,active:true});
+const blank=():DirectoryInput=>({fieldId:null,name:'',address:'',sportId:'futebol',sportIds:['futebol'],phone:'',whatsapp:false,latitude:NaN,longitude:NaN,online:false,active:true});
 export function FieldDirectoryEditor({admin=false,establishmentId}:{admin?:boolean;establishmentId?:string}) {
   const player=useAppStore(s=>s.currentPlayerId);const auth=useAuthStore(s=>s.authUserId);const logged=useAuthStore(s=>s.isLoggedIn);
   const sports=useSports();const fields=useAppStore(s=>s.fields);
@@ -25,7 +26,7 @@ export function FieldDirectoryEditor({admin=false,establishmentId}:{admin?:boole
   const entries=visible.entries.filter(e=>!establishmentId||eligible.some(f=>f.id===e.fieldId));
   function edit(e:ManagedEntry){setForm({...e});setId(e.id);setRevision(e.revision);setLatitude(String(e.latitude));setLongitude(String(e.longitude));setConsent(false);setNotice('');}
   function reset(){setForm(blank());setId(null);setRevision(0);setLatitude('');setLongitude('');setConsent(false);setNotice('');}
-  function pickField(fieldId:string|null){const f=eligible.find(f=>f.id===fieldId);setForm(prev=>({...prev,fieldId,online:fieldId?prev.online:false,...(f?{name:f.name,address:f.address??prev.address,sportId:f.sportId}:{})}));if(f?.latitude!==null&&f?.latitude!==undefined){setLatitude(String(f.latitude));setLongitude(String(f.longitude));}}
+  function pickField(fieldId:string|null){const f=eligible.find(f=>f.id===fieldId);setForm(prev=>({...prev,fieldId,online:fieldId?prev.online:false,...(f?{name:f.name,address:f.address??prev.address,sportId:f.sportId,sportIds:fieldSportIds(f)}:{})}));if(f?.latitude!==null&&f?.latitude!==undefined){setLatitude(String(f.latitude));setLongitude(String(f.longitude));}}
   async function currentPoint(){setBusy(true);const session=directorySession();try{const p=await getCurrentLocation();if(session!==directorySession())return;if(!p)throw new Error('Localização indisponível. Informe as coordenadas do campo manualmente.');setLatitude(String(p.latitude));setLongitude(String(p.longitude));setNotice('Confira: este ponto deve ser o campo, não sua casa ou outro local.');}catch(e){setNotice(e instanceof Error?e.message:'Falha ao localizar.');}finally{setBusy(false);}}
   async function save(){setBusy(true);const session=directorySession();try{if(!consent)throw new Error('Confirme que os dados podem ser publicados.');if(!latitude.trim()||!longitude.trim())throw new Error('Informe a posição do campo.');await saveFieldDirectory(id,revision,{...form,latitude:Number(latitude.replace(',','.')),longitude:Number(longitude.replace(',','.'))},reason);if(session!==directorySession())return;await load();reset();setNotice('Ficha pública salva. Reserva online só aparece com vínculo ativo e horário disponível.');}catch(e){if(session===directorySession())setNotice(e instanceof Error?e.message:'Falha ao salvar.');}finally{setBusy(false);}}
   if(!key||forKey!==key)return <Card style={st.card}><Text style={st.copy}>{notice||'Consultando seus campos e permissões…'}</Text><Button small variant="outline" label="Consultar catálogo novamente" onPress={()=>void load()} /></Card>;
@@ -36,7 +37,7 @@ export function FieldDirectoryEditor({admin=false,establishmentId}:{admin?:boole
     <View style={st.row}>{admin&&<Button small variant={!form.fieldId?'primary':'outline'} label="Somente contato" disabled={busy} onPress={()=>pickField(null)} />}{eligible.map(f=><Button key={f.id} small variant={form.fieldId===f.id?'primary':'outline'} label={`${f.name} · ${f.establishmentName}`} disabled={busy||(!admin&&!!id&&form.fieldId!==f.id)} onPress={()=>pickField(f.id)} />)}</View>
     {!admin&&!eligible.length&&<Text style={st.copy}>Seu estabelecimento precisa de campo cadastrado e responsável confirmado para aparecer aqui.</Text>}
     <TextField label="Nome público do campo" value={form.name} onChangeText={name=>setForm(f=>({...f,name}))} maxLength={120} /><TextField label="Endereço, bairro e cidade" value={form.address} onChangeText={address=>setForm(f=>({...f,address}))} maxLength={240} />
-    <View style={st.row}>{sports.map(s=><Button small key={s.id} label={`${s.icon} ${s.label}`} variant={form.sportId===s.id?'primary':'outline'} disabled={busy||!!form.fieldId} onPress={()=>setForm(f=>({...f,sportId:s.id}))} />)}</View>
+    <Text style={st.copy}>{form.fieldId?'Esportes herdados da quadra. Edite-os em Campos do estabelecimento.':'Esportes aceitos: selecione um ou mais.'}</Text><View style={st.row}>{sports.map(s=><Button small key={s.id} label={`${s.icon} ${s.label}`} variant={fieldSportIds(form).includes(s.id)?'primary':'outline'} disabled={busy||!!form.fieldId} onPress={()=>setForm(f=>{const ids=toggleFieldSport(f.sportIds??[f.sportId],s.id);return {...f,sportId:ids[0]??'',sportIds:ids};})} />)}</View>
     <TextField label="Telefone público com DDD" value={form.phone} onChangeText={phone=>setForm(f=>({...f,phone}))} keyboardType="phone-pad" maxLength={25} />
     <View style={st.row}><Switch accessibilityLabel="Este telefone tem WhatsApp" value={form.whatsapp} onValueChange={whatsapp=>setForm(f=>({...f,whatsapp}))} disabled={busy} /><Text style={st.copy}>Este telefone comercial tem WhatsApp</Text></View>
     <View style={st.row}><View style={{flex:1}}><TextField label="Latitude do campo" value={latitude} onChangeText={setLatitude} keyboardType="numbers-and-punctuation" /></View><View style={{flex:1}}><TextField label="Longitude do campo" value={longitude} onChangeText={setLongitude} keyboardType="numbers-and-punctuation" /></View></View>

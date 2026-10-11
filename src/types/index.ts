@@ -132,8 +132,10 @@ export interface Field {
   notes: string | null;
   /** Vincula esse campo a um estabelecimento cadastrado (dono de verdade, recebe o rateio). null = sem dono cadastrado, funciona como hoje. */
   establishmentId: UUID | null;
-  /** Esporte jogado nesse campo (SportId de src/constants/sports.ts). Campo de pelada herda o esporte dela; campo próprio do estabelecimento escolhe o esporte na hora de cadastrar — assim um estabelecimento pode ter campos de esportes diferentes. */
+  /** Modalidade principal, preservada para compatibilidade com cadastros antigos. */
   sportId: string;
+  /** Modalidades do mesmo espaço físico. Ausente em cadastros antigos: usa sportId. */
+  sportIds?: string[];
   /** Localização aproximada para ordenar sugestões. Nunca substitui o endereço público. */
   location?: GeoPoint | null;
   /** Indicadores públicos consolidados do estabelecimento. */
@@ -157,6 +159,8 @@ export interface FieldBooking {
   peladaId: UUID | null;
   /** Nome exibido do time. Preenchido com o nome da pelada quando peladaId está setado. */
   teamName: string;
+  /** Modalidade desta reserva; a ocupação continua sendo do fieldId inteiro. */
+  sportId?: string;
   recurrence: FieldBookingRecurrence;
   /** 0 (domingo) a 6 (sábado) — obrigatório quando recurrence === 'weekly'. */
   dayOfWeek: number | null;

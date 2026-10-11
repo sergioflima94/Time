@@ -1,8 +1,10 @@
 import { distanceKm } from '@/lib/geo';
+import { fieldSupportsSport } from '@/lib/fieldSports';
 import type { GeoPoint } from '@/types';
 
 export interface DirectoryInput {
   fieldId: string | null; name: string; address: string; sportId: string;
+  sportIds?: string[];
   phone: string; whatsapp: boolean; latitude: number; longitude: number;
   online: boolean; active: boolean;
 }
@@ -10,7 +12,7 @@ export interface DirectoryRow extends DirectoryInput {
   id: string; registered: boolean; distanceKm: number | null; updatedAt: string;
 }
 export interface ManagedEntry extends DirectoryInput { id: string; revision: number; updatedAt: string }
-export interface LinkableField { id: string; name: string; address: string | null; sportId: string; latitude: number | null; longitude: number | null; establishmentName: string }
+export interface LinkableField { id: string; name: string; address: string | null; sportId: string; sportIds?: string[]; latitude: number | null; longitude: number | null; establishmentName: string }
 export interface DirectoryManagement { entries: ManagedEntry[]; fields: LinkableField[] }
 export interface DirectorySearch { origin: GeoPoint | null; radius: number; query: string; sportId: string | null; offset?: number }
 export const emptyDirectoryManagement = (): DirectoryManagement => ({ entries: [], fields: [] });
@@ -34,7 +36,7 @@ export function rankDirectory(entries: DirectoryRow[], search: DirectorySearch) 
   if (!Number.isFinite(search.radius)||search.radius<1||search.radius>100||search.query.length>120
     || (search.origin&&(!Number.isFinite(search.origin.latitude)||Math.abs(search.origin.latitude)>90||!Number.isFinite(search.origin.longitude)||Math.abs(search.origin.longitude)>180))) throw new Error('Busca inválida.');
   const q=search.query.trim().toLocaleLowerCase();
-  return entries.filter(e=>e.active&&(!search.sportId||e.sportId===search.sportId)&&`${e.name} ${e.address}`.toLocaleLowerCase().includes(q))
+  return entries.filter(e=>e.active&&(!search.sportId||fieldSupportsSport(e,search.sportId))&&`${e.name} ${e.address}`.toLocaleLowerCase().includes(q))
     .map(e=>({...e,distanceKm:search.origin?distanceKm(search.origin,e):null}))
     .filter(e=>e.distanceKm===null||e.distanceKm<=search.radius)
     .sort((a,b)=>Number(b.registered)-Number(a.registered)||(a.distanceKm??Infinity)-(b.distanceKm??Infinity)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));

@@ -11,6 +11,9 @@ import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { useSports } from '@/constants/sports';
 import { useAppStore } from '@/store/useAppStore';
+import { fieldSportIds, toggleFieldSport } from '@/lib/fieldSports';
+import { getSport } from '@/constants/sports';
+import type { Field } from '@/types';
 
 export default function EstablishmentFieldsScreen() {
   const SPORTS = useSports();
@@ -26,21 +29,37 @@ export default function EstablishmentFieldsScreen() {
   );
   const addEstablishmentField = useAppStore((s) => s.addEstablishmentField);
   const removeEstablishmentField = useAppStore((s) => s.removeEstablishmentField);
+  const updateField = useAppStore((s) => s.updateEstablishmentField);
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
-  const [sportId, setSportId] = useState('futebol');
+  const [sportIds, setSportIds] = useState<string[]>(['futebol']);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  function edit(field: Field) {
+    setEditing(field.id); setName(field.name); setAddress(field.address ?? '');
+    setSportIds(fieldSportIds(field)); setError(''); setOpen(true);
+  }
+
+  function newField() {
+    setEditing(null); setName(''); setAddress(''); setSportIds([SPORTS[0]?.id ?? 'futebol']); setError(''); setOpen(v => !v);
+  }
 
   function handleAdd() {
-    if (!name.trim()) return;
-    addEstablishmentField(establishmentId, currentPlayerId, { name: name.trim(), address: address.trim(), sportId });
+    if (!name.trim() || !sportIds.length) return;
+    try {
+      if (editing) updateField(editing, { name, address, sportIds });
+      else addEstablishmentField(establishmentId, currentPlayerId, { name: name.trim(), address: address.trim(), sportId: sportIds[0], sportIds });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível salvar.'); return; }
     setName('');
     setAddress('');
     setOpen(false);
+    setEditing(null); setError('');
   }
 
-  if (establishment && establishment.ownerPlayerId !== currentPlayerId) {
+  if (!establishment || establishment.ownerPlayerId !== currentPlayerId) {
     return (
       <Screen>
         <Text style={styles.hint}>Você não é dono deste estabelecimento.</Text>
@@ -61,11 +80,11 @@ export default function EstablishmentFieldsScreen() {
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Meus campos</Text>
-          <Pressable onPress={() => setOpen((v) => !v)}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Nova quadra" onPress={newField}>
             <Ionicons name={open ? 'close' : 'add-circle'} size={22} color={colors.special} />
           </Pressable>
         </View>
-        <Text style={styles.hint}>Campos que você mesmo cadastra, um por esporte — não dependem de nenhuma pelada.</Text>
+        <Text style={styles.hint}>Uma quadra pode receber vários esportes. A agenda é única: reservar vôlei também ocupa o espaço para futevôlei naquele horário.</Text>
 
         {myFields.map((f) => {
           const sport = SPORTS.find((s) => s.id === f.sportId) ?? SPORTS[0];
@@ -76,10 +95,11 @@ export default function EstablishmentFieldsScreen() {
                   {sport.icon} {f.name}
                 </Text>
                 <Text style={styles.hint}>
-                  {sport.label}
+                  {fieldSportIds(f).map(id => getSport(id).label).join(' · ')}{fieldSportIds(f).length > 1 ? ' · Híbrida' : ''}
                   {f.address ? ` · ${f.address}` : ''}
                 </Text>
               </View>
+              <Button small variant="ghost" label="Editar" accessibilityLabel={`Editar ${f.name}`} onPress={() => edit(f)} />
               <Pressable onPress={() => removeEstablishmentField(f.id)} hitSlop={8}>
                 <Ionicons name="trash-outline" size={18} color={colors.danger} />
               </Pressable>
@@ -92,14 +112,18 @@ export default function EstablishmentFieldsScreen() {
           <View style={styles.form}>
             <TextField label="Nome do campo" value={name} onChangeText={setName} placeholder="Quadra 1 - Vôlei" />
             <TextField label="Endereço (opcional)" value={address} onChangeText={setAddress} placeholder="Rua Exemplo, 123" />
-            <Text style={styles.hint}>Esporte</Text>
+            <Text style={styles.rowName}>{editing ? 'Editar quadra' : 'Nova quadra'}</Text>
+            <Text style={styles.hint}>Esportes aceitos — selecione um ou mais</Text>
             <View style={styles.sportsGrid}>
               {SPORTS.map((sport) => {
-                const active = sportId === sport.id;
+                const active = sportIds.includes(sport.id);
                 return (
                   <Pressable
                     key={sport.id}
-                    onPress={() => setSportId(sport.id)}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={sport.label}
+                    accessibilityState={{ checked: active }}
+                    onPress={() => setSportIds(ids => toggleFieldSport(ids, sport.id))}
                     style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
                   >
                     <Text style={styles.sportChipIcon}>{sport.icon}</Text>
@@ -108,7 +132,8 @@ export default function EstablishmentFieldsScreen() {
                 );
               })}
             </View>
-            <Button label="Adicionar campo" onPress={handleAdd} disabled={!name.trim()} />
+            {!!error && <Text accessibilityLiveRegion="polite" style={{ color: colors.danger }}>{error}</Text>}
+            <Button label={editing ? 'Salvar quadra' : 'Adicionar campo'} onPress={handleAdd} disabled={!name.trim() || !sportIds.length} />
           </View>
         )}
       </Card>
@@ -125,8 +150,9 @@ export default function EstablishmentFieldsScreen() {
                   <Text style={styles.rowName}>
                     {sport.icon} {f.name}
                   </Text>
-                  <Text style={styles.hint}>{sport.label}{f.address ? ` · ${f.address}` : ''}</Text>
+                  <Text style={styles.hint}>{fieldSportIds(f).map(id => getSport(id).label).join(' · ')}{f.address ? ` · ${f.address}` : ''}</Text>
                 </View>
+                <Button small variant="ghost" label="Editar" accessibilityLabel={`Editar ${f.name}`} onPress={() => edit(f)} />
               </View>
             );
           })}

@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
+import { fieldSportIds } from '@/lib/fieldSports';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -31,6 +32,7 @@ export default function PublicEstablishmentScreen() {
   const login = useAuthStore((s) => s.login);
 
   const [fieldId, setFieldId] = useState(fields[0]?.id ?? '');
+  const [sportId, setSportId] = useState(fields[0]?.sportId ?? 'futebol');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('19:00');
   const [durationMinutes, setDurationMinutes] = useState('60');
@@ -57,13 +59,15 @@ export default function PublicEstablishmentScreen() {
         nickname: null,
         phone: signupPhone.trim() || null,
         preferredPosition: 'line',
-        favoriteSports: [fieldOf(finalFieldId)?.sportId ?? 'futebol'],
+        favoriteSports: [sportId],
       });
       login();
     }
 
+    try {
     const result = addFieldBooking(establishmentId, currentPlayerId, {
       fieldId: finalFieldId,
+      sportId,
       peladaId: null,
       teamName: teamName.trim(),
       recurrence: 'single',
@@ -80,6 +84,7 @@ export default function PublicEstablishmentScreen() {
     }
     setError(null);
     setDone({ date: date.trim(), time });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível reservar.'); }
   }
 
   if (!establishment) {
@@ -121,6 +126,7 @@ export default function PublicEstablishmentScreen() {
               <Text style={styles.fieldRowIcon}>{sport.icon}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fieldRowName}>{f.name}</Text>
+                <Text style={styles.hint}>{fieldSportIds(f).map(id => getSport(id).label).join(' · ')}</Text>
                 {f.address && <Text style={styles.hint}>{f.address}</Text>}
               </View>
             </View>
@@ -141,7 +147,7 @@ export default function PublicEstablishmentScreen() {
               return (
                 <Pressable
                   key={f.id}
-                  onPress={() => setFieldId(f.id)}
+                  onPress={() => { setFieldId(f.id); setSportId(f.sportId); }}
                   style={[styles.chip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
                 >
                   <Text style={styles.chipIcon}>{sport.icon}</Text>
@@ -152,6 +158,8 @@ export default function PublicEstablishmentScreen() {
           </View>
 
           <TextField label="Data" value={date} onChangeText={setDate} placeholder="2026-10-05" />
+          <Text style={styles.hint}>Esporte da reserva · agenda única da quadra</Text>
+          <View style={styles.chipsRow}>{fieldSportIds(fieldOf(fieldId) ?? fields[0]).map(id => <Button key={id} small label={getSport(id).label} variant={sportId === id ? 'primary' : 'outline'} onPress={() => setSportId(id)} />)}</View>
           <View style={styles.row3}>
             <View style={styles.thirdInput}>
               <TextField label="Horário" value={time} onChangeText={setTime} placeholder="19:00" />
