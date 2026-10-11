@@ -38,7 +38,9 @@ module.exports = {
     web: {
       favicon: './assets/branding/marcoujogou-icon.png',
       bundler: 'metro',
-      output: 'static',
+      // HostGator serves the authenticated app as a SPA (dynamic game/team IDs).
+      // Keep the existing static output for all other export workflows.
+      output: process.env.MARCOUJOGOU_WEB_OUTPUT === 'single' ? 'single' : 'static',
     },
     plugins: [
       'expo-router',

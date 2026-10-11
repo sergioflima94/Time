@@ -52,6 +52,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "web:hostgator": "node scripts/export-web-hostgator.cjs",
     "supabase:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts",
     "supabase:push": "supabase db push --linked",
     "supabase:functions": "supabase functions deploy",

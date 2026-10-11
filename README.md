@@ -13,6 +13,19 @@ Estrutura escolhida: **marcoujogou.com.br** para o site de apresentação,
 **app.marcoujogou.com.br** para a versão web do aplicativo, ambos na HostGator
 compartilhada; Supabase permanece como backend do app e do APK.
 
+### Exportar o aplicativo web para o repositório do site
+
+Com dependências instaladas e `.env.local` com o Supabase real, faça commit
+das alterações e execute `npm run web:hostgator`. O script usa saída SPA
+(`single`) apenas nessa exportação, registra commit/versão em `release.json`
+e rejeita demonstração e chaves privadas. Não altera o build nativo.
+Importe a pasta gerada com `scripts/import-app.cjs` no repositório do site;
+o resultado publicável fica em `app/` nesse outro Git. Não copie o projeto Expo.
+O subdomínio deve apontar para a pasta `app`, não para o caminho URL `/app`.
+Configuração de e-mail: `./scripts/configure-auth-email.ps1 -Action AllowWeb`
+adiciona o callback HTTPS do subdomínio sem remover o retorno do APK nem
+alterar template, SMTP, confirmação, prazos ou limites de envio.
+
 O site estático em `website/public` contém três páginas, sem login, bibliotecas
 externas, cookies de rastreamento ou servidor Node/PHP:
 

@@ -1,5 +1,6 @@
 param(
-  [ValidateSet('Inspect', 'Apply', 'Verify')][string]$Action = 'Inspect',
+  [ValidateSet('Inspect', 'Apply', 'Verify', 'AllowWeb')][string]$Action = 'Inspect',
+  [switch]$IncludeWeb,
   [ValidatePattern('^[a-z]{20}$')][string]$ProjectRef = 'oyhbmbstsiagwljatawq'
 )
 $ErrorActionPreference = 'Stop'
@@ -40,20 +41,39 @@ try {
   if ($template -match 'localhost|127\.0\.0\.1' -or $template -notmatch 'href="{{ \.ConfirmationURL }}"' -or $template -notmatch '{{ \.Token }}') { throw 'Modelo inválido: preserve a verificação e o código do Supabase.' }
   $subject = 'Confirme seu e-mail — MarcouJogou'
   $mobileUrl = 'pelada://auth/callback'
+  $webUrl = 'https://app.marcoujogou.com.br/auth/callback'
+  if ($Action -eq 'AllowWeb') {
+    $allowList = @($before.uri_allow_list -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $allowList = @($allowList + $mobileUrl + $webUrl | Select-Object -Unique)
+    $stage = 'allow-web-callback'
+    $patch = @{ uri_allow_list = ($allowList -join ',') }
+    $null = Invoke-RestMethod -Method Patch -Uri $endpoint -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($patch | ConvertTo-Json -Compress)))
+  }
   if ($Action -eq 'Apply') {
     if ($before.mailer_autoconfirm) { throw 'A confirmação está desligada no servidor. Revise antes de aplicar.' }
     # Preserve existing production/web redirects. Remove only loopback addresses.
     $allowList = @($before.uri_allow_list -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -notmatch '^https?://(localhost|127\.0\.0\.1)([:/]|$)' })
     $allowList = @($allowList + $mobileUrl | Select-Object -Unique)
+    if ($IncludeWeb) { $allowList = @($allowList + $webUrl | Select-Object -Unique) }
     $patch = @{ site_url = $mobileUrl; uri_allow_list = ($allowList -join ','); mailer_subjects_confirmation = $subject; mailer_templates_confirmation_content = $template }
     $stage = 'publish-template'
     # Deliberately do not send SMTP credentials, rates, MFA, OTP length or autoconfirm.
     $null = Invoke-RestMethod -Method Patch -Uri $endpoint -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($patch | ConvertTo-Json -Compress)))
   }
   $stage = 'verify-config'
-  $after = if ($Action -eq 'Apply') { Invoke-RestMethod -Uri $endpoint -Headers $headers } else { $before }
-  if ($Action -ne 'Inspect') {
+  $after = if ($Action -in @('Apply', 'AllowWeb')) { Invoke-RestMethod -Uri $endpoint -Headers $headers } else { $before }
+  if ($Action -eq 'AllowWeb') {
+    if (@($after.uri_allow_list -split ',') -notcontains $webUrl -or @($after.uri_allow_list -split ',') -notcontains $mobileUrl) { throw 'Os retornos web e APK não foram confirmados.' }
+    foreach ($key in @('site_url', 'mailer_subjects_confirmation', 'mailer_templates_confirmation_content', 'mailer_autoconfirm', 'mailer_otp_length', 'mailer_otp_exp', 'smtp_host', 'smtp_sender_name', 'rate_limit_email_sent', 'rate_limit_verify', 'mfa_max_enrolled_factors')) {
+      if ($before.$key -ne $after.$key) { throw "Alteração inesperada na propriedade $key." }
+    }
+    foreach ($url in @($before.uri_allow_list -split ',' | Where-Object { $_ })) {
+      if (@($after.uri_allow_list -split ',') -notcontains $url.Trim()) { throw 'Um redirecionamento existente foi removido.' }
+    }
+  }
+  if ($Action -in @('Apply', 'Verify')) {
     if ($after.site_url -ne $mobileUrl -or @($after.uri_allow_list -split ',') -notcontains $mobileUrl -or $after.mailer_subjects_confirmation -ne $subject -or $after.mailer_templates_confirmation_content.Trim() -ne $template.Trim() -or $after.mailer_autoconfirm) { throw 'O servidor não confirmou a configuração esperada.' }
+    if ($IncludeWeb -and @($after.uri_allow_list -split ',') -notcontains $webUrl) { throw 'O retorno web não foi autorizado.' }
     foreach ($key in @('mailer_autoconfirm', 'mailer_otp_length', 'mailer_otp_exp', 'smtp_host', 'smtp_sender_name', 'rate_limit_email_sent', 'rate_limit_verify', 'mfa_max_enrolled_factors')) {
       if ($before.$key -ne $after.$key) { throw "Alteração inesperada na propriedade $key." }
     }
