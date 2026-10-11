@@ -207,8 +207,8 @@ export default function ChampionshipMatchScreen() {
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Empatou — decide nos pênaltis</Text>
           <View style={styles.penRow}>
-            <TextField label={teamA?.name ?? 'A'} value={penA} onChangeText={setPenA} keyboardType="number-pad" style={{ flex: 1 }} />
-            <TextField label={teamB?.name ?? 'B'} value={penB} onChangeText={setPenB} keyboardType="number-pad" style={{ flex: 1 }} />
+            <TextField label={teamA?.name ?? 'A'} value={penA} onChangeText={setPenA} keyboardType="number-pad" containerStyle={{ flex: 1, minWidth: 0 }} />
+            <TextField label={teamB?.name ?? 'B'} value={penB} onChangeText={setPenB} keyboardType="number-pad" containerStyle={{ flex: 1, minWidth: 0 }} />
           </View>
           <Button label="Confirmar resultado" onPress={confirmPenalties} disabled={penA === '' || penB === '' || penA === penB} />
         </Card>

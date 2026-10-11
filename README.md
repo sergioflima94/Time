@@ -1,5 +1,24 @@
 # MarcouJogou
 
+## Espaçamento e organização das telas
+
+- `Screen` e `Card` separam os filhos diretos com 8 px por padrão. Layouts que
+  já controlam a própria densidade podem sobrescrever `gap`; a Home mantém seu
+  ritmo compacto, sem somar espaçamento aos blocos existentes.
+- `Horários e desafios` agrupa time, campo/bairro e esporte em um card de filtros.
+  Separa filtros, oportunidades e times disponíveis com 18 px; grupos dentro
+  dos cards usam 8–12 px. Resultados vazios e filtros sem correspondência têm
+  mensagens próprias, sem afirmar disponibilidade que não existe.
+- A publicação distingue informações do time e do campo com divisórias. Preço,
+  detalhes, status e ações não ficam colados. O onboarding também separa cada
+  escolha de perfil da sua explicação.
+- `TextField.containerStyle` estiliza o bloco completo (rótulo + input), sem
+  confundir com `style`, que continua sendo aplicado só ao input. Em formulários
+  com `gap`, use `containerStyle={{ marginBottom: 0 }}` para não duplicar margem.
+- Teste de regressão: `scripts/test-layout-spacing-ui.cjs`, com backend
+  interceptado, em 320/390/1280 px, fluxos de oportunidade/publicação/pedidos e
+  telas representativas. Não cria reservas, contas ou pagamentos reais.
+
 ## Amigos: contatos, e-mail/celular, proximidade e convite de cadastro
 
 - Em **Amigos → Buscar**, pesquisa no servidor por nome/apelido (3+ letras),

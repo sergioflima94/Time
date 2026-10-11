@@ -51,7 +51,7 @@ export default function AgendaScreen() {
   const hasRatings = overall.ratingsCount > 0;
 
   return (
-    <Screen>
+    <Screen contentStyle={{ gap: 0 }}>
       <View style={styles.welcomeHeader}>
         <View style={{ flex: 1 }}>
           <BrandLogo compact />

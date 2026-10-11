@@ -181,7 +181,7 @@ export default function InscreverTimeScreen() {
           <Text style={styles.sectionTitle}>Jogadores do time</Text>
           <Text style={styles.hint}>Digite o nome de cada jogador (não precisa ter conta no app).</Text>
           <View style={styles.guestForm}>
-            <TextField label="" value={guestDraft} onChangeText={setGuestDraft} placeholder="Nome do jogador" style={{ flex: 1 }} />
+            <TextField label="" value={guestDraft} onChangeText={setGuestDraft} placeholder="Nome do jogador" containerStyle={{ flex: 1, minWidth: 0 }} />
             <Button label="+" small onPress={addGuestName} />
           </View>
           {guestNames.map((n, idx) => (

@@ -607,6 +607,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   pickerChip: {
+    maxWidth: '100%',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
@@ -615,6 +616,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   pickerChipText: {
+    flexShrink: 1,
     color: colors.text,
     fontSize: 13,
     fontWeight: '700',

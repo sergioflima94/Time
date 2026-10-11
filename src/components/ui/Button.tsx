@@ -58,6 +58,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
 
 const styles = StyleSheet.create({
   base: {
+    maxWidth: '100%',
     minHeight: 48,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -73,6 +74,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: '800',
+    textAlign: 'center',
   },
   smallLabel: {
     fontSize: 13,

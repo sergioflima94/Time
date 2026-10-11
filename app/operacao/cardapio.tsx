@@ -51,7 +51,7 @@ export default function MenuScreen() {
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Nova categoria</Text>
-        <View style={styles.inline}><View style={{ flex: 1 }}><TextField label="Nome" value={categoryName} onChangeText={setCategoryName} placeholder="Porções" /></View><Button label="Criar" small onPress={handleCategory} disabled={!categoryName.trim()} /></View>
+        <View style={styles.inline}><View style={{ flex: 1 }}><TextField label="Nome" value={categoryName} onChangeText={setCategoryName} placeholder="Porções" containerStyle={{marginBottom:0}} /></View><Button label="Criar" small onPress={handleCategory} disabled={!categoryName.trim()} /></View>
       </Card>
 
       <Card style={styles.section}>
@@ -60,7 +60,7 @@ export default function MenuScreen() {
         <View style={styles.chips}>{categories.map((category) => <Pressable key={category.id} onPress={() => setCategoryId(category.id)} style={[styles.chip, categoryId === category.id && styles.chipActive]}><Text style={[styles.chipText, categoryId === category.id && styles.chipTextActive]}>{category.name}</Text></Pressable>)}</View>
         <TextField label="Nome" value={name} onChangeText={setName} placeholder="Espetinho de linguiça" />
         <TextField label="Descrição" value={description} onChangeText={setDescription} placeholder="Acompanhamentos e observações" />
-        <View style={styles.inline}><View style={{ flex: 1 }}><TextField label="Preço (R$)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" /></View><View style={{ flex: 1 }}><TextField label="Estoque (vazio = ilimitado)" value={stock} onChangeText={setStock} keyboardType="number-pad" /></View></View>
+        <View style={styles.inline}><View style={{ flex: 1 }}><TextField label="Preço (R$)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" containerStyle={{marginBottom:0}} /></View><View style={{ flex: 1 }}><TextField label="Estoque (vazio = ilimitado)" value={stock} onChangeText={setStock} keyboardType="number-pad" containerStyle={{marginBottom:0}} /></View></View>
         <SegmentedControl<PreparationStation> label="Vai para" value={station} onChange={setStation} options={[{ value: 'kitchen', label: 'Cozinha' }, { value: 'bar', label: 'Bar' }, { value: 'counter', label: 'Balcão' }]} />
         <Button label="Adicionar ao cardápio" onPress={handleProduct} disabled={!name.trim() || !categoryId || !price.trim()} />
       </Card>
@@ -82,7 +82,7 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.xl }, title: { color: colors.text, fontSize: 22, fontWeight: '800' }, meta: { color: colors.textMuted, fontSize: 12 },
-  section: { marginBottom: spacing.lg }, sectionTitle: { color: colors.text, fontWeight: '800', marginBottom: spacing.md }, inline: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, label: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.xs },
+  section: { marginBottom: spacing.lg }, sectionTitle: { color: colors.text, fontWeight: '800', marginBottom: spacing.md }, inline: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }, label: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.md }, chip: { borderWidth: 1, borderColor: colors.cardBorder, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 16 }, chipActive: { borderColor: colors.primary }, chipText: { color: colors.textMuted }, chipTextActive: { color: colors.primary, fontWeight: '700' },
   group: { marginBottom: spacing.lg }, groupTitle: { color: colors.text, fontSize: 17, fontWeight: '800', marginBottom: spacing.sm }, productCard: { marginBottom: spacing.sm }, row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, productName: { color: colors.text, fontWeight: '700' },
 });

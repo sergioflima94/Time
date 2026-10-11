@@ -40,6 +40,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   content: {
+    // Keep ungrouped controls readable; screens with their own rhythm can override.
+    gap: spacing.sm,
     width: '100%',
     maxWidth: 760,
     alignSelf: 'center',
