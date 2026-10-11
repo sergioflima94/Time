@@ -59,6 +59,22 @@ O perfil mantém um botão de saída mesmo se seus dados não carregarem.
 Esta correção requer o APK 1.0.4 (`versionCode=5`); o APK 1.0.3 abaixo não se
 atualiza automaticamente. Não há mudança de layout da Home nesta correção.
 
+Build **MarcouJogou 1.0.4**, concluído em 11/10/2026:
+[baixar o APK atualizado](https://expo.dev/artifacts/eas/j2XkF_YExHLNghSR1SSt822iddPN4Enk3pv0QVQPhJI.apk).
+[Detalhes do build](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/3a31c98e-9456-4378-9d00-4814ba2988e5).
+Instale por cima da versão atual, sem desinstalar. O arquivo completo foi
+baixado e validado: rótulo `MarcouJogou`, pacote `com.pelada.app`, versão
+`1.0.4`, `versionCode=5`, assinatura APK v2 com o mesmo certificado anterior,
+SDK mínimo 24, target 36 e quatro ABIs. Tamanho: 146.537.279 bytes (~140 MiB).
+SHA-256: `FDED489B8CB3A997D20C450067D9ABA7B0F1FDF0D3816AAE0FFB7919F8FB2429`.
+Certificado SHA-256: `5ef1865b29185024a7af5e740909faa09cc83d329dc9ec25b6205e2b6fe1ce6e`.
+Código do app compilado: commit `55f1085`. O APK não é versionado no Git.
+As regressões de interface foram executadas em Chrome mobile com backend
+interceptado, não em um aparelho Android físico. No aparelho, valide
+**Perfil → Sair → voltar → fechar/abrir**: a conta não deve reaparecer.
+
+### APK anterior (1.0.3, sem a correção de saída)
+
 Build **MarcouJogou 1.0.3**, concluído em 10/10/2026:
 [baixar o APK para Android](https://expo.dev/artifacts/eas/BZnMv3dsicq5l1WnZWLVVOROKQwSfKVfUQULXUK_x0A.apk).
 Arquivo com aproximadamente 140 MiB, Android 7.0 ou superior, assinatura APK v2
@@ -191,7 +207,10 @@ e callback, código e link colado em Chrome mobile, com as respostas de Auth int
 contas ou enviar e-mails reais). O callback Android ainda deve ser validado no aparelho.
 Os testes de saída cobrem escopo local, toques repetidos/carregamento, falha com
 sessão mantida, erro remoto com sessão removida pelo SDK, retorno pelo histórico,
-recarregamento, rotas da conta e saída com o perfil indisponível. TypeScript e
+recarregamento, rotas da conta e saída com o perfil indisponível. Chrome mobile
+também validou a saída com a rede desligada, mantendo o tratamento de falha se
+o SDK não conseguir remover a sessão. Campos próximos e o fluxo de agendamento
+passaram na regressão em modo demonstração isolado. TypeScript e
 Expo Doctor (21/21) também passaram na preparação da versão 1.0.4.
 
 ## Campos perto de você

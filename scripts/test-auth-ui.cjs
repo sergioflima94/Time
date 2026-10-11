@@ -171,6 +171,19 @@ async function run() {
     assert.equal((await savedAuth()).isLoggedIn, false); // SDK cleared its actual local session on remote failure.
     assert.equal(logoutScopes.at(-1), 'local');
     remoteLogoutError = false;
+    await page.getByPlaceholder('voce@email.com').fill('validation@example.invalid');
+    await page.getByPlaceholder('••••••••').fill('test-password');
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/');
+    await page.getByText('Perfil', { exact: true }).click();
+    await page.getByRole('button', { name: 'Sair', exact: true }).waitFor();
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Sair', exact: true }).click();
+    await page.getByRole('button', { name: 'Entrar', exact: true }).waitFor();
+    assert.equal((await savedAuth()).isLoggedIn, false);
+    assert.equal((await savedAuth()).authUserId, null);
+    await page.screenshot({ path: path.join(out, '10-saida-offline.png'), fullPage: true });
+    await context.setOffline(false);
     missingProfile = true;
     await page.getByPlaceholder('voce@email.com').fill('validation@example.invalid');
     await page.getByPlaceholder('••••••••').fill('test-password');
@@ -192,7 +205,7 @@ async function run() {
     assert(await emailPage.getByText('MarcouJogou', { exact: true }).count());
     await emailPage.screenshot({ path: path.join(out, '05-email-marcoujogou.png'), fullPage: true });
     await emailPage.close();
-    console.log('PASS: signup, OTP/callback/password login, empty-account Home, local logout/loading, protected routes/back/reload, private cold start, public fields, remote logout failure with SDK session cleared, logout with missing profile, mobile email. All backend responses stubbed.');
+    console.log('PASS: signup, OTP/callback/password login, empty-account Home, local logout/loading, protected routes/back/reload, private cold start, public fields, remote failure + offline logout with SDK session cleared, logout with missing profile, mobile email. All backend responses stubbed.');
   } catch (e) {
     await page.screenshot({ path: path.join(out, 'failure.png'), fullPage: true });
     console.log({ pathname: new URL(page.url()).pathname, body: (await page.locator('body').innerText()).slice(0, 2000), auth: await savedAuth().catch(() => null), authRequests, errors });
