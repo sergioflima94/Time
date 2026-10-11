@@ -7,6 +7,8 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
 import { useCurrentPelada, useMyPeladas } from '@/hooks/useCurrentPelada';
 import { useAppStore } from '@/store/useAppStore';
+import { AdaptiveSelect } from './ui/AdaptiveSelect';
+import { Button } from './ui/Button';
 
 export function PeladaSwitcher() {
   const pelada = useCurrentPelada();
@@ -14,6 +16,13 @@ export function PeladaSwitcher() {
   const setCurrentPelada = useAppStore((s) => s.setCurrentPelada);
   const [open, setOpen] = useState(false);
   const sport = getSport(pelada.sportId);
+
+  if (myPeladas.length > 3) return <View style={{gap:spacing.xs}}>
+    <AdaptiveSelect title="Trocar de time" value={pelada.id} onChange={setCurrentPelada}
+      options={myPeladas.map(p=>({value:p.id,label:`${getSport(p.sportId).icon} ${p.name}`,detail:getSport(p.sportId).label}))}
+      footer={close=><View style={{gap:spacing.xs}}><Button small variant="ghost" label="Entrar em outra pelada" onPress={()=>{close();router.push('/entrar-pelada');}} /><Button small variant="ghost" label="Criar uma pelada nova" onPress={()=>{close();router.push('/criar-pelada');}} /></View>} />
+    <Text style={[styles.sportLabel,{color:sport.color}]}>{sport.label}</Text>
+  </View>;
 
   return (
     <View>

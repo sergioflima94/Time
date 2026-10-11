@@ -3,6 +3,7 @@ import { Switch, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { hubStyles as st } from '@/components/PlayHubPanels';
 import { useSports } from '@/constants/sports';
 import { fieldSportIds, toggleFieldSport } from '@/lib/fieldSports';
@@ -34,7 +35,8 @@ export function FieldDirectoryEditor({admin=false,establishmentId}:{admin?:boole
     <View style={st.row}><Button small variant="outline" label={admin?'Novo contato de campo':'Nova ficha do meu campo'} onPress={reset} disabled={busy} /><Button small variant="ghost" label="Atualizar catálogo" onPress={()=>void load()} disabled={busy} /></View>
     {entries.map(e=><Button key={e.id} small variant={id===e.id?'primary':'outline'} label={`Editar ${e.name}${e.active?'':' · oculto'}`} onPress={()=>edit(e)} disabled={busy} />)}
     <Text style={st.title}>{id?'Editar ficha pública':'Nova ficha pública'}</Text><Text style={st.copy}>Vínculo com campo cadastrado (não transfere propriedade):</Text>
-    <View style={st.row}>{admin&&<Button small variant={!form.fieldId?'primary':'outline'} label="Somente contato" disabled={busy} onPress={()=>pickField(null)} />}{eligible.map(f=><Button key={f.id} small variant={form.fieldId===f.id?'primary':'outline'} label={`${f.name} · ${f.establishmentName}`} disabled={busy||(!admin&&!!id&&form.fieldId!==f.id)} onPress={()=>pickField(f.id)} />)}</View>
+    <AdaptiveSelect title="Vincular ficha a um campo" value={form.fieldId??''} onChange={id=>pickField(id||null)} disabled={busy}
+      options={[...(admin?[{value:'',label:'Somente contato'}]:[]),...eligible.map(f=>({value:f.id,label:f.name,detail:f.establishmentName,disabled:!admin&&!!id&&form.fieldId!==f.id}))]} />
     {!admin&&!eligible.length&&<Text style={st.copy}>Seu estabelecimento precisa de campo cadastrado e responsável confirmado para aparecer aqui.</Text>}
     <TextField label="Nome público do campo" value={form.name} onChangeText={name=>setForm(f=>({...f,name}))} maxLength={120} /><TextField label="Endereço, bairro e cidade" value={form.address} onChangeText={address=>setForm(f=>({...f,address}))} maxLength={240} />
     <Text style={st.copy}>{form.fieldId?'Esportes herdados da quadra. Edite-os em Campos do estabelecimento.':'Esportes aceitos: selecione um ou mais.'}</Text><View style={st.row}>{sports.map(s=><Button small key={s.id} label={`${s.icon} ${s.label}`} variant={fieldSportIds(form).includes(s.id)?'primary':'outline'} disabled={busy||!!form.fieldId} onPress={()=>setForm(f=>{const ids=toggleFieldSport(f.sportIds??[f.sportId],s.id);return {...f,sportId:ids[0]??'',sportIds:ids};})} />)}</View>

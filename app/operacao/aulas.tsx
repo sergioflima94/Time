@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
@@ -79,7 +80,7 @@ export default function ClassesManagementScreen() {
           <TextField label="Nome" value={name} onChangeText={setName} placeholder="Escolinha de vôlei" />
           <Text style={styles.label}>Esporte</Text><View style={styles.chips}>{SPORTS.map((sport) => <Pressable key={sport.id} onPress={() => { setSportId(sport.id); const matching = fields.find((field) => fieldSupportsSport(field, sport.id)); setFieldId(matching?.id ?? ''); }} style={[styles.chip, sportId === sport.id && { borderColor: sport.color }]}><Text style={[styles.chipText, sportId === sport.id && { color: sport.color }]}>{sport.icon} {sport.label}</Text></Pressable>)}</View>
           <SegmentedControl<ClassFormat> label="Formato" value={format} onChange={setFormat} options={[{ value: 'group', label: 'Turma' }, { value: 'private', label: 'Particular' }]} />
-          <Text style={styles.label}>Campo</Text><View style={styles.chips}>{fields.filter((field) => fieldSupportsSport(field, sportId)).map((field) => <Pressable key={field.id} onPress={() => setFieldId(field.id)} style={[styles.chip, fieldId === field.id && styles.chipActive]}><Text style={[styles.chipText, fieldId === field.id && styles.chipTextActive]}>{field.name}</Text></Pressable>)}</View>
+          <AdaptiveSelect label="Campo" title="Escolher campo da aula" value={fieldId} onChange={setFieldId} options={fields.filter(f=>fieldSupportsSport(f,sportId)).map(f=>({value:f.id,label:f.name}))} />
           {coaches.length > 0 && <><Text style={styles.label}>Professor</Text><View style={styles.chips}>{coaches.map((coach) => <Pressable key={coach.id} onPress={() => setCoachId(coach.id)} style={[styles.chip, coachId === coach.id && styles.chipActive]}><Text style={[styles.chipText, coachId === coach.id && styles.chipTextActive]}>{players.find((player) => player.id === coach.playerId)?.name}</Text></Pressable>)}</View></>}
           <TextField label="Nível" value={level} onChangeText={setLevel} />
           <View style={styles.inline}><View style={{ flex: 1 }}><TextField label="Capacidade" value={format === 'private' ? '1' : capacity} onChangeText={setCapacity} editable={format === 'group'} keyboardType="number-pad" /></View><View style={{ flex: 1 }}><TextField label="Duração (min)" value={duration} onChangeText={setDuration} keyboardType="number-pad" /></View></View>

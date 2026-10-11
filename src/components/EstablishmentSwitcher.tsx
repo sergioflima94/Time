@@ -5,10 +5,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/constants/theme';
 import type { Establishment } from '@/types';
+import { AdaptiveSelect } from './ui/AdaptiveSelect';
+import { Button } from './ui/Button';
 
 /** Troca rápida entre os estabelecimentos que o jogador é dono — mesmo padrão do PeladaSwitcher. */
 export function EstablishmentSwitcher({ current, all }: { current: Establishment; all: Establishment[] }) {
   const [open, setOpen] = useState(false);
+
+  if (all.length > 3) return <View style={{gap:spacing.xs}}>
+    <AdaptiveSelect title="Trocar de estabelecimento" value={current.id} onChange={id=>{if(id!==current.id)router.replace(`/estabelecimento/${id}`);}}
+      options={all.map(e=>({value:e.id,label:e.name}))}
+      footer={close=><View style={{gap:spacing.xs}}><Button small variant="ghost" label="Ver todos / cadastrar novo" onPress={()=>{close();router.push('/estabelecimento');}} /><Button small variant="ghost" label="Voltar ao modo jogador" onPress={()=>{close();router.push('/(tabs)/perfil');}} /></View>} />
+    <Text style={styles.modeLabel}>Modo dono de campo</Text>
+  </View>;
 
   return (
     <View>

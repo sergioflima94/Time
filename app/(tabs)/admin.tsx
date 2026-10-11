@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
 import { Avatar } from '@/components/ui/Avatar';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -75,23 +76,8 @@ export default function AdminScreen() {
 function AdminPeladaPicker({ adminPeladas, currentId }: { adminPeladas: Pelada[]; currentId: string }) {
   const setCurrentPelada = useAppStore((s) => s.setCurrentPelada);
   return (
-    <View style={styles.pickerRow}>
-      {adminPeladas.map((p) => {
-        const sport = getSport(p.sportId);
-        const active = p.id === currentId;
-        return (
-          <Pressable
-            key={p.id}
-            onPress={() => setCurrentPelada(p.id)}
-            style={[styles.pickerChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
-          >
-            <Text style={styles.pickerChipText}>
-              {sport.icon} {p.name}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <AdaptiveSelect title="Escolher time para administrar" label="Time administrado" value={currentId} onChange={setCurrentPelada}
+      options={adminPeladas.map(p=>({value:p.id,label:`${getSport(p.sportId).icon} ${p.name}`,detail:getSport(p.sportId).label}))} />
   );
 }
 
@@ -478,7 +464,8 @@ function SchedulesSection() {
             />
           )}
           <TextField label="Horário (HH:mm)" value={time} onChangeText={setTime} placeholder="20:00" />
-          <SegmentedControl
+          <AdaptiveSelect
+            title="Escolher campo da partida"
             label="Campo"
             value={fieldId}
             onChange={setFieldId}

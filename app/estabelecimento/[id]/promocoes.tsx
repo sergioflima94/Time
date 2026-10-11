@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
@@ -51,7 +52,7 @@ export default function FieldPromotionsScreen() {
         <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Nova campanha</Text><Badge label="Patrocinado" color={colors.gold} textColor="#111827" /></View>
         <Text style={styles.hint}>O anúncio aparece depois dos campos preferidos do time e sempre identificado. A cobrança estimada só ocorre por reserva confirmada.</Text>
         <Text style={styles.label}>Campo</Text>
-        <View style={styles.chips}>{fields.map((field) => <Pressable key={field.id} onPress={() => setFieldId(field.id)} style={[styles.chip, fieldId === field.id && styles.chipActive]}><Text style={styles.chipText}>{field.name}</Text></Pressable>)}</View>
+        <AdaptiveSelect title="Escolher campo da promoção" value={fieldId} onChange={setFieldId} options={fields.map(f=>({value:f.id,label:f.name}))} />
         <TextField label="Oferta" value={label} onChangeText={setLabel} placeholder="Ex.: 10% na primeira reserva" />
         <View style={styles.formRow}><View style={{ flex: 1 }}><TextField label="Por reserva (R$)" value={commission} onChangeText={setCommission} keyboardType="decimal-pad" /></View><View style={{ flex: 1 }}><TextField label="Orçamento (R$)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" /></View></View>
         <Button label="Publicar campanha" onPress={submit} disabled={!fieldId || !label.trim()} />

@@ -15,7 +15,9 @@ async function run(){
  const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
  try{
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();page.setDefaultTimeout(12000);
-  const errors=[],actions=[];let populated=false;
+  const errors=[],actions=[];let populated=false,optionCount=2;
+  const teamIds=()=>Array.from({length:optionCount},(_,i)=>i===0?team:id(10+i));
+  const teamName=t=>t===team?'Time de teste':t===id(11)?'Turma dos amigos do futebol de sábado à tarde no bairro Centro':t===id(14)?'Atlético Olímpia':`Time ${t.slice(-2)}`;
   page.on('pageerror',e=>errors.push({route:page.url(),message:e.message,stack:e.stack}));
   await ctx.routeWebSocket(/supabase\.co/,ws=>ws.close());
   await ctx.route('https://*.supabase.co/**',async route=>{
@@ -24,10 +26,10 @@ async function run(){
    if(url.pathname.endsWith('/token'))json=session;
    else if(url.pathname.endsWith('/user'))json=user;
    else if(url.pathname.endsWith('/players'))json=url.searchParams.has('auth_user_id')?player:[player];
-   else if(url.pathname.endsWith('/peladas'))json=[team,id(11)].map(t=>({id:t,name:t===team?'Time de teste':'Turma dos amigos do futebol de sábado à tarde no bairro Centro',description:null,sport_id:'futebol',football_variant:'society',default_match_minutes:10,default_max_players:12,default_players_per_team:6,default_draw_method:'rating',invite_code:t===team?'TESTTEAM':'LONGTEAM',created_by:pid,created_at:created}));
-   else if(url.pathname.endsWith('/pelada_memberships'))json=[team,id(11)].map(t=>({pelada_id:t,player_id:pid,role:'admin',active:true,joined_at:created}));
-   else if(url.pathname.endsWith('/establishments'))json=[{id:venue,owner_player_id:pid,name:'Arena de teste',payout_method:'in_person',access_code:'TESTARENA',created_at:created}];
-   else if(url.pathname.endsWith('/fields'))json=[{id:field,establishment_id:venue,pelada_id:team,name:'Arena de teste',sport_id:'futebol',sport_ids:['futebol','volei'],address:'Bairro Centro',created_at:created}];
+   else if(url.pathname.endsWith('/peladas'))json=teamIds().map(t=>({id:t,name:teamName(t),description:null,sport_id:'futebol',football_variant:'society',default_match_minutes:10,default_max_players:12,default_players_per_team:6,default_draw_method:'rating',invite_code:t===team?'TESTTEAM':`TEST${t}`,created_by:pid,created_at:created}));
+   else if(url.pathname.endsWith('/pelada_memberships'))json=teamIds().map(t=>({pelada_id:t,player_id:pid,role:'admin',active:true,joined_at:created}));
+   else if(url.pathname.endsWith('/establishments'))json=Array.from({length:optionCount>3?optionCount:1},(_,i)=>({id:i===0?venue:id(70+i),owner_player_id:pid,name:i===0?'Arena de teste':`Estabelecimento ${i+1}`,payout_method:'in_person',access_code:`TESTARENA${i}`,created_at:created}));
+   else if(url.pathname.endsWith('/fields'))json=Array.from({length:optionCount>3?optionCount:1},(_,i)=>({id:i===0?field:id(50+i),establishment_id:venue,pelada_id:team,name:i===0?'Arena de teste':`Quadra ${i+1}`,sport_id:'futebol',sport_ids:['futebol','volei'],address:'Bairro Centro',created_at:created}));
    else if(url.pathname.endsWith('/platform_configuration'))json={settings:{discoveryEnabled:true,referralsEnabled:true,sponsoredEnabled:false,bookingCommissionPercent:0,whatsappMonthlyAllowance:100,trialDays:14}};
    else if(url.pathname.endsWith('/commercial_access_snapshot'))json={role:null,licenses:[],agreements:[]};
    else if(url.pathname.endsWith('/growth_snapshot'))json={venues:[],buddies:[],slots:populated?[opportunity]:[],windows:populated?[window]:[],requests:populated?[{id:id(9),slot_id:slot,pelada_id:team,team_name:'Time de teste',opponent_pelada_id:null,opponent_name:null,opponent_accepted:false,status:'pending',price:150,commission_percent:5,field_name:'Arena de teste',starts_at:opportunity.starts_at,match_id:null}]:[],onboarding:{persona:'team',completed:true,suggestions_enabled:false}};
@@ -73,7 +75,46 @@ async function run(){
     const label=await page.getByText('Nome',{exact:true}).nth(1).boundingBox(),input=await page.getByPlaceholder('Espetinho de linguiça').boundingBox();assert(input.y-label.y-label.height>=3,'label touches input');
    }
   }}
-  assert.deepEqual(errors,[]);console.log('PASS: spacing, 320/390/1280 px, empty/filtered/populated opportunities, publish/request payloads unchanged; onboarding, discovery, central, teams, friends and fields. Backend intercepted.');
+  // The same controls switch to a searchable modal with larger local datasets.
+  optionCount=3;await page.goto(base+'/bora?teamId='+team);
+  await page.getByRole('button',{name:'Time de teste',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).count(),0);
+  optionCount=4;await page.goto(base+'/bora?teamId='+team);await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).waitFor();
+  optionCount=20;
+  for(const width of [320,390,1280]){
+   await page.setViewportSize({width,height:width===1280?900:844});
+   await page.goto(base+'/bora?teamId='+team);await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).waitFor();
+   await page.getByPlaceholder('Nome da arena ou região').fill('Centro');
+   await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).click();
+   const dialog=page.getByRole('dialog');await dialog.waitFor();
+   const search=page.getByLabel('Pesquisar: Escolher time solicitante',{exact:true});
+   await search.fill('nada encontrado');await page.getByText('Nenhum resultado. Tente outro nome ou limpe a busca.',{exact:true}).waitFor();
+   assert(await page.getByRole('button',{name:'Confirmar seleção',exact:true}).isDisabled());
+   await search.fill('atletico olimpia');await page.getByRole('radio',{name:'Atlético Olímpia',exact:true}).click();
+   await shot(`selecao-time-modal-${width}`);await fits();
+   await page.getByRole('button',{name:'Cancelar',exact:true}).click();await dialog.waitFor({state:'hidden'});
+   assert.equal(await page.getByPlaceholder('Nome da arena ou região').inputValue(),'Centro');
+   await page.getByText('Time de teste',{exact:true}).first().waitFor();
+   await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).click();
+   await search.fill('olimpia');await page.getByRole('radio',{name:'Atlético Olímpia',exact:true}).click();
+   await page.getByRole('button',{name:'Confirmar seleção',exact:true}).click();await dialog.waitFor({state:'hidden'});
+   await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).getByText('Atlético Olímpia',{exact:true}).waitFor();assert.equal(await page.getByPlaceholder('Nome da arena ou região').inputValue(),'Centro');
+   await page.getByRole('button',{name:'Trocar: Escolher time solicitante',exact:true}).click();await dialog.waitFor();
+   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+   await shot(`selecao-time-fechada-${width}`);
+  }
+  await page.getByRole('button',{name:'Publicar',exact:true}).click();
+  await page.getByRole('button',{name:'Trocar: Escolher campo da oportunidade',exact:true}).click();
+  await page.getByLabel('Pesquisar: Escolher campo da oportunidade',{exact:true}).fill('Quadra 8');
+  await page.getByRole('radio',{name:'Quadra 8',exact:true}).click();await page.getByRole('button',{name:'Confirmar seleção',exact:true}).click();await page.getByRole('button',{name:'Trocar: Escolher campo da oportunidade',exact:true}).getByText('Quadra 8',{exact:true}).waitFor();
+  await page.goto(base+'/admin');await page.getByRole('button',{name:'Trocar: Escolher time para administrar',exact:true}).click();
+  await page.getByLabel('Pesquisar: Escolher time para administrar',{exact:true}).fill('olimpia');await page.getByRole('radio',{name:'⚽ Atlético Olímpia',exact:true}).click();
+  await page.getByRole('button',{name:'Confirmar seleção',exact:true}).click();assert.equal(await page.getByPlaceholder('Ex: Pelada dos Amigos - Quintas').inputValue(),'Atlético Olímpia');
+  await page.goto(base+'/estabelecimento/'+venue);await page.getByRole('button',{name:'Trocar: Trocar de estabelecimento',exact:true}).click();
+  await page.getByRole('button',{name:'Ver todos / cadastrar novo',exact:true}).waitFor();
+  await page.getByLabel('Pesquisar: Trocar de estabelecimento',{exact:true}).fill('Estabelecimento 8');
+  await page.getByRole('radio',{name:'Estabelecimento 8',exact:true}).click();await page.getByRole('button',{name:'Confirmar seleção',exact:true}).click();
+  await page.waitForURL(base+'/estabelecimento/'+id(77));
+  assert.deepEqual(errors,[]);console.log('PASS: responsive spacing, inline small lists, searchable modal with 20 teams/fields, accent-insensitive search, no results, cancel/Escape, explicit confirmation, unchanged filters; reservation/admin/owner selections. Backend intercepted.');
  }finally{await browser.close();}
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});

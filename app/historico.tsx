@@ -4,6 +4,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@/components/ui/Button';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
@@ -54,8 +55,8 @@ export default function HistoryScreen(){
       <TextField label="De (AAAA-MM-DD)" value={from} onChangeText={setFrom} placeholder="2026-10-01" maxLength={10} />
       <TextField label="Até (AAAA-MM-DD)" value={to} onChangeText={setTo} placeholder="2026-10-31" maxLength={10} />
       <Button small label="Aplicar período" onPress={applyPeriod} />
-      {scope==='mine'&&<><Text style={styles.label}>Time</Text><View style={styles.chips}><Filter active={!teamId} label="Todos os times" onPress={()=>setTeamId(undefined)} />{teams.map(t=><Filter key={t.id} active={t.id===teamId} label={t.name} onPress={()=>setTeamId(t.id)} />)}</View></>}
-      <Text style={styles.label}>Campo / quadra</Text><View style={styles.chips}><Filter active={!fieldId} label="Todos os campos" onPress={()=>setFieldId(undefined)} />{fields.map(f=><Filter key={f.id} active={fieldId===f.id} label={f.name} onPress={()=>setFieldId(f.id)} />)}</View>
+      {scope==='mine'&&<AdaptiveSelect label="Time" title="Filtrar histórico por time" value={teamId??''} onChange={id=>setTeamId(id||undefined)} options={[{value:'',label:'Todos os times'},...teams.map(t=>({value:t.id,label:t.name}))]} />}
+      <AdaptiveSelect label="Campo / quadra" title="Filtrar histórico por campo" value={fieldId??''} onChange={id=>setFieldId(id||undefined)} options={[{value:'',label:'Todos os campos'},...fields.map(f=>({value:f.id,label:f.name}))]} />
       <Button small variant="ghost" label="Limpar filtros" onPress={()=>{setKind(scope==='context'?params.kind as HistoryKind:undefined);setFrom('');setTo('');setPeriod({});setTeamId(undefined);setFieldId(undefined);}} />
     </Card>}
     {!!error&&<Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}

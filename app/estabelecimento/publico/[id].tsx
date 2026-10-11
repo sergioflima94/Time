@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { colors, spacing } from '@/constants/theme';
@@ -141,22 +142,8 @@ export default function PublicEstablishmentScreen() {
           <Text style={styles.sectionTitle}>Marcar um jogo</Text>
 
           <Text style={styles.hint}>Campo</Text>
-          <View style={styles.chipsRow}>
-            {fields.map((f) => {
-              const active = fieldId === f.id;
-              const sport = getSport(f.sportId);
-              return (
-                <Pressable
-                  key={f.id}
-                  onPress={() => { setFieldId(f.id); setSportId(f.sportId); }}
-                  style={[styles.chip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
-                >
-                  <Text style={styles.chipIcon}>{sport.icon}</Text>
-                  <Text style={[styles.chipText, active && { color: sport.color }]}>{f.name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <AdaptiveSelect title="Escolher campo para marcar jogo" value={fieldId} options={fields.map(f=>({value:f.id,label:f.name,detail:fieldSportIds(f).map(id=>getSport(id).label).join(' · ')}))}
+            onChange={id=>{const f=fields.find(f=>f.id===id);if(f){setFieldId(f.id);setSportId(f.sportId);}}} />
 
           <TextField label="Data" value={date} onChangeText={setDate} placeholder="2026-10-05" />
           <Text style={styles.hint}>Esporte da reserva · agenda única da quadra</Text>

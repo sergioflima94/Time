@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { TextField } from '@/components/ui/TextField';
 import { Badge } from '@/components/ui/Badge';
@@ -50,7 +51,9 @@ export default function VenueReviewsScreen() {
       <Text style={st.title}>{view.title}</Text>
       {!query.moderation&&<>
         <Text style={st.copy}>Avaliações vinculadas a presença registrada. Patrocínio e assinatura não alteram notas nem compram destaque na reputação.</Text>
-        <View style={st.row}><Button small label="Estabelecimento" variant={view.target==='establishment'?'primary':'outline'} onPress={()=>router.setParams({establishmentId:view.establishmentId!,fieldId:undefined})} />{view.fields.map(f=><Button key={f.id} small label={f.name} variant={view.fieldId===f.id?'primary':'outline'} onPress={()=>router.setParams({fieldId:f.id,establishmentId:undefined})} />)}</View>
+        <AdaptiveSelect title="Escolher campo ou estabelecimento para avaliações" value={view.target==='establishment'?'':view.fieldId??''}
+          options={[{value:'',label:'Estabelecimento'},...view.fields.map(f=>({value:f.id,label:f.name}))]}
+          onChange={id=>router.setParams(id?{fieldId:id,establishmentId:undefined}:{establishmentId:view.establishmentId!,fieldId:undefined})} />
         <Card><Text style={st.score}>{view.summary.average===null?'Sem avaliações':`★ ${view.summary.average.toFixed(1)} / 5`}</Text><Text style={st.copy}>{view.summary.count} avaliação(ões) verificada(s)</Text><View style={st.row}>{Object.entries(view.summary.criteria).map(([k,v])=><Text key={k} style={st.copy}>{(REVIEW_CRITERIA[view.target] as Record<string,string>)[k]}: {v.toFixed(1)}</Text>)}</View></Card>
         {view.nps&&<Card><Text style={st.title}>NPS do estabelecimento</Text><Text style={st.score}>{view.nps.value===null?'Aguardando amostra':`${view.nps.value} NPS`}</Text><Text style={st.copy}>{view.nps.responses} resposta(s). Resultado de −100 a 100, separado das estrelas.</Text>{view.nps.value===null?<Text style={st.copy}>Mostramos o resultado a partir de 5 respostas, sem expor a nota individual.</Text>:<Text style={st.copy}>{view.nps.promoters} promotores (9–10) · {view.nps.passives} neutros (7–8) · {view.nps.detractors} detratores (0–6)</Text>}</Card>}
         {!logged?<Button small label="Entrar para avaliar" onPress={()=>router.push('/(auth)/login')} />:view.experiences.length>0?<ReviewForm key={key} data={view} busy={busy} act={act} />:<Text style={st.copy}>{view.canReply?'Você pode responder às avaliações, mas não avaliar o próprio local.':'Para avaliar: partida encerrada com check-in e sem falta, aula concluída com presença ou presença confirmada pelo dono na reserva avulsa. Cada experiência permite uma avaliação por local. Se já avaliou, não aparece novamente.'}</Text>}

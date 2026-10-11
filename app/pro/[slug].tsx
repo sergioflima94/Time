@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
@@ -97,7 +98,7 @@ function Plans() {
   const subscriberId = audience === 'player' ? playerId : options.some(o => o.id === selected) ? selected : options[0]?.id;
   const access = useCommercialAccess(audience,subscriberId);
   return <>{ownerBenefits && <Info icon="shield-checkmark" text="Benefícios Jogador Premium, Time Pro e Estabelecimento Pro liberados para o proprietário, sem mensalidade. Para operar um time ou campo, use uma organização sua ou onde você tenha autorização. Consumo e serviços externos não são gratuitos." />}<SegmentedControl value={audience} onChange={setAudience} options={[{ value: 'player', label: 'Jogador' }, { value: 'team', label: 'Time' }, { value: 'establishment', label: 'Campo' }]} />
-    {audience !== 'player' && <View style={[styles.rowBetween, { flexWrap: 'wrap', gap: spacing.xs }]}>{options.map(o => <Button small key={o.id} label={o.name} variant={subscriberId === o.id ? 'primary' : 'outline'} onPress={() => setSelected(o.id)} />)}</View>}
+    {audience !== 'player' && <AdaptiveSelect title="Escolher time ou estabelecimento da assinatura" value={subscriberId} onChange={setSelected} options={options.map(o=>({value:o.id,label:o.name}))} />}
     {!subscriberId && <Text style={styles.caption}>Você precisa administrar um time ou ser dono de um estabelecimento para escolher esta oferta.</Text>}
     <CommercialOffers audience={audience} targetId={subscriberId} />
     {plans.filter(p => p.audience === audience && p.active).map(plan => {

@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
@@ -154,12 +155,7 @@ export default function InscreverTimeScreen() {
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Qual pelada?</Text>
           {myPeladas.length === 0 && <Text style={styles.hint}>Você não faz parte de nenhuma pelada ainda.</Text>}
-          {myPeladas.map((p) => (
-            <Pressable key={p.id} style={styles.peladaRow} onPress={() => pickPelada(p.id)}>
-              <Ionicons name={peladaId === p.id ? 'radio-button-on' : 'radio-button-off'} size={18} color={peladaId === p.id ? colors.primary : colors.textFaint} />
-              <Text style={styles.peladaName}>{p.name}</Text>
-            </Pressable>
-          ))}
+          <AdaptiveSelect title="Escolher time para o campeonato" value={peladaId??''} onChange={pickPelada} options={myPeladas.map(p=>({value:p.id,label:p.name}))} />
 
           {peladaId && (
             <>

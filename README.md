@@ -1,5 +1,30 @@
 # MarcouJogou
 
+## Seletores adaptáveis de times e campos
+
+`AdaptiveSelect` mantém até 3 opções como botões. Com 4 ou mais, mostra somente
+a seleção atual e **Trocar**, abrindo um modal com pesquisa por nome e detalhes
+(esporte/endereço, quando disponíveis), sem diferenciar acentos ou maiúsculas.
+A lista usa renderização virtualizada; a pesquisa volta ao topo da lista.
+
+Escolher uma linha altera apenas o rascunho do modal. **Confirmar seleção**
+aplica a troca e fecha; **Cancelar**, Escape no navegador e voltar no Android
+preservam o valor anterior e os demais filtros. Busca vazia tem orientação;
+opções desabilitadas não podem ser confirmadas. A busca é local, sobre opções
+já autorizadas/carregadas, sem novas consultas ou mudanças de permissão.
+
+Aplicado em Horários e desafios (time/campo), Admin (time e campo da partida),
+reservas públicas e do dono, aulas, promoções, inscrição de time em campeonato,
+histórico, catálogo de campos, planos e seletores de contexto com muitas opções.
+Nos cabeçalhos, as listas pequenas mantêm o menu rápido existente; com mais de
+3 times/estabelecimentos, usam o modal. As ações de criar/entrar e voltar ao modo
+jogador continuam acessíveis. Esportes, recorrências e outras listas fixas
+continuam como botões; cards de catálogo/elenco não são seletores e não mudaram.
+
+Regressão no `scripts/test-layout-spacing-ui.cjs`: limiar de 3/4 opções, 20 times
+e campos, busca com acentos, sem resultados, confirmação/cancelamento/Escape e
+preservação de filtros em 320/390/1280 px. Backend interceptado, sem reservas reais.
+
 ## Espaçamento e organização das telas
 
 - `Screen` e `Card` separam os filhos diretos com 8 px por padrão. Layouts que

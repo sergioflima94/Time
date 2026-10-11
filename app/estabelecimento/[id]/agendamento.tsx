@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { ConversationEntry } from '@/components/ConversationEntry';
 import { HistoryEntryLink } from '@/components/HistoryEntryLink';
 import { Card } from '@/components/ui/Card';
+import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
@@ -128,7 +129,7 @@ export default function EstablishmentBookingsScreen() {
         {availabilityOpen && fields.length > 0 && (
           <View style={styles.form}>
             <Text style={styles.hint}>Campo</Text>
-            <View style={styles.sportsGrid}>{fields.map((field) => <Pressable key={field.id} onPress={() => setAvailabilityFieldId(field.id)} style={[styles.sportChip, availabilityFieldId === field.id && { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.12)' }]}><Text style={[styles.sportChipText, availabilityFieldId === field.id && { color: colors.primary }]}>{field.name}</Text></Pressable>)}</View>
+            <AdaptiveSelect title="Escolher campo para disponibilidade" value={availabilityFieldId} onChange={setAvailabilityFieldId} options={fields.map(f=>({value:f.id,label:f.name,detail:sportOf(f.sportId).label}))} />
             <Text style={styles.hint}>Dia da semana</Text>
             <View style={styles.sportsGrid}>{WEEKDAY_LABELS.map((label, index) => <Pressable key={label} onPress={() => setAvailabilityDay(index)} style={[styles.sportChip, availabilityDay === index && { borderColor: colors.primary, backgroundColor: 'rgba(157,235,34,0.12)' }]}><Text style={[styles.sportChipText, availabilityDay === index && { color: colors.primary }]}>{label.slice(0, 3)}</Text></Pressable>)}</View>
             <View style={styles.row3}>
@@ -186,22 +187,8 @@ export default function EstablishmentBookingsScreen() {
         {open && fields.length > 0 && (
           <View style={styles.form}>
             <Text style={styles.hint}>Campo</Text>
-            <View style={styles.sportsGrid}>
-              {fields.map((f) => {
-                const active = fieldId === f.id;
-                const sport = sportOf(f.sportId);
-                return (
-                  <Pressable
-                    key={f.id}
-                    onPress={() => { setFieldId(f.id); setSportId(f.sportId); setPeladaId(peladas.find(p => fieldSupportsSport(f, p.sportId))?.id ?? ''); }}
-                    style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
-                  >
-                    <Text style={styles.sportChipIcon}>{sport.icon}</Text>
-                    <Text style={[styles.sportChipText, active && { color: sport.color }]}>{f.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <AdaptiveSelect title="Escolher campo da reserva" value={fieldId} options={fields.map(f=>({value:f.id,label:f.name,detail:fieldSportIds(f).map(id=>sportOf(id).label).join(' · ')}))}
+              onChange={id=>{const f=fields.find(f=>f.id===id);if(!f)return;setFieldId(f.id);setSportId(f.sportId);setPeladaId(peladas.find(p=>fieldSupportsSport(f,p.sportId))?.id??'');}} />
 
             <Text style={styles.hint}>Esporte desta reserva — uma única agenda para todos os esportes da quadra</Text>
             {teamMode === 'avulso' && <View style={styles.sportsGrid}>{fieldSportIds(fieldOf(fieldId) ?? fields[0]).map(id => <Button key={id} small label={sportOf(id).label} variant={sportId === id ? 'primary' : 'outline'} onPress={() => setSportId(id)} />)}</View>}
@@ -217,22 +204,7 @@ export default function EstablishmentBookingsScreen() {
             {teamMode === 'avulso' ? (
               <TextField label="Nome do time" value={teamName} onChangeText={setTeamName} placeholder="Galera da rua" />
             ) : (
-              <View style={styles.sportsGrid}>
-                {peladas.filter(p => fieldSupportsSport(fieldOf(fieldId) ?? fields[0], p.sportId)).map((p) => {
-                  const active = peladaId === p.id;
-                  const sport = sportOf(p.sportId);
-                  return (
-                    <Pressable
-                      key={p.id}
-                      onPress={() => setPeladaId(p.id)}
-                      style={[styles.sportChip, active && { borderColor: sport.color, backgroundColor: `${sport.color}26` }]}
-                    >
-                      <Text style={styles.sportChipIcon}>{sport.icon}</Text>
-                      <Text style={[styles.sportChipText, active && { color: sport.color }]}>{p.name}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <AdaptiveSelect title="Escolher time da reserva" value={peladaId} onChange={setPeladaId} options={peladas.filter(p=>fieldSupportsSport(fieldOf(fieldId)??fields[0],p.sportId)).map(p=>({value:p.id,label:p.name,detail:sportOf(p.sportId).label}))} />
             )}
 
             <SegmentedControl<FieldBookingRecurrence>
