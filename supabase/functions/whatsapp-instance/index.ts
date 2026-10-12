@@ -3,6 +3,7 @@ import {
   evolutionRequest,
   evolutionConfig,
 } from "../_shared/whatsappProviders.ts";
+import { loadWhatsAppSettings } from '../_shared/whatsappSettings.ts';
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -54,18 +55,20 @@ Deno.serve(async (req) => {
     if (limited)
       return reply({ error: "Aguarde antes de consultar novamente." }, 429);
     const ctx = await call("context");
-    if (!evolutionConfig())
+    const settings = await loadWhatsAppSettings(db);
+    if (!evolutionConfig(settings))
       return reply({
         state: ctx.state,
         configured: false,
         message:
-          "Configure EVOLUTION_API_URL e EVOLUTION_API_KEY no servidor; nenhuma chave é solicitada aqui.",
+                  "Peça ao administrador da plataforma para configurar e ativar Evolution API no painel Integrações WhatsApp.",
       });
     let state = await evolutionRequest(
       "/instance/connectionState/" + encodeURIComponent(ctx.instance),
+      undefined,fetch,settings,
     );
     if (b.action === "connect" && state.status === 404) {
-      const webhookSecret = Deno.env.get("EVOLUTION_API_WEBHOOK_SECRET");
+      const webhookSecret = settings.evolution_api?.webhookSecret ?? Deno.env.get("EVOLUTION_API_WEBHOOK_SECRET");
       const webhook = webhookSecret
         ? {
             enabled: true,
@@ -87,7 +90,7 @@ Deno.serve(async (req) => {
         readStatus: false,
         syncFullHistory: false,
         webhook,
-      });
+      },fetch,settings);
       if (!state.ok)
         return reply(
           {
@@ -112,6 +115,7 @@ Deno.serve(async (req) => {
         "/instance/connect/" +
           encodeURIComponent(ctx.instance) +
           (phone ? "?number=" + phone : ""),
+        undefined,fetch,settings,
       );
       if (!qr.ok)
         return reply(

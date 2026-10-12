@@ -1580,6 +1580,87 @@ permissão e dispara uma confirmação local. Para push remoto, salve o Expo Pus
 necessário um **development build**. Referência SDK 57:
 https://docs.expo.dev/versions/v57.0.0/sdk/notifications/
 
+## Configuração de WhatsApp pela tela administrativa
+
+Em **Admin da plataforma → Integrações WhatsApp**, proprietários e administradores
+globais podem configurar Evolution API e Evolution Go separadamente. Suporte,
+administradores de times, donos de campos e funcionários não acessam as credenciais
+globais. O dono do campo continua escolhendo seu provedor e pareando sua própria
+instância Evolution API pelo painel do estabelecimento.
+
+Fluxo de operação:
+
+1. Escolher **Evolution API** (servidor v2) ou **Evolution Go** (perfil de API por
+   token, `/send/text`, `/instance/status`). Informar host HTTPS público, token,
+   opcionalmente segredo de webhook, e motivo da alteração.
+2. No Go, usar o **token da instância** existente. Para criar uma nova, escolher
+   **Criar nova** e informar a **chave global**; o servidor gera um token exclusivo
+   que não retorna ao aplicativo. Chave global e token de instância não são iguais.
+3. Salvar. Credenciais ficam criptografadas no Supabase Vault; tela, configuração
+   pública, cache/offline e auditoria nunca recebem o token de volta. Campo vazio
+   mantém credencial já salva no mesmo host; mudar host exige token novamente.
+4. **Testar host e autenticação**: somente consulta técnica, sem mensagem de teste
+   nem alteração de cobrança. Não comprova entrega de mensagens nem implica que
+   o número esteja conectado. Erros de host/versão devem ser corrigidos antes de usar.
+5. **Criar/conectar instância e gerar QR**; escanear no WhatsApp em Aparelhos
+   conectados. No mesmo celular, informar o número para obter código de pareamento.
+   QR/código são temporários: somem após 60 segundos, ao trocar de provedor,
+   sair da tela ou colocar o aplicativo em segundo plano.
+6. **Consultar conexão** e **Ativar provedor**. Ativação exige teste bem-sucedido;
+   Go exige também conexão confirmada. API pode ser ativada para permitir que
+   donos dos campos conectem suas instâncias, independentemente do remetente global.
+7. Para interromper a integração, desativar no painel. Não exclui instâncias do
+   servidor externo e não cancela reservas/cobranças; respostas desse provedor
+   desativado também deixam de ser aceitas pelo webhook. Pode haver envio já
+   iniciado antes da desativação: não há cancelamento retroativo do provedor.
+
+O remetente da plataforma pode ser conectado em cada integração. No Go, o token
+configurado identifica o remetente compartilhado da plataforma. Na API, cada
+estabelecimento continua usando sua instância exclusiva; o número global é usado
+pelos fluxos da plataforma que o solicitarem, como verificação autorizada de telefone.
+
+Configuração de tela tem prioridade sobre secrets `EVOLUTION_API_*` e
+`EVOLUTION_GO_*`, **inclusive quando está desativada**: não reativa automaticamente
+um token antigo do ambiente. Se ainda não existe configuração de tela de um
+provedor, os secrets anteriores continuam como fallback de compatibilidade.
+Meta Cloud permanece como integração existente por configuração de servidor;
+esta tela não cria credenciais Meta nem remove essa alternativa.
+
+Mudança de host/token desativa o provedor e invalida o teste anterior. Troca do host
+API também gera novos identificadores para os campos, exigindo reconexão; as sessões
+no servidor antigo devem ser encerradas pelo operador, não são apagadas silenciosamente.
+Revisão evita sobrescrever configuração alterada por outro admin. Criação inconclusiva
+não repete POST: consultar estado e conferir no provedor antes de tentar outra ação.
+
+Hosts locais, IP literal, usuário/senha na URL, parâmetros de URL, DNS privado/reservado
+e redirecionamentos são rejeitados. DNS é conferido também em cada chamada de configuração
+gerenciada. Não hospeda Evolution dentro da hospedagem compartilhada da HostGator:
+é necessário um servidor Evolution já instalado, acessível por HTTPS público.
+
+Webhooks usam segredo mantido no Vault e são configurados na criação/conexão suportada.
+Instâncias API que já existiam no servidor podem exigir ajuste do webhook no provedor.
+O Go precisa corresponder ao perfil por token documentado; versões/forks com rotas
+`/message/sendText` ou `/instance/{name}/status` não são autodetectados. Referências:
+[Evolution API](https://doc.evolution-api.com/v2/api-reference/instance-controller/create-instance)
+e [Go por token](https://github.com/evolution-foundation/evolution-go/blob/main/docs/wiki/guias-api/api-instances.md).
+
+Não habilita automaticamente `PHONE_VERIFICATION_ENABLED`, `VENUE_MESSAGES_ENABLED`
+ou `INVOICE_MESSAGES_ENABLED`: esses fluxos ainda exigem consentimento e homologação
+própria. As preferências automáticas/por estabelecimento e a proteção contra reenvio
+inconclusivo permanecem. Nenhuma mensagem real foi enviada nos testes deste trabalho.
+
+Contrato: `platform_whatsapp_integrations`, RPC exclusiva service-role
+`platform_whatsapp_service`, Edge `platform-whatsapp` autenticada com verificação
+de papel global no banco. Tokens entram somente no POST de salvar, não nos pedidos
+de teste/consulta. Testes: `node scripts/test-platform-whatsapp.cjs`,
+`node scripts/test-native-billing-sql.cjs` (inclui `whatsapp-settings-cases.cjs`),
+e browser `TEST_WHATSAPP_PANEL=1 node scripts/test-native-billing-ui.cjs` com bundle
+web atualizado e dependência Playwright disponível em `NODE_PATH`.
+
+Backend publicado por migração `20261012048000_platform_whatsapp_settings.sql`.
+O APK anterior e o site na HostGator não mudam apenas com o deploy das Edge Functions:
+é preciso instalar um novo build ou publicar o novo bundle web para acessar esta aba.
+
 ## Monetização e pagamentos
 
 ### Licenças digitais e recebimentos dos estabelecimentos

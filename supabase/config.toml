@@ -485,3 +485,6 @@ verify_jwt = false
 
 [functions.native-subscription-webhook]
 verify_jwt = false
+
+[functions.platform-whatsapp]
+verify_jwt = false

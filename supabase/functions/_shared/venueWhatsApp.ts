@@ -3,6 +3,7 @@ import {
   whatsAppConfigured,
   type MessagingProvider,
 } from "./whatsappProviders.ts";
+import { loadWhatsAppSettings } from './whatsappSettings.ts';
 export async function sendVenueWhatsApp(
   db: any,
   venueId: string,
@@ -10,6 +11,7 @@ export async function sendVenueWhatsApp(
   text: string,
   id: string,
 ) {
+  const settings = await loadWhatsAppSettings(db);
   const { data: c, error } = await db.rpc("whatsapp_instance_service", {
     p_action: "sending_context",
     p_data: { venueId },
@@ -24,7 +26,7 @@ export async function sendVenueWhatsApp(
       fallbackFrom: null,
       error: "Conecte o número do proprietário atual.",
     };
-  if (!whatsAppConfigured(c.instance))
+  if (!whatsAppConfigured(c.instance,settings))
     return {
       ok: false,
       provider: "evolution_api" as MessagingProvider,
@@ -69,6 +71,8 @@ export async function sendVenueWhatsApp(
     id,
     (c.preference ?? "automatic") as "automatic" | MessagingProvider,
     c.instance,
+    fetch,
+    settings,
   );
   await call("finish", {
     status: sent.ok ? "accepted" : sent.uncertain ? "uncertain" : "failed",

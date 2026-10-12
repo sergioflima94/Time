@@ -11,8 +11,6 @@ serve(async (req) => {
   const service = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const { data: expired, error } = await service.from('game_booking_requests').update({ status: 'expired', responded_at: new Date().toISOString(), failure_reason: 'Prazo de resposta encerrado.' }).eq('status', 'awaiting_owner').lt('expires_at', new Date().toISOString()).select('*');
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  const baseUrl = Deno.env.get('EVOLUTION_GO_URL')!;
-  const apiKey = Deno.env.get('EVOLUTION_GO_API_KEY')!;
   for (const booking of expired ?? []) {
     const { data: game } = await service.from('games').select('pelada_id').eq('id', booking.game_id).single();
     const { data: field } = await service.from('fields').select('name,establishment_id').eq('id', booking.field_id).single();

@@ -5,6 +5,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { sendVenueWhatsApp } from '../_shared/venueWhatsApp.ts';
 import {sameWebhookSecret} from '../_shared/shopGateway.ts';
+import {loadWhatsAppSettings} from '../_shared/whatsappSettings.ts';
 
 const digits = (value: string | null | undefined) => (value ?? '').replace(/\D/g, '');
 const normalizePhone = (value: string | null | undefined) => {
@@ -15,7 +16,10 @@ const normalizePhone = (value: string | null | undefined) => {
 serve(async (req) => {
   if(req.method!=='POST')return new Response('method not allowed',{status:405});
   const isApi=new URL(req.url).pathname.includes('evolution-api-webhook');
-  const expectedSecret = Deno.env.get(isApi?'EVOLUTION_API_WEBHOOK_SECRET':'EVOLUTION_GO_WEBHOOK_SECRET');
+  const service = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  let settings;try{settings=await loadWhatsAppSettings(service);}catch{return new Response('temporarily unavailable',{status:503});}
+  const managed=settings[isApi?'evolution_api':'evolution_go'];
+  const expectedSecret = managed?managed.enabled?managed.webhookSecret:null:Deno.env.get(isApi?'EVOLUTION_API_WEBHOOK_SECRET':'EVOLUTION_GO_WEBHOOK_SECRET');
   const suppliedSecret = new URL(req.url).searchParams.get('secret') ?? req.headers.get('x-webhook-secret');
   if (!expectedSecret || !await sameWebhookSecret(suppliedSecret??'',expectedSecret)) return new Response('unauthorized', { status: 401 });
   try {
@@ -28,12 +32,11 @@ serve(async (req) => {
     const match = String(text).trim().toUpperCase().match(/^(SIM|NAO|NÃO)\s+(BJ-[A-Z0-9]{4})\b/);
     if (!match || !providerMessageId || !remoteJid) return ok();
 
-    const service = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: request } = await service.from('game_booking_requests').select('*').eq('code', match[2]).single();
     if (!request) return ok();
     const { data: field } = await service.from('fields').select('*').eq('id', request.field_id).single();
     const { data: establishment } = await service.from('establishments').select('*').eq('id', field.establishment_id).single();
-    if(isApi){const {data:instance}=await service.rpc('whatsapp_instance_service',{p_action:'sending_context',p_data:{venueId:establishment.id}});if(payload.instance!==(instance?.instance??Deno.env.get('EVOLUTION_API_INSTANCE')))return ok();}
+    if(isApi){const {data:instance}=await service.rpc('whatsapp_instance_service',{p_action:'sending_context',p_data:{venueId:establishment.id}});if(payload.instance!==(instance?.instance??managed?.instance??Deno.env.get('EVOLUTION_API_INSTANCE')))return ok();}
     if (normalizePhone(remoteJid) !== normalizePhone(establishment.whatsapp_phone)) return ok();
 
     const accepted = match[1] === 'SIM';

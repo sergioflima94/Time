@@ -4569,6 +4569,48 @@ export type Database = {
           },
         ]
       }
+      platform_whatsapp_integrations: {
+        Row: {
+          enabled: boolean
+          instance_name: string
+          probe_ok: boolean
+          provider: string
+          provision_state: string
+          revision: number
+          secret_id: string
+          state: string
+          tested_at: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          enabled?: boolean
+          instance_name: string
+          probe_ok?: boolean
+          provider: string
+          provision_state?: string
+          revision?: number
+          secret_id: string
+          state?: string
+          tested_at?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          enabled?: boolean
+          instance_name?: string
+          probe_ok?: boolean
+          provider?: string
+          provision_state?: string
+          revision?: number
+          secret_id?: string
+          state?: string
+          tested_at?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       platform_configuration: {
         Row: {
           id: boolean
@@ -8896,6 +8938,10 @@ export type Database = {
       claim_commercial_preference: {
         Args: { p_order: string }
         Returns: boolean
+      }
+      platform_whatsapp_service: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
       }
       commercial_access_snapshot: { Args: never; Returns: Json }
       commercial_admin_data: { Args: never; Returns: Json }

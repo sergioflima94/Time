@@ -3,6 +3,7 @@ import {
   sendWhatsAppText,
   whatsAppConfigured,
 } from "../_shared/whatsappProviders.ts";
+import { loadWhatsAppSettings } from '../_shared/whatsappSettings.ts';
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -54,9 +55,10 @@ Deno.serve(async (req) => {
       return r;
     };
     if (b.action === "send") {
+      const settings = await loadWhatsAppSettings(db);
       if (
         Deno.env.get("PHONE_VERIFICATION_ENABLED") !== "true" ||
-        !whatsAppConfigured()
+        !whatsAppConfigured(undefined,settings)
       )
         return reply(
           {
@@ -92,6 +94,7 @@ Deno.serve(async (req) => {
         phone,
         `MarcouJogou: código de verificação ${code}. Expira em 5 minutos. Nunca compartilhe este código. Se não pediu, ignore.`,
         id,
+        'automatic',undefined,fetch,settings,
       );
       return reply({
         id,

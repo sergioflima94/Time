@@ -1,3 +1,4 @@
+import { managedWhatsAppFetch, type WhatsAppSettings } from './whatsappSettings.ts';
 export type MessagingProvider = "evolution_go" | "evolution_api" | "meta_cloud";
 export interface WhatsAppSendResult {
   ok: boolean;
@@ -7,9 +8,11 @@ export interface WhatsAppSendResult {
   error: string | null;
   uncertain?: boolean;
 }
-export function evolutionConfig() {
-  const raw = Deno.env.get("EVOLUTION_API_URL"),
-    key = Deno.env.get("EVOLUTION_API_KEY");
+export function evolutionConfig(settings?: WhatsAppSettings) {
+  const managed = settings?.evolution_api;
+  if (managed && !managed.enabled) return null;
+  const raw = managed ? managed.url : Deno.env.get("EVOLUTION_API_URL"),
+    key = managed ? managed.key : Deno.env.get("EVOLUTION_API_KEY");
   if (!raw || !key) return null;
   try {
     const u = new URL(raw);
@@ -26,16 +29,22 @@ export function evolutionConfig() {
     return null;
   }
 }
-export function whatsAppConfigured(instance?: string | null) {
+export function goConfig(settings?: WhatsAppSettings) {
+  const managed = settings?.evolution_go;
+  if (managed && !managed.enabled) return null;
+  const url = managed ? managed.url : Deno.env.get('EVOLUTION_GO_URL');
+  const key = managed ? managed.key : Deno.env.get('EVOLUTION_GO_API_KEY');
+  if (!url?.startsWith('https://') || !key) return null;
+  return {url:url.replace(/\/$/,''),key};
+}
+export function apiInstance(settings?: WhatsAppSettings) { return settings?.evolution_api ? settings.evolution_api.instance : Deno.env.get('EVOLUTION_API_INSTANCE'); }
+export function whatsAppConfigured(instance?: string | null, settings?: WhatsAppSettings) {
   return (
     !!(
-      evolutionConfig() &&
-      (instance || Deno.env.get("EVOLUTION_API_INSTANCE"))
+      evolutionConfig(settings) &&
+      (instance || apiInstance(settings))
     ) ||
-    !!(
-      Deno.env.get("EVOLUTION_GO_URL")?.startsWith("https://") &&
-      Deno.env.get("EVOLUTION_GO_API_KEY")
-    ) ||
+    !!goConfig(settings) ||
     !!(
       Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID") &&
       Deno.env.get("META_WHATSAPP_ACCESS_TOKEN")
@@ -46,10 +55,12 @@ export async function evolutionRequest(
   path: string,
   body?: unknown,
   fetcher: typeof fetch = fetch,
+  settings?: WhatsAppSettings,
 ) {
-  const c = evolutionConfig();
+  const c = evolutionConfig(settings);
   if (!c) throw Error("Evolution API não configurada no servidor.");
-  const r = await fetcher(c.url + path, {
+  const request = settings?.evolution_api && fetcher === fetch ? managedWhatsAppFetch : fetcher;
+  const r = await request(c.url + path, {
     method: body === undefined ? "GET" : "POST",
     redirect: "error",
     signal: AbortSignal.timeout(15000),
@@ -66,6 +77,7 @@ export async function sendWhatsAppText(
   preference: "automatic" | MessagingProvider = "automatic",
   instance?: string | null,
   fetcher: typeof fetch = fetch,
+  settings?: WhatsAppSettings,
 ): Promise<WhatsAppSendResult> {
   const digits = number.replace(/\D/g, ""),
     phone =
@@ -84,16 +96,15 @@ export async function sendWhatsAppText(
     };
   let first: MessagingProvider | null = null;
   for (const provider of order) {
-    const api = evolutionConfig(),
-      name = instance || Deno.env.get("EVOLUTION_API_INSTANCE"),
-      go = Deno.env.get("EVOLUTION_GO_URL"),
-      goKey = Deno.env.get("EVOLUTION_GO_API_KEY"),
+    const api = evolutionConfig(settings),
+      name = instance || apiInstance(settings),
+      go = goConfig(settings),
       meta = Deno.env.get("META_WHATSAPP_PHONE_NUMBER_ID"),
       metaKey = Deno.env.get("META_WHATSAPP_ACCESS_TOKEN");
     if (
       (provider === "evolution_api" && (!api || !name)) ||
       (provider === "evolution_go" &&
-        (!go?.startsWith("https://") || !goKey)) ||
+        !go) ||
       (provider === "meta_cloud" && (!meta || !metaKey))
     )
       continue;
@@ -102,7 +113,7 @@ export async function sendWhatsAppText(
         provider === "evolution_api"
           ? `${api!.url}/message/sendText/${encodeURIComponent(name!)}`
           : provider === "evolution_go"
-            ? `${go!.replace(/\/$/, "")}/send/text`
+            ? `${go!.url}/send/text`
             : `https://graph.facebook.com/${Deno.env.get("META_GRAPH_VERSION") ?? "v23.0"}/${meta}/messages`;
       const body =
         provider === "evolution_api"
@@ -116,7 +127,8 @@ export async function sendWhatsAppText(
                 type: "text",
                 text: { preview_url: false, body: text },
               };
-      const r = await fetcher(url, {
+      const request = provider !== 'meta_cloud' && settings?.[provider] && fetcher === fetch ? managedWhatsAppFetch : fetcher;
+      const r = await request(url, {
         method: "POST",
         redirect: "error",
         signal: AbortSignal.timeout(15000),
@@ -124,7 +136,7 @@ export async function sendWhatsAppText(
           "Content-Type": "application/json",
           ...(provider === "meta_cloud"
             ? { Authorization: `Bearer ${metaKey}` }
-            : { apikey: provider === "evolution_api" ? api!.key : goKey! }),
+            : { apikey: provider === "evolution_api" ? api!.key : go!.key }),
         },
         body: JSON.stringify(body),
       });
@@ -135,6 +147,7 @@ export async function sendWhatsAppText(
           p.data?.Info?.ID ??
           p.messages?.[0]?.id ??
           p.messageId ??
+          p.data?.messageId ??
           p.id;
       if (r.ok && typeof messageId === "string" && messageId)
         return {

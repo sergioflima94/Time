@@ -1,7 +1,7 @@
 // Webhook oficial da Meta Cloud API. GET valida a assinatura; POST trata SIM/NÃO BJ-XXXX.
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { sendWhatsAppText } from '../_shared/whatsapp.ts';
+import { sendVenueWhatsApp } from '../_shared/venueWhatsApp.ts';
 
 const digits = (value: string | null | undefined) => (value ?? '').replace(/\D/g, '');
 
@@ -38,7 +38,7 @@ serve(async (req) => {
       ? `Jogo confirmado! ${pelada.name} joga em ${field.name}, ${new Date(request.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`
       : `${field.name} recusou ${request.code}. Abra o MarcouJogou para tentar outro campo ou criar uma enquete.`;
     await Promise.all((recipients ?? []).map((row: any) => row.players?.phone && row.players?.whatsapp_opt_in
-      ? sendWhatsAppText(row.players.phone, notification, `meta-response-${request.id}-${row.player_id}`, establishment.messaging_provider ?? 'automatic')
+      ? sendVenueWhatsApp(service,establishment.id,row.players.phone,notification,`meta-response-${request.id}-${row.player_id}`)
       : Promise.resolve()));
     return ok();
   } catch (error) { console.error(error); return new Response('error', { status: 500 }); }

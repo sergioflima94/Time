@@ -16,11 +16,12 @@ import { SportEditor } from '@/components/SportEditor';
 import { CommercialLicensePanel } from '@/components/CommercialLicensePanel';
 import { AssistedVenuePanel } from '@/components/PlayHubPanels';
 import { FieldDirectoryEditor } from '@/components/FieldDirectoryEditor';
+import { PlatformWhatsAppPanel } from '@/components/PlatformWhatsAppPanel';
 import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
 import type { CommercialPlan } from '@/types/pro';
 import { validatePlatformSettings, type PlatformAction, type PlatformSettings, type PlatformSnapshot } from '@/types/platform';
 
-const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Licenças e ofertas', 'Configurações', 'Denúncias', 'Equipe admin', 'Auditoria'] as const;
+const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Licenças e ofertas', 'Configurações', 'Integrações WhatsApp', 'Denúncias', 'Equipe admin', 'Auditoria'] as const;
 type PendingAction = { action: PlatformAction; id: string | null; payload: Record<string, unknown>; description: string };
 
 export default function PlatformConsoleScreen() {
@@ -52,7 +53,7 @@ export default function PlatformConsoleScreen() {
     {loading && !role ? <Text style={styles.caption}>Verificando suas permissões...</Text> : !role || !snapshot ? <Card><Text style={styles.sectionTitle}>Acesso restrito</Text><Text style={styles.copy}>{error || 'Este painel não pertence à administração de um time. Sua conta precisa de autorização da plataforma.'}</Text><Button label="Verificar novamente" small onPress={() => void load()} loading={loading} /></Card> : <>
       {isMockMode && <Text style={styles.warning}>Demonstração: este administrador existe somente nos dados de exemplo. Nenhum usuário real recebe o papel automaticamente.</Text>}
       {role !== 'support' && <Button small variant="outline" label="Loja oficial, parceiros e comissões" onPress={()=>router.push('/loja/gerenciar')} />}
-      {role === 'owner' && <Card>
+      {role === 'owner' && tab === 'Visão geral' && <Card>
         <Text style={styles.sectionTitle}>Usar todas as áreas do aplicativo</Text>
         <Text style={styles.copy}>Seu papel de proprietário inclui os benefícios Premium e Pro, sem mensalidade. Crie seus times e estabelecimentos para usar agenda, campeonatos, comandas e aulas com dados separados dos clientes.</Text>
         <View style={[styles.row, { flexWrap: 'wrap' }]}>
@@ -63,7 +64,8 @@ export default function PlatformConsoleScreen() {
           <Button small variant="outline" label="Operação Pro" onPress={() => router.push('/operacao-pro')} />
         </View>
       </Card>}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => !['Equipe admin','Licenças e ofertas'].includes(t) || role === 'owner').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
+<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => !['Equipe admin','Licenças e ofertas'].includes(t) || role === 'owner').filter(t => t !== 'Integrações WhatsApp' || role !== 'support').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
+      {tab === 'Integrações WhatsApp' && role !== 'support' && <PlatformWhatsAppPanel />}
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       {tab==='Denúncias'&&<Button small variant="outline" label="Moderar avaliações de campos e estabelecimentos" onPress={()=>router.push({pathname:'/avaliacoes',params:{moderation:'1'}})} />}
       {['Usuários','Times e campos','Equipe admin','Licenças e ofertas'].includes(tab) && <><TextField label="Buscar nome" value={query} onChangeText={setQuery} placeholder="Jogador, time ou estabelecimento" /><Button label="Buscar na plataforma" small variant="outline" onPress={() => void load(query)} loading={loading} /><Text style={styles.caption}>Até 100 resultados por categoria. Refine o nome para localizar contas mais antigas.</Text></>}

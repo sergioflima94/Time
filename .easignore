@@ -13,6 +13,7 @@ supabase/
 config/mobile-auth/
 scripts/test-*.cjs
 scripts/invoice-v*-*.cjs
+scripts/whatsapp-settings-cases.cjs
 .codex-remote-attachments/
 scripts/configure-auth-email.ps1
 .env

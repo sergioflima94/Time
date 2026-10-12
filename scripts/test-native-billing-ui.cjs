@@ -34,5 +34,6 @@ async function run(){let browser;try{
  // Existing physical-service browser regression with isolated backend fixtures.
  const {spawn}=require('node:child_process');
  await new Promise((resolve,reject)=>{const child=spawn(process.execPath,['scripts/test-venue-academy-ui.cjs'],{env:{...process.env,TEST_URL:`http://127.0.0.1:${port}`},stdio:'inherit'});child.on('exit',code=>code===0?resolve():reject(new Error(`Academy regression exit ${code}`)));child.on('error',reject);});
+ if(process.env.TEST_WHATSAPP_PANEL==='1')await new Promise((resolve,reject)=>{const child=spawn(process.execPath,['scripts/test-platform-whatsapp-ui.cjs'],{env:{...process.env,TEST_URL:`http://127.0.0.1:${port}`},stdio:'inherit'});child.on('exit',code=>code===0?resolve():reject(new Error(`WhatsApp panel regression exit ${code}`)));child.on('error',reject);});
 }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}}
 run().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,26 @@
+module.exports=async function(db,users){
+ const assert=require('node:assert/strict'),q=async(s,a=[]) => (await db.query(s,a)).rows;
+ await db.exec('reset role');await q("insert into platform_admin_accounts(auth_user_id,role) values($1,'owner'),($2,'support') on conflict(auth_user_id) do update set role=excluded.role",users);
+ await q("select set_config('request.jwt.claim.role','service_role',false),set_config('request.jwt.claim.sub','',false)");await db.exec('set role service_role');
+ const act=(action,data={})=>q('select platform_whatsapp_service($1,$2) r',[action,JSON.stringify({actor:users[0],provider:'evolution_api',reason:'Configurar servidor de homologação',...data})]).then(r=>r[0].r);
+ await assert.rejects(act('metadata',{actor:users[1]}),/exclusivo/);
+ await act('save',{revision:0,url:'https://wa.example.com',key:'synthetic-token-not-real'});
+ let meta=(await act('metadata'))[0];assert.equal(meta.enabled,false);assert.equal(meta.probeOk,false);
+ assert(!JSON.stringify(meta).includes('synthetic-token'));assert(!('webhookSecret' in meta));
+ await assert.rejects(act('enable',{revision:1,enabled:true}),/Teste o acesso/);
+ await act('probe',{revision:1,ok:true,state:'unknown'});await act('enable',{revision:1,enabled:true});
+ let c=await act('context');assert.equal(c.enabled,true);assert.equal(c.key,'synthetic-token-not-real');assert(c.webhookSecret.length>=16);
+ await assert.rejects(act('save',{revision:1,url:'https://wa.example.com',key:'synthetic-token-new'}),/Configuração mudou/);
+ await act('save',{revision:2,url:'https://wa.example.com',key:''});c=await act('context');assert.equal(c.key,'synthetic-token-not-real');assert.equal(c.enabled,true);
+ await assert.rejects(act('save',{revision:3,url:'https://other.example.com',key:''}),/Novo host/);
+ await act('save',{revision:3,url:'https://wa.example.com',key:'synthetic-token-new'});c=await act('context');assert.equal(c.enabled,false);assert.equal(c.revision,4);
+ await act('claim_create',{revision:4});await assert.rejects(act('claim_create',{revision:4}),/já iniciada/);await act('finish_create',{revision:4,status:'uncertain'});
+ await assert.rejects(act('claim_create',{revision:4}),/já iniciada/);
+ await act('save',{provider:'evolution_go',revision:0,url:'https://go.example.com',key:'synthetic-go-token',globalKey:'synthetic-global-key'});
+ meta=await act('metadata');assert.equal(meta.length,2);assert(!JSON.stringify(meta).includes('synthetic'));assert.equal(meta.find(m=>m.provider==='evolution_go').hasGlobalKey,true);
+ const runtime=await act('runtime');assert.equal(runtime.evolution_api.enabled,false);assert.equal(runtime.evolution_go.key,'synthetic-go-token');
+ await db.exec('reset role');
+ const audit=await q("select after_value,reason from platform_admin_audit where action like 'whatsapp_%'");assert(!JSON.stringify(audit).includes('synthetic-token'));assert(!JSON.stringify(audit).includes('synthetic-global-key'));
+ await db.exec('set role authenticated');await assert.rejects(act('runtime'),/permission denied/);await assert.rejects(q('select * from platform_whatsapp_integrations'),/permission denied/);
+ console.log('PASS: admin-only WhatsApp settings, Vault write-only tokens, revision checks, preserve blank token, rotation disables sends, probe gate, one-shot creation, safe audit and no client credential reads.');
+};

@@ -52,5 +52,6 @@ async function run(){try{
   assert.equal((await q('select count(*)::int n from sale_payments'))[0].n,0);
   assert.equal((await q('select count(*)::int n from venue_credit_payments'))[0].n,0);
   console.log('PASS: native subscription private storage/service-only writes, account scope, duplicate/stale proofs, cancel vs revoke, no invented venue revenue, rate limits.');
+  await require('./whatsapp-settings-cases.cjs')(db,users);
 }finally{await db.close();}}
 run().catch(e=>{console.error(e);process.exitCode=1;});

@@ -4,6 +4,7 @@ import {
   whatsAppConfigured,
 } from "../_shared/whatsappProviders.ts";
 import { sendVenueWhatsApp } from "../_shared/venueWhatsApp.ts";
+import { loadWhatsAppSettings } from '../_shared/whatsappSettings.ts';
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -73,7 +74,8 @@ Deno.serve(async (req) => {
       key = Deno.env.get("EVOLUTION_GO_API_KEY"),
       resend = Deno.env.get("RESEND_API_KEY"),
       from = Deno.env.get("VENUE_INVITE_FROM");
-    if (email ? !resend || !from : !whatsAppConfigured() && !evolutionConfig())
+    const settings = email ? {} : await loadWhatsAppSettings(client);
+    if (email ? !resend || !from : !whatsAppConfigured(undefined,settings) && !evolutionConfig(settings))
       return reply({
         status: "queued",
         message: "Convite salvo; configure o provedor deste canal.",

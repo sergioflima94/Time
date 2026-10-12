@@ -5,6 +5,7 @@ import {
   whatsAppConfigured,
 } from "../_shared/whatsappProviders.ts";
 import { sendVenueWhatsApp } from "../_shared/venueWhatsApp.ts";
+import { loadWhatsAppSettings } from '../_shared/whatsappSettings.ts';
 Deno.serve(async (req) => {
   if (
     req.method !== "POST" ||
@@ -28,6 +29,7 @@ Deno.serve(async (req) => {
     return r;
   };
   try {
+    const settings = await loadWhatsAppSettings(db);
     await call("generate");
     const enabled = Deno.env.get("INVOICE_MESSAGES_ENABLED") === "true",
       emailKey = Deno.env.get("RESEND_API_KEY"),
@@ -37,7 +39,7 @@ Deno.serve(async (req) => {
     // Don't claim an outbox batch when provider configuration is unavailable.
     const channels = [
       ...(emailKey && from ? ["email"] : []),
-      ...(whatsAppConfigured() || evolutionConfig() ? ["whatsapp"] : []),
+      ...(whatsAppConfigured(undefined,settings) || evolutionConfig(settings) ? ["whatsapp"] : []),
     ];
     if (!enabled || !channels.length)
       return Response.json({
