@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  evolutionConfig,
+  whatsAppConfigured,
+} from "../_shared/whatsappProviders.ts";
+import { sendVenueWhatsApp } from "../_shared/venueWhatsApp.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -68,7 +73,7 @@ Deno.serve(async (req) => {
       key = Deno.env.get("EVOLUTION_GO_API_KEY"),
       resend = Deno.env.get("RESEND_API_KEY"),
       from = Deno.env.get("VENUE_INVITE_FROM");
-    if (email ? !resend || !from : !url?.startsWith("https://") || !key)
+    if (email ? !resend || !from : !whatsAppConfigured() && !evolutionConfig())
       return reply({
         status: "queued",
         message: "Convite salvo; configure o provedor deste canal.",
@@ -79,6 +84,25 @@ Deno.serve(async (req) => {
     claimed = true;
     // Generic sign-up invitation: never attaches a bill or auto-verifies the contact.
     const text = `Olá, ${lead.name}! ${lead.venue_name} convidou você para conhecer o Marcou Jogou. Crie sua própria conta: https://app.marcoujogou.com.br\nEste convite não cria cobrança nem confirma cadastro. Se não pediu o convite, ignore esta mensagem.`;
+    if (!email) {
+      const sent = await sendVenueWhatsApp(
+        client,
+        lead.venue_id,
+        lead.phone,
+        text,
+        id,
+      );
+      await rpc(
+        sent.ok ? "accepted" : sent.uncertain ? "uncertain" : "failed",
+        sent.messageId,
+      );
+      return reply({
+        status: sent.ok ? "accepted" : sent.uncertain ? "uncertain" : "failed",
+        message: sent.ok
+          ? "Convite aceito pelo provedor; entrega e cadastro não comprovados."
+          : sent.error,
+      });
+    }
     const response = await fetch(
       email ? "https://api.resend.com/emails" : `${url}/send/text`,
       {

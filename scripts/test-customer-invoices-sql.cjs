@@ -585,6 +585,7 @@ async function run() {
       /não autorizado/,
     );
     await require('./invoice-v2-cases.cjs')({db,q,who,act,users,p,venue,field,account,meal});
+    await require('./invoice-v3-cases.cjs')({db,q,who,act,users,p,venue,meal});
     console.log(
       "PASS: customer credit, consent, cut dates, immutable sources, privacy, limits, receipts, rentals, idempotence and arrears",
     );

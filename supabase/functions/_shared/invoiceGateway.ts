@@ -170,6 +170,30 @@ export async function refundInvoice(
   ctx: Context,
   fetcher: typeof fetch = fetch,
 ) {
+  if (ctx.refund_request_id && ctx.gateway.provider === "mercado_pago") {
+    const amount = ctx.refund_amount_cents;
+    if (!Number.isInteger(amount) || amount <= 0 || amount > ctx.total_cents)
+      throw Error("Valor de devolução inválido.");
+    const response = await fetcher(
+      `https://api.mercadopago.com/v1/payments/${encodeURIComponent(ctx.provider_payment_id)}/refunds`,
+      {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(12000),
+        headers: {
+          Authorization: `Bearer ${ctx.credentials.accessToken}`,
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": ctx.refund_request_id,
+        },
+        body: JSON.stringify({ amount: amount / 100 }),
+      },
+    );
+    if (!response.ok)
+      throw Error(
+        "Devolução inconclusiva. Consulte o provedor antes de outra solicitação.",
+      );
+    return reconcileInvoice(ctx, fetcher);
+  }
   if (!ctx.provider_payment_id)
     throw new Error("Consulte o recebimento antes de devolver.");
   return refundShopPayment(ctx, ctx.provider_payment_id, fetcher);

@@ -12,6 +12,8 @@ screenshots/
 supabase/
 config/mobile-auth/
 scripts/test-*.cjs
+scripts/invoice-v*-*.cjs
+.codex-remote-attachments/
 scripts/configure-auth-email.ps1
 .env
 .env.*

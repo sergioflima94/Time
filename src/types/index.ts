@@ -204,7 +204,7 @@ export interface Establishment {
   /** Consentimento explícito para receber solicitações transacionais. */
   whatsappOptIn: boolean;
   /** Ordem de envio: Evolution Go e, se falhar, Meta Cloud API. */
-  messagingProvider?: "automatic" | "evolution_go" | "meta_cloud";
+  messagingProvider?: "automatic" | "evolution_go" | "evolution_api" | "meta_cloud";
   /** Política comercial aplicada ao aceite de uma reserva automática. */
   reservationDepositPercent?: number;
   cancellationRefundHours?: number;
@@ -641,8 +641,8 @@ export interface WhatsAppDelivery {
   providerMessageId: string | null;
   createdAt: string;
   sentAt: string | null;
-  provider?: "evolution_go" | "meta_cloud" | "in_app";
-  fallbackFromProvider?: "evolution_go" | "meta_cloud" | null;
+  provider?: "evolution_go" | "evolution_api" | "meta_cloud" | "in_app";
+  fallbackFromProvider?: "evolution_go" | "evolution_api" | "meta_cloud" | null;
 }
 
 // =========================================================================

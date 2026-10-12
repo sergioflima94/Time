@@ -3,7 +3,8 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { sendWhatsAppText } from '../_shared/whatsapp.ts';
+import { sendVenueWhatsApp } from '../_shared/venueWhatsApp.ts';
+import {sameWebhookSecret} from '../_shared/shopGateway.ts';
 
 const digits = (value: string | null | undefined) => (value ?? '').replace(/\D/g, '');
 const normalizePhone = (value: string | null | undefined) => {
@@ -12,15 +13,17 @@ const normalizePhone = (value: string | null | undefined) => {
 };
 
 serve(async (req) => {
-  const expectedSecret = Deno.env.get('EVOLUTION_GO_WEBHOOK_SECRET');
+  if(req.method!=='POST')return new Response('method not allowed',{status:405});
+  const isApi=new URL(req.url).pathname.includes('evolution-api-webhook');
+  const expectedSecret = Deno.env.get(isApi?'EVOLUTION_API_WEBHOOK_SECRET':'EVOLUTION_GO_WEBHOOK_SECRET');
   const suppliedSecret = new URL(req.url).searchParams.get('secret') ?? req.headers.get('x-webhook-secret');
-  if (!expectedSecret || suppliedSecret !== expectedSecret) return new Response('unauthorized', { status: 401 });
+  if (!expectedSecret || !await sameWebhookSecret(suppliedSecret??'',expectedSecret)) return new Response('unauthorized', { status: 401 });
   try {
     const payload = await req.json();
     const data = payload.data ?? payload;
     if (data?.key?.fromMe) return ok();
     const providerMessageId = data?.key?.id ?? payload.id;
-    const remoteJid = data?.key?.remoteJid ?? payload.key?.remoteJid;
+    const remoteJid = data?.key?.remoteJidAlt ?? data?.key?.remoteJid ?? payload.key?.remoteJid;
     const text = data?.message?.conversation ?? data?.message?.extendedTextMessage?.text ?? payload.message?.conversation ?? '';
     const match = String(text).trim().toUpperCase().match(/^(SIM|NAO|NÃO)\s+(BJ-[A-Z0-9]{4})\b/);
     if (!match || !providerMessageId || !remoteJid) return ok();
@@ -30,6 +33,7 @@ serve(async (req) => {
     if (!request) return ok();
     const { data: field } = await service.from('fields').select('*').eq('id', request.field_id).single();
     const { data: establishment } = await service.from('establishments').select('*').eq('id', field.establishment_id).single();
+    if(isApi){const {data:instance}=await service.rpc('whatsapp_instance_service',{p_action:'sending_context',p_data:{venueId:establishment.id}});if(payload.instance!==(instance?.instance??Deno.env.get('EVOLUTION_API_INSTANCE')))return ok();}
     if (normalizePhone(remoteJid) !== normalizePhone(establishment.whatsapp_phone)) return ok();
 
     const accepted = match[1] === 'SIM';
@@ -48,20 +52,19 @@ serve(async (req) => {
         const phone = member.players?.phone;
         if (!phone || !member.players?.whatsapp_opt_in) return;
         const message = `Jogo confirmado! ${pelada.name} joga em ${field.name}, ${new Date(request.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`;
-        await sendWhatsAppText(normalizePhone(phone), message, `confirmed-${request.id}-${member.player_id}`, establishment.messaging_provider ?? 'automatic');
+        await sendVenueWhatsApp(service,establishment.id,normalizePhone(phone), message, `confirmed-${request.id}-${member.player_id}`);
       }));
     } else if (result === 'declined') {
       const { data: admins } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', pelada.id).eq('role', 'admin').eq('active', true);
-      await Promise.all((admins ?? []).map((admin: any) => admin.players?.phone && admin.players?.whatsapp_opt_in ? sendWhatsAppText(
+      await Promise.all((admins ?? []).map((admin: any) => admin.players?.phone && admin.players?.whatsapp_opt_in ? sendVenueWhatsApp(service,establishment.id,
         normalizePhone(admin.players.phone),
         `${field.name} recusou ${request.code}. Abra o MarcouJogou para tentar outro horário, o próximo campo ou criar uma enquete com o time.`,
         `declined-${request.id}-${admin.player_id}`,
-        establishment.messaging_provider ?? 'automatic',
       ) : Promise.resolve()));
     }
     return ok();
   } catch (error) {
-    console.error(error);
+    console.error('Booking webhook could not be reconciled.');
     return new Response('error', { status: 500 });
   }
 });

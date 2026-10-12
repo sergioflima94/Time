@@ -2040,7 +2040,7 @@ Não há juros nem débito automático. Pré-cadastro de balcão não recebe cr�
    lucro nem saldo líquido disponível no banco.
 3. **Corte e vencimento separados:** faturas mostram ambas as datas. Restrição por
    atraso começa após vencimento, não no corte. Pode pagar antecipado ou parcial
-   pelo caixa; o Pix gerado cobra o saldo integral congelado daquela intenção.
+   pelo caixa ou por Pix parcial; o valor de cada intenção fica congelado.
 4. **Comanda por pessoa:** todos os itens e pagamentos devem estar distribuídos.
    Cada cliente identificado/confirmado pode aceitar faturar apenas sua parte;
    caixa autorizado pode registrar o aceite presencial. Após o primeiro aceite,
@@ -2111,7 +2111,8 @@ automaticamente por esta configuração.
   PicPay, `INVOICE_PICPAY_ENABLED=true` **somente após homologação real**. Sem
   liberação, app explica o bloqueio e não cria cobrança. Integração implementada
   e testada com provas sintéticas não significa contrato/conta homologados.
-- **Exceções:** só devolução integral automática; parcial, duplicidade e pagamento
+- **Exceções:** Mercado Pago aceita devolução parcial/integral com prova cumulativa;
+  PicPay mantém integral nesta integração. Duplicidade e pagamento
   excedente exigem conferência no portal do provedor. Dono pode registrar motivo
   de revisão ou encerramento após expiração + cinco minutos, mas deve encerrar
   **no provedor** primeiro. Expirar no app não cancela no banco nem gera recibo.
@@ -2135,6 +2136,74 @@ Verificação: `node scripts/test-customer-invoices-sql.cjs`,
 `node scripts/test-invoice-gateways.cjs`, `node scripts/test-invoice-edge.cjs` e
 `scripts/test-customer-invoices-ui.cjs` (inclui `invoice-v2-ui.cjs`).
 Banco e navegador isolados; nenhum Pix, dívida real ou mensagem é gerado nos testes.
+
+## Faturas: parcelamento e Evolution API (1.0.5)
+
+- O cliente escolhe o **valor do Pix**, até o saldo. Uma cobrança pendente bloqueia
+  outra baixa concorrente; após confirmar, pode gerar outro Pix para o restante.
+- O dono escolhe uma cobrança atual/antiga no histórico paginado e solicita
+  **devolução parcial ou integral no Mercado Pago**. Cada confirmação cumulativa
+  reabre apenas o valor devolvido e as respectivas origens, sem duplicar eventos.
+  Pedido inconclusivo não é repetido automaticamente. PicPay continua integral.
+- O dono propõe **2–12 parcelas sem juros**, primeiro vencimento em até 90 dias e
+  intervalo de 7–45 dias. Só o cliente aceita/recusa no app. Saldo e datas originais
+  são preservados; pagamentos/abatimentos reduzem as parcelas pela ordem. O ciclo
+  negociado não recebe novos consumos. Devolução/correção que exceda o total acordado
+  sinaliza revisão, sem criar parcelas ou juros automaticamente. Filtros e atraso
+  consideram a primeira parcela pendente; cada etapa de lembrete é única por fatura.
+- O resumo online do filtro apresenta bruto, devoluções, tarifas e líquido **informados
+  pelo provedor**, além de quantas transações não têm essas informações. Não estimamos
+  taxa ausente. Líquido da transação não é lucro nem saldo bancário disponível.
+- **Confirmar meu celular** envia código de seis dígitos pelo WhatsApp da plataforma:
+  autorização explícita, cinco minutos de validade, até cinco erros e cinco códigos/dia,
+  intervalo mínimo de um minuto. Apenas hash com salt privado é armazenado. O backend
+  confirma no Auth exatamente a conta autenticada depois da prova; não usa número
+  digitado no perfil como verificação, não muda outra conta e não faz login automático.
+  Desafios antigos são removidos após sete dias. Confirmação não ativa lembretes.
+
+### Conectar um número pela Evolution API
+
+Em **Estabelecimento → Conectar número · Evolution API**, o dono solicita QR ou
+código de pareamento e consulta a conexão. QR/código desaparecem após 60 segundos,
+nunca são salvos em cache ou auditoria. Instância tem nome aleatório exclusivo do
+estabelecimento. Transferir propriedade invalida o vínculo antigo para envio e
+cria outra instância para o novo dono; a sessão antiga deve ser encerrada no servidor
+Evolution pelo operador. Escolha **Evolution API** em Provedor de mensagens e salve.
+Evolution Go e Meta Cloud continuam como alternativas.
+
+Configuração do operador, **somente nos secrets do Supabase**:
+
+- `EVOLUTION_API_URL`: base HTTPS da Evolution API v2 hospedada pelo operador.
+- `EVOLUTION_API_KEY`: chave do servidor, nunca no app/README.
+- `EVOLUTION_API_WEBHOOK_SECRET`: segredo forte para respostas de reservas.
+  Instâncias novas recebem webhook para `/functions/v1/evolution-api-webhook`,
+  evento `MESSAGES_UPSERT` e header `x-webhook-secret`. Na instância existente,
+  configure esse mesmo contrato no painel da Evolution.
+- `EVOLUTION_API_INSTANCE`: opcional, remetente da plataforma para códigos de
+  verificação e envio global. Os estabelecimentos usam suas próprias instâncias.
+- `PHONE_VERIFICATION_ENABLED=true`: só depois de validar o remetente dos códigos.
+  Convites e lembretes externos mantêm suas flags de liberação anteriores.
+
+O envio usa `/message/sendText/{instance}`; conexão usa `/instance/create`,
+`/instance/connect/{instance}` e `/instance/connectionState/{instance}`, conforme
+o [código oficial da Evolution API](https://github.com/evolution-foundation/evolution-api).
+Preferência explícita não troca provedor silenciosamente. Em automático, envio
+inconclusivo/timeout não tenta outro remetente. Convites, lembretes e avisos de reservas
+usam registro privado de despacho para impedir repetição do mesmo evento.
+Resposta enviada não comprova entrega. A plataforma não importa agenda ou histórico
+inteiro do WhatsApp; a conexão solicita não sincronizar histórico nem marcar leitura.
+Sessão vinculada não é verificação do telefone do cliente. Use somente número com
+autorização do responsável. Evolution precisa de servidor próprio compatível; o
+site estático na HostGator não hospeda esse serviço.
+
+Backend: migrations `20261012040000`–`20261012046000`; funções
+`whatsapp-instance`, `evolution-api-webhook`, `verify-customer-phone` e os
+adaptadores compartilhados usados pelas funções existentes. Testes sintéticos:
+`scripts/invoice-v3-cases.cjs`, `scripts/invoice-v3-ui.cjs` e
+`node scripts/test-whatsapp-providers.cjs`, além dos testes anteriores.
+Endereço/credenciais da Evolution, pagamentos reais, envio externo e publicação
+na HostGator ainda exigem configuração/homologação. Não houve cobrança, SMS ou
+WhatsApp real nos testes. O APK novo não substitui testes presenciais de recebimento.
 
 ## Multi-esporte
 

@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
         actor: auth.user.id,
         invoiceId: b.invoiceId,
         requestId: b.requestId,
+        amountCents: b.amountCents,
         allowPicpay: Deno.env.get("INVOICE_PICPAY_ENABLED") === "true",
       });
       intentId = claim.id;
@@ -188,7 +189,10 @@ Deno.serve(async (req) => {
       const claim = await call("refund_claim", {
         actor: auth.user.id,
         intentId,
+        requestId: b.requestId,
+        amountCents: b.amountCents,
       });
+      ctx = await call("context", { actor: auth.user.id, intentId });
       if (claim.claimed)
         for (const receipt of await refundInvoice(ctx))
           await call("settle", { intentId, ...receipt });

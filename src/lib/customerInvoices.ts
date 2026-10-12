@@ -81,3 +81,21 @@ export async function invoicePayment(
   }
   return result as { id: string; message: string };
 }
+export async function creditHistory(
+  invoiceId: string,
+  before?: string,
+  intentId?: string,
+  beforeId?:string,
+) {
+  if (!supabase) throw Error("Entre na conta.");
+  const actor = useAuthStore.getState().authUserId;
+  const { data, error } = await supabase.rpc("credit_checkout_history", {
+    p_invoice: invoiceId,
+    p_before: before,
+    p_intent: intentId,
+    p_before_id:beforeId,
+  });
+  if (error || actor !== useAuthStore.getState().authUserId)
+    throw Error("Não foi possível consultar o histórico. Atualize.");
+  return data as unknown as import("@/types/customerInvoices").CreditIntent[];
+}

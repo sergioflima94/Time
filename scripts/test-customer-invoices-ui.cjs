@@ -171,6 +171,7 @@ async function run() {
       else if (url.pathname.endsWith("/platform_configuration"))
         json = { settings: { discoveryEnabled: true } };
       else if (url.pathname.endsWith("/service_tabs")) json = [tabRow];
+      else if(url.pathname.endsWith('/establishments'))json=[{id:venue,owner_player_id:pid,name:acct.venue_name,payout_method:'in_person',access_code:'SYNTHETIC',created_at:now,messaging_provider:'evolution_api'}];
       else if (url.pathname.endsWith("/tab_participants"))
         json = [
           { id: participant, tab_id: tab, player_id: pid, name: acct.name },
@@ -207,6 +208,9 @@ async function run() {
         };
       else if (url.pathname.endsWith("/credit_export"))
         json = { invoices, truncated: false, generated_at: now };
+      else if(url.pathname.endsWith('/credit_checkout_history'))json=invoices[0].online?.intents??[];
+      else if(url.pathname.endsWith('/verify-customer-phone')){if(body.action==='send')json={id:id(45),message:'Código aceito pelo provedor. Confira o WhatsApp; entrega não comprovada.'};else{preference.phone_verified=true;json={message:'Telefone confirmado para sua conta. Lembretes continuam dependendo da sua autorização.'};}}
+      else if(url.pathname.endsWith('/whatsapp-instance'))json=body.action==='connect'?{configured:true,state:'connecting',code:'SYNTHETIC-QR-NO-REAL-NUMBER',pairingCode:'1234-5678',message:'QR temporário de teste.'}:{configured:true,state:'open',message:'WhatsApp conectado.'};
       else if (url.pathname.endsWith("/invoice-payment")) {
         const i = invoices[0];
         if (body.action === "checkout")
@@ -218,7 +222,8 @@ async function run() {
                 id: id(30),
                 provider: "mercado_pago",
                 state: "pending",
-                amount_cents: i.balance_cents,
+                amount_cents: body.amountCents??i.balance_cents,
+                created_at:now,
                 pix_code: "synthetic-pix-code-only",
                 expires_at: new Date(Date.now() + 1800000).toISOString(),
               },
@@ -229,13 +234,15 @@ async function run() {
           i.online.intents[0].state = "paid";
           i.payments.push({
             id: id(31),
-            amount_cents: i.balance_cents,
+            amount_cents: i.online.intents[0].amount_cents,
             method: "online_pix",
             paid_at: now,
             confirmation: "gateway",
           });
-          i.balance_cents = 0;
+          i.balance_cents -= i.online.intents[0].amount_cents;
+          i.online.intents[0].fee_cents=50;i.online.intents[0].net_cents=i.online.intents[0].amount_cents-50;
         }
+        if(body.action==='refund'){const t=i.online.intents[0],n=body.amountCents??t.amount_cents;t.refunded_cents=(t.refunded_cents??0)+n;t.refund_pending=false;i.balance_cents+=n;i.payments.at(-1).refunds=[{id:id(46),amount_cents:n,cumulative_cents:n,created_at:now}];}
         json = { id: invoiceId, message: "Provedor consultado." };
       } else if (
         url.pathname.endsWith("/credit_snapshot") ||
@@ -374,6 +381,10 @@ async function run() {
             email: d.email,
             whatsapp: d.whatsapp,
           });
+        } else if(body.p_action==='agreement_propose'){
+          invoices[0].agreements=[{id:id(47),status:'proposed',amount_cents:invoices[0].balance_cents,reason:d.reason,schedule:[{number:1,amount_cents:invoices[0].balance_cents/2,remaining_cents:invoices[0].balance_cents/2,due_date:d.firstDue},{number:2,amount_cents:invoices[0].balance_cents/2,remaining_cents:invoices[0].balance_cents/2,due_date:'2026-12-10'}]}];
+        } else if(body.p_action==='agreement_accept'){
+          invoices[0].agreements[0].status='accepted';invoices[0].effective_due_date=invoices[0].agreements[0].schedule[0].due_date;
         } else if (body.p_action === "post_part") {
           const p = parts.find((p) => p.id === d.participantId);
           p.remaining_cents = 0;
@@ -498,7 +509,8 @@ async function run() {
         owner = v;
       },
     });
-    // Restore baseline state after the seven-feature scenario.
+    await require('./invoice-v3-ui.cjs')({page,base,venue,input,button,fits,shot,actions,invoices,setOwner:v=>{owner=v;}});
+    // Restore baseline state after the extended synthetic scenarios.
     invoices[0].balance_cents = 700;
     invoices[0].online = { available: false, held: false, intents: [] };
     advanced = false;

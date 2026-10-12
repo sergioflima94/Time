@@ -9,7 +9,7 @@ import { Consent } from "./InvoiceControls";
 import { colors } from "@/constants/theme";
 import { createUuid } from "@/lib/uuid";
 import { moneyCents, parsePrice } from "@/lib/venueOperations";
-import { invoicePayment } from "@/lib/customerInvoices";
+import { invoicePayment, creditHistory } from "@/lib/customerInvoices";
 import type {
   CreditInvoice,
   CreditSource,
@@ -154,11 +154,21 @@ export function InvoiceCheckout({
     [busy, setBusy] = useState(false),
     [confirm, setConfirm] = useState(false),
     [reason, setReason] = useState(""),
-    [external, setExternal] = useState("");
+    [external, setExternal] = useState(""),
+    [payAmount, setPayAmount] = useState(""),
+    [refundAmount, setRefundAmount] = useState(""),
+    [selected, setSelected] = useState(""),
+    [history, setHistory] = useState<
+      import("@/types/customerInvoices").CreditIntent[]
+    >([]);
   const lock = useRef(false),
     nonce = useRef(createUuid());
   const online = i.online,
-    last = online?.intents[0];
+    all = [
+      ...(online?.intents ?? []),
+      ...history.filter((t) => !online?.intents.some((x) => x.id === t.id)),
+    ].sort((a,b)=>b.created_at.localeCompare(a.created_at)||b.id.localeCompare(a.id)),
+    last = all.find((t) => t.id === selected) ?? all[0];
   async function invoke(
     action: "checkout" | "reconcile" | "refund" | "recover",
   ) {
@@ -167,15 +177,45 @@ export function InvoiceCheckout({
     setBusy(true);
     setMessage("");
     try {
+      const amount =
+        action === "checkout" && payAmount.trim()
+          ? parsePrice(payAmount)
+          : action === "refund" && refundAmount.trim()
+            ? parsePrice(refundAmount)
+            : undefined;
+      if (
+        amount !== undefined &&
+        (!amount ||
+          amount >
+            (action === "checkout"
+              ? i.balance_cents
+              : (last?.amount_cents ?? 0) - (last?.refunded_cents ?? 0)))
+      )
+        throw Error("Valor deve ser positivo e até o saldo disponível.");
       const r = await invoicePayment(
         action,
         action === "checkout"
-          ? { invoiceId: i.id, requestId: nonce.current }
-          : { intentId: last?.id, confirmed: confirm, externalId: external },
+          ? { invoiceId: i.id, requestId: nonce.current, amountCents: amount }
+          : {
+              intentId: last?.id,
+              confirmed: confirm,
+              externalId: external,
+              ...(action === "refund"
+                ? { amountCents: amount, requestId: createUuid() }
+                : {}),
+            },
       );
       setMessage(r.message);
       if (action === "checkout") nonce.current = createUuid();
       await refresh();
+      if (selected) {
+        const rows = await creditHistory(i.id, undefined, selected);
+        setHistory((h) => [...rows, ...h.filter((t) => t.id !== selected)]);
+      }
+      if (action === "refund") {
+        setConfirm(false);
+        setRefundAmount("");
+      }
     } catch (e) {
       setMessage((e as Error).message);
       await refresh();
@@ -211,11 +251,57 @@ export function InvoiceCheckout({
         abrir o Pix não significa pagar.
       </Text>
       {i.balance_cents > 0 && !online?.held && (
-        <Button
-          label="Gerar Pix da fatura"
-          loading={busy}
-          onPress={() => void invoke("checkout")}
-        />
+        <>
+          <TextField
+            label="Valor do Pix (R$) · vazio paga todo o saldo"
+            value={payAmount}
+            onChangeText={(v) => {
+              setPayAmount(v);
+              nonce.current = createUuid();
+            }}
+            keyboardType="decimal-pad"
+          />
+          <Button
+            label="Gerar Pix da fatura"
+            loading={busy}
+            onPress={() => void invoke("checkout")}
+          />
+        </>
+      )}
+      {!!all.length && (
+        <>
+          <AdaptiveSelect
+            label="Cobrança para consultar ou devolver"
+            value={last?.id ?? ""}
+            onChange={(v) => {
+              setSelected(v);
+              setConfirm(false);
+              setRefundAmount("");
+            }}
+            options={all.map((t) => ({
+              value: t.id,
+              label: `${new Date(t.created_at).toLocaleString("pt-BR")} · ${moneyCents(t.amount_cents)} · ${t.state}`,
+            }))}
+          />
+          <Button
+            small
+            variant="outline"
+            label="Carregar histórico anterior de cobranças"
+            disabled={busy}
+            onPress={() => {
+              setBusy(true);
+              void creditHistory(i.id, all.at(-1)?.created_at,undefined,all.at(-1)?.id)
+                .then((rows) =>
+                  setHistory((h) => [
+                    ...h,
+                    ...rows.filter((t) => !h.some((x) => x.id === t.id)),
+                  ]),
+                )
+                .catch(() => setMessage("Histórico indisponível. Atualize."))
+                .finally(() => setBusy(false));
+            }}
+          />
+        </>
       )}
       {last && (
         <>
@@ -264,22 +350,42 @@ export function InvoiceCheckout({
           />
           {owner && last.state === "paid" && (
             <>
+              {last.provider === "mercado_pago" && (
+                <TextField
+                  label="Valor a devolver (R$) · vazio devolve o restante"
+                  value={refundAmount}
+                  onChangeText={setRefundAmount}
+                  keyboardType="decimal-pad"
+                />
+              )}
+              <Text style={s.meta}>
+                Devolvido: {moneyCents(last.refunded_cents ?? 0)}. Taxa:{" "}
+                {last.fee_cents == null
+                  ? "não informada"
+                  : moneyCents(last.fee_cents)}
+                . Líquido da transação informado pelo provedor:{" "}
+                {last.net_cents == null
+                  ? "não informado"
+                  : moneyCents(last.net_cents)}
+                . Não é saldo bancário disponível; confira devoluções
+                separadamente.
+              </Text>
               <Consent
                 value={confirm}
                 onChange={setConfirm}
-                label="Confirmo a devolução integral deste Pix"
+                label="Confirmo o valor da devolução deste Pix"
               />
               <Button
                 small
                 variant="outline"
                 label={
-                  last.refund_requested_at
+                  last.refund_pending
                     ? "Consultar devolução solicitada"
                     : "Solicitar devolução no provedor"
                 }
                 disabled={busy || !confirm}
                 onPress={() =>
-                  void invoke(last.refund_requested_at ? "reconcile" : "refund")
+                  void invoke(last.refund_pending ? "reconcile" : "refund")
                 }
               />
               <Text style={s.meta}>
@@ -306,7 +412,7 @@ export function InvoiceCheckout({
                 />
               </>
             )}
-          {owner && online?.held && (
+          {owner && online?.held && ['building','pending','uncertain','review'].includes(last.state) && (
             <>
               <TextField
                 label="Motivo da conferência do gateway"

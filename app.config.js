@@ -14,7 +14,7 @@ module.exports = {
     extra: {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
     },
-    version: '1.0.4',
+    version: '1.0.5',
     orientation: 'portrait',
     icon: './assets/branding/marcoujogou-icon.png',
     scheme: 'pelada',
@@ -25,7 +25,7 @@ module.exports = {
       bundleIdentifier: 'com.pelada.app',
     },
     android: {
-      versionCode: 5,
+      versionCode: 6,
       adaptiveIcon: {
         backgroundColor: '#F5F2EA',
         foregroundImage: './assets/branding/marcoujogou-adaptive.png',

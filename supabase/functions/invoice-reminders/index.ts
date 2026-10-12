@@ -1,5 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sameWebhookSecret } from "../_shared/shopGateway.ts";
+import {
+  evolutionConfig,
+  whatsAppConfigured,
+} from "../_shared/whatsappProviders.ts";
+import { sendVenueWhatsApp } from "../_shared/venueWhatsApp.ts";
 Deno.serve(async (req) => {
   if (
     req.method !== "POST" ||
@@ -32,7 +37,7 @@ Deno.serve(async (req) => {
     // Don't claim an outbox batch when provider configuration is unavailable.
     const channels = [
       ...(emailKey && from ? ["email"] : []),
-      ...(waUrl?.startsWith("https://") && waKey ? ["whatsapp"] : []),
+      ...(whatsAppConfigured() || evolutionConfig() ? ["whatsapp"] : []),
     ];
     if (!enabled || !channels.length)
       return Response.json({
@@ -48,6 +53,21 @@ Deno.serve(async (req) => {
         const text =
           "Você tem um aviso privado de fatura no MarcouJogou. Entre na sua conta para consultar saldo e vencimento: https://app.marcoujogou.com.br/faturas\nOs lembretes podem ser desativados em Minhas faturas.";
         const email = r.channel === "email";
+        if (!email) {
+          const sent = await sendVenueWhatsApp(
+            db,
+            r.venue_id,
+            r.phone,
+            text,
+            r.id,
+          );
+          await call(
+            sent.ok ? "accepted" : sent.uncertain ? "uncertain" : "failed",
+            { id: r.id, providerId: sent.messageId },
+          );
+          if (sent.ok) accepted++;
+          continue;
+        }
         const response = await fetch(
           email ? "https://api.resend.com/emails" : `${waUrl}/send/text`,
           {

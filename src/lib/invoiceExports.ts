@@ -66,6 +66,26 @@ export function invoiceCsv(invoices: CreditInvoice[]) {
         n.created_at,
         "Registrado",
       ]);
+    for (const p of i.payments)
+      for (const r of p.refunds ?? [])
+        rows.push([
+          ...common,
+          "Devolução parcial",
+          p.id,
+          (r.amount_cents / 100).toFixed(2).replace(".", ","),
+          r.created_at,
+          "Confirmada pelo provedor",
+        ]);
+    for (const a of i.agreements ?? [])
+      for (const p of a.schedule)
+        rows.push([
+          ...common,
+          "Parcela de acordo",
+          `Parcela ${p.number} / ${a.status}`,
+          (p.remaining_cents / 100).toFixed(2).replace(".", ","),
+          p.due_date,
+          a.needs_review ? "Revisão necessária" : a.status,
+        ]);
   }
   return "\ufeff" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
 }
@@ -108,6 +128,10 @@ export function receiptText(i: CreditInvoice, p: CreditPayment) {
     `Data: ${new Date(p.paid_at).toLocaleString("pt-BR")}`,
     `Forma: ${p.method === "online_pix" ? "Pix confirmado pelo provedor" : p.method === "cash" ? "Dinheiro conferido pelo caixa" : "Pix conferido manualmente"}`,
     `Situação: ${p.reversal ? "ESTORNADO · " + p.reversal.reason : "Recebimento registrado"}`,
+    ...(p.refunds ?? []).map(
+      (r) =>
+        `Devolução parcial confirmada: ${moneyCents(r.amount_cents)} · ${new Date(r.created_at).toLocaleString("pt-BR")}`,
+    ),
     p.reference ? `Referência: ${p.reference}` : "",
     "Não substitui nota fiscal. Compartilhe apenas com quem precisa destes dados.",
   ]

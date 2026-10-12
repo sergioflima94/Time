@@ -235,6 +235,8 @@ export function mercadoReceipt(payment: Context, ctx: Context) {
           0,
         )
       : null,
+    refundedCents: refunded,
+    netCents: payment.transaction_details?.net_received_amount == null ? null : cents(payment.transaction_details.net_received_amount),
   };
 }
 export async function verifiedReceipts(

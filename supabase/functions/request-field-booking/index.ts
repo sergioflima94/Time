@@ -4,7 +4,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { sendWhatsAppText } from '../_shared/whatsapp.ts';
+import { sendVenueWhatsApp } from '../_shared/venueWhatsApp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -38,7 +38,7 @@ serve(async (req) => {
     if (!establishment?.whatsapp_opt_in || !establishment.whatsapp_phone) return json({ error: 'Estabelecimento não autorizou o WhatsApp' }, 409);
 
     const text = `${pelada.name} solicita ${field.name} em ${new Date(booking.requested_start_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por ${booking.duration_minutes} min.\n\nResponda SIM ${booking.code} para confirmar ou NÃO ${booking.code} para recusar.`;
-    const sent = await sendWhatsAppText(establishment.whatsapp_phone, text, `booking-${booking.id}`, establishment.messaging_provider ?? 'automatic');
+    const sent = await sendVenueWhatsApp(service,establishment.id,establishment.whatsapp_phone, text, `booking-${booking.id}`);
     if (!sent.ok) return json({ error: 'Falha ao enviar WhatsApp', details: sent.error }, 502);
     await service.from('game_booking_requests').update({ sent_at: new Date().toISOString(), provider_message_id: sent.messageId }).eq('id', booking.id);
     await service.from('whatsapp_deliveries').insert({

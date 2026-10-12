@@ -469,3 +469,12 @@ verify_jwt = false
 
 [functions.invoice-reminders]
 verify_jwt = false
+
+[functions.whatsapp-instance]
+verify_jwt = false
+
+[functions.verify-customer-phone]
+verify_jwt = false
+
+[functions.evolution-api-webhook]
+verify_jwt = false

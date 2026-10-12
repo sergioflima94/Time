@@ -2,6 +2,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import {sendVenueWhatsApp} from '../_shared/venueWhatsApp.ts';
 
 const normalizePhone = (value: string) => { const clean = value.replace(/\D/g, ''); return clean.startsWith('55') ? clean : `55${clean}`; };
 
@@ -14,12 +15,12 @@ serve(async (req) => {
   const apiKey = Deno.env.get('EVOLUTION_GO_API_KEY')!;
   for (const booking of expired ?? []) {
     const { data: game } = await service.from('games').select('pelada_id').eq('id', booking.game_id).single();
-    const { data: field } = await service.from('fields').select('name').eq('id', booking.field_id).single();
+    const { data: field } = await service.from('fields').select('name,establishment_id').eq('id', booking.field_id).single();
     const { data: admins } = await service.from('pelada_memberships').select('player_id, players(phone, whatsapp_opt_in)').eq('pelada_id', game.pelada_id).eq('role', 'admin').eq('active', true);
     await Promise.all((admins ?? []).map(async (admin: any) => {
       if (!admin.players?.phone || !admin.players?.whatsapp_opt_in) return;
       const text = `${field?.name ?? 'O campo'} não respondeu à solicitação ${booking.code}. Abra o MarcouJogou para tentar o próximo campo ou criar uma enquete de horários.`;
-      await fetch(`${baseUrl.replace(/\/$/, '')}/send/text`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: apiKey }, body: JSON.stringify({ number: normalizePhone(admin.players.phone), text, id: `expired-${booking.id}-${admin.player_id}`, formatJid: true }) });
+      await sendVenueWhatsApp(service,field.establishment_id,normalizePhone(admin.players.phone),text,`expired-${booking.id}-${admin.player_id}`);
     }));
   }
   return new Response(JSON.stringify({ expired: expired?.length ?? 0 }), { headers: { 'Content-Type': 'application/json' } });

@@ -34,6 +34,13 @@ export interface CreditPayment {
     created_at: string;
     provider_confirmed: boolean;
   } | null;
+  net_paid_cents?: number;
+  refunds?: {
+    id: string;
+    amount_cents: number;
+    cumulative_cents: number;
+    created_at: string;
+  }[];
 }
 export interface CreditInvoice {
   id: string;
@@ -58,6 +65,20 @@ export interface CreditInvoice {
     created_at: string;
   }[];
   online?: { available: boolean; held: boolean; intents: CreditIntent[] };
+  effective_due_date?: string;
+  agreements?: {
+    id: string;
+    status: "proposed" | "accepted" | "rejected" | "cancelled";
+    amount_cents: number;
+    reason: string;
+    needs_review: boolean;
+    schedule: {
+      number: number;
+      amount_cents: number;
+      due_date: string;
+      remaining_cents: number;
+    }[];
+  }[];
 }
 export interface CreditIntent {
   id: string;
@@ -76,6 +97,10 @@ export interface CreditIntent {
   created_at: string;
   expires_at: string;
   refund_requested_at?: string | null;
+  refund_pending?: boolean;
+  refunded_cents?: number;
+  fee_cents?: number | null;
+  net_cents?: number | null;
 }
 export interface CreditQuery {
   search?: string;
@@ -148,6 +173,14 @@ export interface CreditSnapshot {
   has_more?: boolean;
   next_cursor?: { beforeCut: string; beforeId: string } | null;
   summary?: { count: number; pending_cents: number; overdue_cents: number };
+  financial_summary?: {
+    gross_cents: number;
+    refunded_cents: number;
+    fee_cents: number;
+    net_reported_cents: number;
+    unknown_fee_count: number;
+    unknown_net_count: number;
+  };
   preferences?: {
     account_id: string;
     in_app: boolean;

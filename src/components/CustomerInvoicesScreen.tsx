@@ -18,6 +18,8 @@ import type {
   CreditQuery,
 } from "@/types/customerInvoices";
 import { Consent, Receipt } from "./InvoiceControls";
+import { InvoiceAgreement } from "./InvoiceAgreement";
+import { PhoneVerification } from "./PhoneVerification";
 import {
   InvoiceCorrection,
   InvoiceCheckout,
@@ -201,6 +203,27 @@ function Content({ venue }: { venue: string | null }) {
               conferência do caixa ou confirmação verificada no gateway.
             </Text>
           </Card>
+          {d.financial_summary && (
+            <Card style={s.card}>
+              <Text style={s.heading}>Pagamentos online do filtro</Text>
+              <Text style={s.text}>
+                Bruto confirmado {moneyCents(d.financial_summary.gross_cents)} ·
+                devolvido {moneyCents(d.financial_summary.refunded_cents)}
+              </Text>
+              <Text style={s.text}>
+                Tarifas informadas {moneyCents(d.financial_summary.fee_cents)} ·
+                líquido informado{" "}
+                {moneyCents(d.financial_summary.net_reported_cents)}
+              </Text>
+              <Text style={s.meta}>
+                {d.financial_summary.unknown_fee_count} transações sem tarifa
+                informada; {d.financial_summary.unknown_net_count} sem líquido
+                informado. Não estimamos taxas ausentes. Líquido da transação
+                não é lucro nem saldo bancário disponível; confira devoluções e
+                liberação no provedor.
+              </Text>
+            </Card>
+          )}
           {d.owner && (
             <Card style={s.card}>
               <Text style={s.heading}>Liberar ou atualizar cliente</Text>
@@ -377,6 +400,9 @@ function Content({ venue }: { venue: string | null }) {
             busy={busy}
             run={run}
           />
+          {!!d.preferences?.some((p) => !p.phone_verified) && (
+            <PhoneVerification refresh={feed.refresh} />
+          )}
           <InvoiceSources sources={d.sources} busy={busy} run={run} />
           {!!d.rentals?.length && (
             <Text style={s.heading}>Locações combinadas</Text>
@@ -406,6 +432,7 @@ function Content({ venue }: { venue: string | null }) {
             <Invoice
               key={i.id}
               invoice={i}
+              mine={i.player_id === d.me}
               canRecord={!!d.can_record}
               owner={!!d.owner}
               busy={busy}
@@ -479,6 +506,7 @@ function Invoice({
   invoice: i,
   canRecord,
   owner,
+  mine,
   busy,
   run,
   refresh,
@@ -486,6 +514,7 @@ function Invoice({
   invoice: CreditInvoice;
   canRecord: boolean;
   owner: boolean;
+  mine: boolean;
   busy: boolean;
   run: Run;
   refresh: () => Promise<void>;
@@ -512,6 +541,11 @@ function Invoice({
       <Text style={s.meta}>
         Vencimento {dateLabel(i.due_date ?? i.cut_date)}
       </Text>
+      {i.effective_due_date && i.effective_due_date !== i.due_date && (
+        <Text style={s.meta}>
+          Próxima parcela do acordo: {dateLabel(i.effective_due_date)}
+        </Text>
+      )}
       <Text style={s.meta}>
         Lançamentos {moneyCents(i.total_cents)} · recebido{" "}
         {moneyCents(
@@ -559,6 +593,12 @@ function Invoice({
                   {new Date(p.reversal.created_at).toLocaleString("pt-BR")}
                 </Text>
               )}
+              {(p.refunds ?? []).map((r) => (
+                <Text key={r.id} style={s.meta}>
+                  Devolução parcial confirmada: {moneyCents(r.amount_cents)} ·{" "}
+                  {new Date(r.created_at).toLocaleString("pt-BR")}
+                </Text>
+              ))}
               <Button
                 small
                 variant="ghost"
@@ -596,6 +636,13 @@ function Invoice({
           </Text>
         ))}
       <InvoiceCheckout invoice={i} owner={owner} refresh={refresh} run={run} />
+      <InvoiceAgreement
+        invoice={i}
+        owner={owner}
+        mine={mine}
+        busy={busy}
+        run={run}
+      />
       {owner && <InvoiceCorrection invoice={i} busy={busy} run={run} />}
     </Card>
   );

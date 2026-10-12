@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { EstablishmentSwitcher } from '@/components/EstablishmentSwitcher';
 import { FieldDirectoryEditor } from '@/components/FieldDirectoryEditor';
+import { WhatsAppConnection } from '@/components/WhatsAppConnection';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -49,7 +50,7 @@ export default function EstablishmentDashboardScreen() {
   const [pixKey, setPixKey] = useState(establishment?.pixKey ?? '');
   const [whatsappPhone, setWhatsappPhone] = useState(establishment?.whatsappPhone ?? '');
   const [whatsappOptIn, setWhatsappOptIn] = useState(establishment?.whatsappOptIn ?? false);
-  const [messagingProvider, setMessagingProvider] = useState<'automatic' | 'evolution_go' | 'meta_cloud'>(establishment?.messagingProvider ?? 'automatic');
+  const [messagingProvider, setMessagingProvider] = useState<'automatic' | 'evolution_go' | 'evolution_api' | 'meta_cloud'>(establishment?.messagingProvider ?? 'automatic');
   const [depositPercent, setDepositPercent] = useState(String(establishment?.reservationDepositPercent ?? 0));
   const [refundHours, setRefundHours] = useState(String(establishment?.cancellationRefundHours ?? 24));
   const [refundPercent, setRefundPercent] = useState(String(establishment?.cancellationRefundPercent ?? 100));
@@ -158,9 +159,9 @@ export default function EstablishmentDashboardScreen() {
             updateBookingPolicy(establishment.id, { depositPercent: Number(depositPercent) || 0, refundHours: Number(refundHours) || 0, refundPercent: Number(refundPercent) || 0, messagingProvider });
           }}
         />
-        <SegmentedControl<'automatic' | 'evolution_go' | 'meta_cloud'>
+        <SegmentedControl<'automatic' | 'evolution_go' | 'evolution_api' | 'meta_cloud'>
           label="Provedor de mensagens"
-          options={[{ value: 'automatic', label: 'Automático' }, { value: 'evolution_go', label: 'Evolution' }, { value: 'meta_cloud', label: 'Meta Cloud' }]}
+          options={[{ value: 'automatic', label: 'Automático' }, { value: 'evolution_go', label: 'Go' }, { value: 'evolution_api', label: 'Evolution API' }, { value: 'meta_cloud', label: 'Meta Cloud' }]}
           value={messagingProvider}
           onChange={setMessagingProvider}
         />
@@ -169,9 +170,11 @@ export default function EstablishmentDashboardScreen() {
           <View style={{ flex: 1 }}><TextField label="Reembolso até (h)" value={refundHours} onChangeText={setRefundHours} keyboardType="number-pad" /></View>
           <View style={{ flex: 1 }}><TextField label="Reembolso (%)" value={refundPercent} onChangeText={setRefundPercent} keyboardType="number-pad" /></View>
         </View>
-        <Text style={styles.textMuted}>Respostas aceitas: SIM CÓDIGO ou NÃO CÓDIGO. A chave da Evolution Go fica somente no backend.</Text>
-        <Text style={styles.providerNotice}>Integração de mensageria fornecida por Evolution Go.</Text>
+        <Text style={styles.textMuted}>Respostas aceitas: SIM CÓDIGO ou NÃO CÓDIGO. As chaves dos provedores ficam somente no backend.</Text>
+        <Text style={styles.providerNotice}>Evolution API, Evolution Go ou Meta Cloud, conforme configuração.</Text>
       </Card>
+
+      <WhatsAppConnection venue={establishment.id} />
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
