@@ -118,6 +118,10 @@ async function run() {
       errors = [];
     page.setDefaultTimeout(12000);
     page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (msg) => {
+      if (/Refused to|violates.*Content Security Policy/i.test(msg.text()))
+        errors.push("Bloqueio de CSP no navegador");
+    });
     await ctx.routeWebSocket(/supabase\.co/, (ws) => ws.close());
     await ctx.route("https://*.supabase.co/**", async (route) => {
       const url = new URL(route.request().url()),
@@ -255,6 +259,7 @@ async function run() {
           s.revision++;
           json = { id: s.id };
         } else if (a === "product_save") {
+          assert(d.photos.length === 1 && d.photos[0].startsWith(uid + "/"));
           assert(
             d.variants[0].priceCents === 19990 && d.variants[0].stock === 15,
           );
@@ -336,7 +341,9 @@ async function run() {
     await page.waitForURL(/\/loja\/pedido\//);
     await page.getByText("Aguardando pagamento", { exact: true }).waitFor();
     assert(orders[0].total_cents === 14490);
-    await page.reload();await page.getByText('Aguardando pagamento',{exact:true}).waitFor();assert(page.url().endsWith(orders[0].id));
+    await page.reload();
+    await page.getByText("Aguardando pagamento", { exact: true }).waitFor();
+    assert(page.url().endsWith(orders[0].id));
     await fits();
     await shot("pedido-pendente-390");
     await page.goto(base + "/loja/pedido/" + orders[0].id + "?status=approved");
@@ -424,7 +431,7 @@ async function run() {
     }
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: public catalog, mobile/desktop layout, anonymous cart retained on login, delivery/consent/server total, querystring cannot approve payment, explicit provider reconciliation, pending cancellation, admin partner commission, SKU/cost/stock editing. Mocked backend only. Screenshots: " +
+      "PASS: public catalog, mobile/desktop layout, anonymous cart retained on login, delivery/consent/server total, querystring cannot approve payment, explicit provider reconciliation, pending cancellation, admin partner commission, SKU/cost/stock editing and gallery upload under production CSP. Mocked backend only. Screenshots: " +
         out,
     );
     await ctx.close();

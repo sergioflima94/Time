@@ -2,8 +2,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { isMockMode, supabase, supabaseProjectUrl } from "./supabase";
 import type { Json } from "@/types/supabase.generated";
 import type { ShopOrder, ShopProduct, ShopSnapshot } from "@/types/shop";
-import { pickProfilePhoto } from "./photo";
+import { pickPhotoAsset } from "./photo";
 import { createUuid } from "./uuid";
+import { Platform } from "react-native";
 export const shopImageUrl = (key: string) =>
   /^[-a-f0-9]{36}\/[-a-f0-9]{36}\.(jpg|png|webp)$/.test(key)
     ? `${supabaseProjectUrl}/storage/v1/object/public/shop-media/${key}`
@@ -124,18 +125,29 @@ export async function uploadShopPhoto() {
   if (!supabase) throw new Error("Fotos da loja exigem Supabase.");
   const actor = useAuthStore.getState().authUserId;
   if (!actor) throw new Error("Entre na conta do vendedor.");
-  const uri = await pickProfilePhoto();
-  if (!uri) return null;
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  if (blob.size > 5242880) throw new Error("A foto deve ter até 5 MB.");
-  const type = blob.type || "image/jpeg";
+  const asset = await pickPhotoAsset();
+  if (!asset) return null;
+  let data: ArrayBuffer, type: string;
+  if (Platform.OS === "web") {
+    // SDK 57 exposes File on the asset: no fetch(blob:) or broader CSP required.
+    if (!asset.file)
+      throw new Error("Selecione a foto novamente no navegador.");
+    if (asset.file.size > 5242880) throw new Error("A foto deve ter até 5 MB.");
+    data = await asset.file.arrayBuffer();
+    type = asset.file.type;
+  } else {
+    const response = await fetch(asset.uri),
+      blob = await response.blob();
+    data = await blob.arrayBuffer();
+    type = blob.type || "image/jpeg";
+  }
+  if (data.byteLength > 5242880) throw new Error("A foto deve ter até 5 MB.");
   if (!["image/jpeg", "image/png", "image/webp"].includes(type))
     throw new Error("Use foto JPG, PNG ou WebP.");
   const key = `${actor}/${createUuid()}.${type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg"}`;
   const { error } = await supabase.storage
     .from("shop-media")
-    .upload(key, await blob.arrayBuffer(), {
+    .upload(key, data, {
       contentType: type,
       upsert: false,
     });

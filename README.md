@@ -95,6 +95,9 @@ e `node scripts/test-shop-ui.cjs` (bundle web em `TEST_URL`, Chrome/Playwright).
 Usam banco isolado e respostas simuladas, sem contas/cobranças reais. Cobrem
 permissões, homologação, valores no servidor, estoque, consentimento/endereço,
 pagamentos duplicados/tardios, devolução, assinaturas e UI 320/390/1280 px.
+O teste web envia uma foto escolhida pelo picker com a CSP real do Apache.
+No navegador, o upload usa `ImagePickerAsset.file` do SDK 57 sem fazer
+`fetch(blob:)`; não precisa abrir o `connect-src` para URLs locais.
 Histórico de pedidos usa páginas de 30 com cursor de data/ID, inclusive para
 pedidos antigos, sem misturar lojas ou dados de compradores. O resumo financeiro
 continua limitado aos 100 pedidos recentes da loja selecionada.
