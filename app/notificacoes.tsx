@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
+import { AcademyNotices } from '@/components/AcademyNotices';
 import { Screen } from '@/components/ui/Screen';
 import { colors, spacing } from '@/constants/theme';
 import { computeActivityFeed } from '@/lib/activity';
@@ -61,6 +62,7 @@ export default function NotificacoesScreen() {
         <Text style={styles.headerTitle}>Notificações</Text>
       </View>
 
+      <AcademyNotices />
       {notifications.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="notifications-outline" size={32} color={colors.textFaint} />

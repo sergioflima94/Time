@@ -119,6 +119,8 @@ export default function EstablishmentDashboardScreen() {
       </View>
 
       <View style={styles.navGrid}>
+        <NavCard icon="pulse" label="Operação ao vivo" sub="Locações, cronômetros e ocorrências" onPress={() => router.push({pathname:'/operacao/ao-vivo',params:{establishmentId:establishment.id}})} />
+        <NavCard icon="people" label="Equipe e permissões" sub="Professores, funcionários e sócios" onPress={() => router.push({pathname:'/operacao/equipe',params:{establishmentId:establishment.id}})} />
         <NavCard icon="star" label="Avaliações e NPS" sub="Comentários e reputação" onPress={()=>router.push({pathname:'/avaliacoes',params:{establishmentId:establishment.id}})} />
         <NavCard icon="time-outline" label="Histórico" sub="Atividade e alterações" onPress={()=>router.push({pathname:'/historico',params:{scope:'venue',venueId:establishment.id}})} />
         <NavCard icon="football" label="Campos" sub={`${fields.length} cadastrados`} onPress={() => router.push(`/estabelecimento/${establishment.id}/campos`)} />

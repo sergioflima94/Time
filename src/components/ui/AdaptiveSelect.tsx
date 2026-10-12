@@ -11,7 +11,7 @@ interface Props {
   options: SelectOption[];
   value: string;
   onChange: (value: string) => void;
-  title: string;
+  title?: string;
   label?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -19,7 +19,7 @@ interface Props {
 }
 
 /** Small lists stay inline. Large lists use a local, explicit-confirmation picker. */
-export function AdaptiveSelect({ options, value, onChange, title, label, placeholder = 'Selecione uma opção', disabled = false, footer }: Props) {
+export function AdaptiveSelect({ options, value, onChange, label, title = label || 'Escolher opção', placeholder = 'Selecione uma opção', disabled = false, footer }: Props) {
   const palette = useUiPalette();
   const list = useRef<FlatList<SelectOption>>(null);
   const [open, setOpen] = useState(false), [query, setQuery] = useState(''), [draft, setDraft] = useState(value);

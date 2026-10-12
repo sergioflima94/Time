@@ -13,7 +13,7 @@ async function run(){try{
  grant usage on schema public,auth to authenticated,anon,service_role;grant execute on all functions in schema auth to authenticated,anon,service_role;`);
  const migrations=fs.readdirSync(path.join(__dirname,'../supabase/migrations')).filter(n=>n.endsWith('.sql')).sort();
  const migrate=async n=>db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',n),'utf8').replace(/^create extension if not exists .*;\r?$/gm,''));
- for(const n of migrations.filter(n=>!n.endsWith('_activity_history.sql')))await migrate(n);
+ for(const n of migrations.filter(n=>!n.endsWith('_activity_history.sql')&&!n.endsWith('_venue_history_permissions.sql')))await migrate(n);
  for(const [i,u] of users.entries())await q('insert into auth.users(id,email) values($1,$2)',[u,`history${i}@test.invalid`]);
  const ps=await q('select id,auth_user_id from players'),player=u=>ps.find(p=>p.auth_user_id===u).id;
  const team=(await q("insert into peladas(name,invite_code,created_by) values('Time histórico','HISTORYTEST',$1) returning id",[player(users[0])]))[0].id;
@@ -22,6 +22,7 @@ async function run(){try{
  const field=(await q("insert into fields(establishment_id,name,sport_ids,created_by) values($1,'Quadra histórica',array['futebol','volei'],$2) returning id",[venue,player(users[3])]))[0].id;
  const game=(await q("insert into games(pelada_id,field_id,scheduled_at,max_players,players_per_team,created_by) values($1,$2,'2099-01-11 19:00:00-03',10,5,$3) returning id",[team,field,player(users[0])]))[0].id;
  await migrate(migrations.find(n=>n.endsWith('_activity_history.sql')));
+ await migrate(migrations.find(n=>n.endsWith('_venue_history_permissions.sql')));
  // Supabase default table grants are not part of a plain PGlite database.
  await db.exec('grant select,update on public.games to authenticated');
  await identity(users[0]);let page=await history('context',null,'game',game);
@@ -88,6 +89,8 @@ async function run(){try{
  await q("insert into establishment_staff(establishment_id,player_id,roles,active) values($1,$2,array['kitchen'],true)",[venue,player(users[4])]);
  await identity(users[4]);await assert.rejects(history('venue',venue),/Sem permissão/);
  await db.exec('reset role');await q("update establishment_staff set roles=array['cashier'] where player_id=$1",[player(users[4])]);
+ await identity(users[4]);await assert.rejects(history('venue',venue),/Sem permissão/);
+ await db.exec('reset role');await q("insert into venue_staff_grants(establishment_id,player_id,capabilities) values($1,$2,array['reports'])",[venue,player(users[4])]);
  await identity(users[4]);assert.ok((await history('venue',venue)).entries.length>0);
  await db.exec('reset role');await q('update establishment_staff set active=false where player_id=$1',[player(users[4])]);
  await q("insert into platform_admin_accounts(auth_user_id,role,active) values($1,'owner',true)",[users[4]]);

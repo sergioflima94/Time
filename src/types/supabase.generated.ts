@@ -39,6 +39,287 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_bills: {
+        Row: {
+          amount_cents: number
+          competence: string | null
+          created_at: string
+          id: string
+          paid_at: string | null
+          plan: string
+          player_id: string
+          program_id: string
+          received_by: string | null
+          request_id: string | null
+          status: string
+        }
+        Insert: {
+          amount_cents: number
+          competence?: string | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          plan: string
+          player_id: string
+          program_id: string
+          received_by?: string | null
+          request_id?: string | null
+          status?: string
+        }
+        Update: {
+          amount_cents?: number
+          competence?: string | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          plan?: string
+          player_id?: string
+          program_id?: string
+          received_by?: string | null
+          request_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_bills_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_bills_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "class_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_bills_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_credits: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          player_id: string
+          program_id: string
+          source_seat_id: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          player_id: string
+          program_id: string
+          source_seat_id: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          player_id?: string
+          program_id?: string
+          source_seat_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_credits_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_credits_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "class_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_credits_source_seat_id_fkey"
+            columns: ["source_seat_id"]
+            isOneToOne: true
+            referencedRelation: "academy_seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_seats: {
+        Row: {
+          active: boolean
+          attendance: string | null
+          bill_id: string
+          created_at: string
+          id: string
+          legacy_id: string | null
+          original_session_id: string
+          player_id: string
+          revision: number
+          session_id: string
+        }
+        Insert: {
+          active?: boolean
+          attendance?: string | null
+          bill_id: string
+          created_at?: string
+          id?: string
+          legacy_id?: string | null
+          original_session_id: string
+          player_id: string
+          revision?: number
+          session_id: string
+        }
+        Update: {
+          active?: boolean
+          attendance?: string | null
+          bill_id?: string
+          created_at?: string
+          id?: string
+          legacy_id?: string | null
+          original_session_id?: string
+          player_id?: string
+          revision?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_seats_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "academy_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_seats_legacy_id_fkey"
+            columns: ["legacy_id"]
+            isOneToOne: true
+            referencedRelation: "class_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_seats_original_session_id_fkey"
+            columns: ["original_session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_seats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_seats_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_settings: {
+        Row: {
+          cutoff_hours: number
+          drop_in_cents: number | null
+          makeup_days: number
+          makeups_enabled: boolean
+          monthly_cents: number | null
+          program_id: string
+          swaps_enabled: boolean
+        }
+        Insert: {
+          cutoff_hours?: number
+          drop_in_cents?: number | null
+          makeup_days?: number
+          makeups_enabled?: boolean
+          monthly_cents?: number | null
+          program_id: string
+          swaps_enabled?: boolean
+        }
+        Update: {
+          cutoff_hours?: number
+          drop_in_cents?: number | null
+          makeup_days?: number
+          makeups_enabled?: boolean
+          monthly_cents?: number | null
+          program_id?: string
+          swaps_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_settings_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "class_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_swaps: {
+        Row: {
+          accepted_by: string | null
+          created_at: string
+          id: string
+          source_revision: number
+          source_seat_id: string
+          status: string
+          target_session_id: string
+        }
+        Insert: {
+          accepted_by?: string | null
+          created_at?: string
+          id?: string
+          source_revision: number
+          source_seat_id: string
+          status?: string
+          target_session_id: string
+        }
+        Update: {
+          accepted_by?: string | null
+          created_at?: string
+          id?: string
+          source_revision?: number
+          source_seat_id?: string
+          status?: string
+          target_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_swaps_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_swaps_source_seat_id_fkey"
+            columns: ["source_seat_id"]
+            isOneToOne: false
+            referencedRelation: "academy_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_swaps_target_session_id_fkey"
+            columns: ["target_session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_comments: {
         Row: {
           activity_id: string
@@ -6476,6 +6757,318 @@ export type Database = {
           },
         ]
       }
+      venue_audit: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          details: Json
+          establishment_id: string
+          id: number
+          target_id: string | null
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          details?: Json
+          establishment_id: string
+          id?: never
+          target_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          details?: Json
+          establishment_id?: string
+          id?: never
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_audit_actor_fkey"
+            columns: ["actor"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_audit_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_incidents: {
+        Row: {
+          created_at: string
+          created_by: string
+          establishment_id: string
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          establishment_id: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          establishment_id?: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_incidents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_incidents_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_incidents_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_invites: {
+        Row: {
+          created_at: string
+          id: string
+          prospect_id: string
+          provider_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prospect_id: string
+          provider_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prospect_id?: string
+          provider_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_invites_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "venue_prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_live_pings: {
+        Row: {
+          establishment_id: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          establishment_id: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          establishment_id?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_live_pings_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: true
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_notices: {
+        Row: {
+          body: string
+          created_at: string
+          establishment_id: string
+          id: string
+          player_id: string
+          read_at: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          establishment_id: string
+          id?: string
+          player_id: string
+          read_at?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          establishment_id?: string
+          id?: string
+          player_id?: string
+          read_at?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_notices_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_notices_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_occupancy: {
+        Row: {
+          created_by: string
+          ended_at: string | null
+          ends_at: string
+          establishment_id: string
+          field_id: string
+          id: string
+          label: string
+          starts_at: string
+        }
+        Insert: {
+          created_by: string
+          ended_at?: string | null
+          ends_at: string
+          establishment_id: string
+          field_id: string
+          id?: string
+          label: string
+          starts_at?: string
+        }
+        Update: {
+          created_by?: string
+          ended_at?: string | null
+          ends_at?: string
+          establishment_id?: string
+          field_id?: string
+          id?: string
+          label?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_occupancy_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_occupancy_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_occupancy_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_prospects: {
+        Row: {
+          channel: string | null
+          consent_at: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          establishment_id: string
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          channel?: string | null
+          consent_at?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          establishment_id: string
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          channel?: string | null
+          consent_at?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          establishment_id?: string
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_prospects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_prospects_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_review_audit: {
         Row: {
           action: string
@@ -6697,6 +7290,82 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_staff_grants: {
+        Row: {
+          capabilities: string[]
+          establishment_id: string
+          player_id: string
+        }
+        Insert: {
+          capabilities?: string[]
+          establishment_id: string
+          player_id: string
+        }
+        Update: {
+          capabilities?: string[]
+          establishment_id?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_staff_grants_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_staff_grants_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_tab_requests: {
+        Row: {
+          actor: string
+          id: string
+          invite_id: string | null
+          tab_id: string
+        }
+        Insert: {
+          actor: string
+          id: string
+          invite_id?: string | null
+          tab_id: string
+        }
+        Update: {
+          actor?: string
+          id?: string
+          invite_id?: string | null
+          tab_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_tab_requests_actor_fkey"
+            columns: ["actor"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_tab_requests_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "venue_invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_tab_requests_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "service_tabs"
             referencedColumns: ["id"]
           },
         ]
@@ -6923,6 +7592,17 @@ export type Database = {
       }
     }
     Functions: {
+      academy_action: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
+      }
+      academy_can: { Args: { p: string; pricing?: boolean }; Returns: boolean }
+      academy_check_seat: { Args: { p: string; s: string }; Returns: undefined }
+      academy_compatible: {
+        Args: { makeup?: boolean; source: string; target: string }
+        Returns: boolean
+      }
+      academy_snapshot: { Args: { p_venue?: string }; Returns: Json }
       activity_history_access: {
         Args: { e: Database["public"]["Tables"]["activity_history"]["Row"] }
         Returns: boolean
@@ -7234,6 +7914,18 @@ export type Database = {
         Returns: Json
       }
       shop_upload_allowed: { Args: never; Returns: boolean }
+      venue_action: { Args: { p_action: string; p_data: Json }; Returns: Json }
+      venue_can: { Args: { c: string; v: string }; Returns: boolean }
+      venue_invite_service: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_id: string
+          p_provider_id?: string
+        }
+        Returns: Json
+      }
+      venue_ping: { Args: { v: string }; Returns: undefined }
       venue_review_action: {
         Args: { p_action: string; p_data: Json }
         Returns: Json
@@ -7268,6 +7960,7 @@ export type Database = {
         }
         Returns: Json
       }
+      venue_snapshot: { Args: { p_venue?: string }; Returns: Json }
       vote_game_highlight: {
         Args: { p_game: string; p_player: string }
         Returns: undefined

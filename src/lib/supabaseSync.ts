@@ -46,6 +46,11 @@ interface StartOptions {
 }
 
 let applyingRemote = false;
+export function applyOperationCache(patch: Partial<Pick<ReturnType<typeof useAppStore.getState>, 'serviceTabs' | 'tabParticipants'>>) {
+  const previous = applyingRemote;
+  applyingRemote = true;
+  try { useAppStore.setState(patch); } finally { applyingRemote = previous; }
+}
 /** Canonical RPC results update the cache without being re-sent as optimistic writes. */
 export function applyFriendCache(patch: Partial<Pick<ReturnType<typeof useAppStore.getState>, 'players' | 'friendships'>>) {
   const previous = applyingRemote;

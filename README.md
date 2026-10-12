@@ -1,5 +1,85 @@
 # MarcouJogou
 
+## Operação do campo, professores e preços de aulas
+
+Na Home, **Meu acesso nos campos** abre os estabelecimentos em que a conta é dona
+ou tem permissões. O dono encontra **Equipe e permissões** e **Operação ao vivo**
+também no painel do estabelecimento. Cadastre funcionários, professores ou sócios
+por e-mail de uma conta já confirmada. Marque cada acesso separadamente; função
+não concede poderes automaticamente. Precificar exige administração de aulas
+(todas ou somente as do professor) e a permissão específica de preços. Revogar
+acesso vale no banco, não apenas nos botões.
+
+- **PDV:** times com jogo/reserva no dia aparecem na lateral em telas grandes;
+  no celular, a seleção fica acima do formulário. Selecionar o time mostra seus
+  jogadores. Comanda avulsa exige nome e celular ou e-mail. Esse pré-cadastro é
+  privado: não cria conta Auth, amizade, confirmação de contato nem dívida em uma
+  conta futura. Convite é opcional e depende de autorização do cliente.
+- **Ao vivo:** locações em uso têm cronômetro sincronizado com a hora do servidor,
+  prorrogação e encerramento explícito. Tempo excedido não encerra nem cobra
+  sozinho. Há reservas do dia, comandas abertas, fila da cozinha e ocorrências.
+  Receitas só aparecem para caixa/relatórios; são recebimentos registrados, não
+  lucro ou saldo bancário. Há eventos Supabase e consulta de contingência a cada
+  30 segundos. Sem conexão de eventos, a tela não se anuncia como tempo real.
+- **Aulas:** grupos e particulares, professor, quadra híbrida compatível, esporte,
+  nível, vagas e duração. Informe **mensalidade** e **preço avulso** separadamente;
+  vazio desativa uma modalidade. O dono e professores com autorização podem
+  criar/precificar; professores restritos só administram suas próprias turmas.
+- **Mensal:** uma cobrança por aluno, programa e mês civil. O valor fica congelado
+  na cobrança e não é repetido em cada aula. Reserva as aulas futuras já publicadas
+  no mês escolhido, sem pró-rata nem renovação automática. Para incluir horários
+  publicados depois, reserve novamente: a cobrança existente é reutilizada e
+  vagas já trocadas/consumidas não são recriadas. Mudança de avulsa para mensal
+  precisa ser combinada com o estabelecimento para evitar cobrança dupla.
+- **Agenda:** publique um ou mais dias/horários semanais (ex.: seg/qua às 18h),
+  com período de até 12 semanas, no fuso de Brasília. Duplicados são ignorados;
+  conflito de quadra cancela toda a publicação. Remarcação verifica também a
+  agenda dos alunos e invalida propostas de troca antigas.
+- **Troca:** o dono habilita nas turmas. Aluno propõe um horário e os alunos
+  elegíveis recebem aviso interno. Aceite troca as duas vagas em uma transação,
+  sem transferir cobranças. As turmas precisam ser do mesmo estabelecimento,
+  esporte, nível, professor, formato, duração e preços; ambas devem permitir
+  trocas. Revalida prazos, vagas e conflitos no aceite. Não há mudança automática
+  de nível ou transferência para outro professor.
+- **Reposição:** opcional, habilitada pelo dono. Ausência avisada no prazo de uma
+  reserva quitada libera a vaga e gera crédito; padrão 12h de antecedência,
+  validade de 30 dias e limite de 2 por mês. Reserva turma compatível dentro da
+  validade, consome crédito uma vez e não gera nova cobrança. Cancelar aula não
+  comprova estorno; pagamentos/reembolsos devem ser tratados com os alunos.
+- **Caixa e cozinha:** a cozinha recebe apenas dados de produção, sem contato ou
+  caixa. Turnos de caixa são abertos/fechados no servidor e incluem alimentação
+  e aulas em dinheiro, sem contar uma mensalidade várias vezes. Locações não são
+  inventadas como recebimento. Baixa manual de aulas só confirma dinheiro
+  presencial; Pix/cartão não são simulados como aprovados.
+
+As reservas antigas foram preservadas como registros legados, sem serem
+transformadas em novos recebimentos. Programas antigos por pacote precisam ser
+revisados/cadastrados com as modalidades atuais; não são convertidos automaticamente.
+Cobrança online/assinatura recorrente de aulas, estorno automatizado, troca entre
+professores diferentes e push externo de cada aviso de aula **não estão habilitados**.
+Avisos de aula ficam em **Notificações** e em **Aulas esportivas**.
+
+### Convites de clientes avulsos
+
+`venue-invite` exige sessão válida, autorização PDV e consentimento registrado.
+Sem `VENUE_MESSAGES_ENABLED=true` e credenciais de servidor, mantém o convite
+pendente e informa isso na tela. Não coloque segredos em `EXPO_PUBLIC_*`.
+
+- E-mail: `RESEND_API_KEY` e `VENUE_INVITE_FROM`, com remetente/domínio validado.
+  A API usa chave de idempotência. [Documentação Resend](https://resend.com/docs/api-reference/emails/send-email).
+- WhatsApp: `EVOLUTION_GO_URL` HTTPS e `EVOLUTION_GO_API_KEY`, usando o contrato
+  `/send/text` já adotado pelo app. Homologue o endpoint/instância antes de habilitar.
+  Não há fallback para mensagem Meta não aprovada fora da janela de atendimento.
+- Aceite pelo provedor **não prova entrega nem cadastro**. Resultado incerto não
+  é reenviado automaticamente: confira o provedor primeiro. O convite é um link
+  de cadastro, sem vincular automaticamente pré-cadastro/comandas à conta criada.
+  O PDV mostra os últimos convites e permite enviar os pendentes após configurar
+  o provedor. Convites não enviados expiram em 24h; obtenha nova autorização.
+
+Validação: `node scripts/test-venue-academy-sql.cjs` (PostgreSQL isolado) e
+`scripts/test-venue-academy-ui.cjs` (Chrome, bundle real, backend interceptado).
+Nenhum teste envia convite real, cria conta de cliente em produção ou movimenta dinheiro.
+
 ## Loja oficial e parceiros
 
 `/loja` é a loja de produtos físicos, independente das comandas e do saldo de
