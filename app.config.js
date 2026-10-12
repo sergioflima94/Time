@@ -1,10 +1,8 @@
 // Config dinâmica (em vez de app.json) para poder ler os IDs do AdMob do .env
 // em tempo de build nativo. Veja .env.example para as variáveis disponíveis.
 
-// IDs de teste oficiais do Google — usados como fallback caso o .env não
-// esteja preenchido, para o app já funcionar com anúncios de teste out-of-the-box.
-const TEST_ADMOB_ANDROID_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
-const TEST_ADMOB_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
+const { resolveAdmobConfig } = require('./scripts/admob-config.cjs');
+const admob = resolveAdmobConfig();
 
 module.exports = {
   expo: {
@@ -13,6 +11,7 @@ module.exports = {
     owner: 'sergiolima',
     extra: {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
+      admob,
     },
     version: '1.0.5',
     orientation: 'portrait',
@@ -85,10 +84,11 @@ module.exports = {
       [
         'react-native-google-mobile-ads',
         {
-          androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || TEST_ADMOB_ANDROID_APP_ID,
-          iosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || TEST_ADMOB_IOS_APP_ID,
+          androidAppId: admob.androidAppId,
+          iosAppId: admob.iosAppId,
+          delayAppMeasurementInit: true,
           userTrackingUsageDescription:
-            'Usamos seus dados para mostrar anúncios mais relevantes na pelada.',
+            'Com sua permissão, o identificador do dispositivo pode ser usado pela publicidade no MarcouJogou.',
         },
       ],
     ],

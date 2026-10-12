@@ -6,12 +6,15 @@
   "build": {
     "preview": {
       "environment": "preview",
+      "env": { "EXPO_PUBLIC_ADMOB_MODE": "test" },
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "environment": "production",
+      "env": { "EXPO_PUBLIC_ADMOB_MODE": "production" },
       "autoIncrement": true
     }
   },

@@ -1782,10 +1782,11 @@ sem credenciais configuradas, continua em modo demonstração para não moviment
 - **Anúncios** (`src/components/AdBanner.tsx`): banner do **AdMob real**
   (`react-native-google-mobile-ads`, via `src/lib/ads.ts`) para quem não é Premium
   nem já pagou o rateio de algum jogo (`src/hooks/useIsAdFree.ts`), em Agenda e
-  Elenco. Sem `.env` preenchido, usa os IDs de **teste** do Google (anúncios de
-  teste, sem receita real) — veja "Configurar o AdMob" abaixo. No **web** o SDK não
-  tem suporte (é nativo), então cai automaticamente num "house ad" local
-  (`src/lib/ads.web.ts`).
+  telas elegíveis. Preview usa os IDs de **teste** do Google, sem receita real.
+  Produção exige IDs reais; o build falha se estiverem ausentes/inválidos.
+  UMP autoriza os pedidos antes de inicializar o SDK/montar banners; sem autorização
+  ou em falha sem consentimento anterior válido, não há anúncios. Web e Expo Go
+  não exibem AdMob nem promoções fictícias.
 - **Rateio do jogo / "vaquinha"** (`src/components/PaymentSplitSection.tsx`): o admin
   define o custo da quadra (na agenda ou direto no jogo), o app calcula o valor por
   pessoa e cada jogador confirmado pode "marcar como pago". O admin também marca
@@ -1805,24 +1806,56 @@ cliente nunca marca uma cobrança real como paga.
 
 ### Configurar o AdMob
 
-1. Crie um app no [console do AdMob](https://apps.admob.com/) (um para Android, um
-   para iOS) e uma unidade de anúncio do tipo **Banner** em cada um.
-2. Copie `.env.example` para `.env` e preencha:
+1. Conclua o cadastro no [console do AdMob](https://apps.admob.com/), incluindo
+   termos, país e verificações solicitadas pelo Google. Em **12/10/2026**, a conta
+   acessada ainda exibia o cadastro inicial; não foram criados IDs de produção.
+   O código preparado não significa conta aprovada ou anúncios monetizando.
+2. Cadastre **MarcouJogou** para Android e iOS (identificadores `com.pelada.app`).
+   Se ainda não estiverem nas lojas, marque como não publicados; depois vincule
+   às fichas reais. Crie uma unidade **Banner** para cada plataforma. Não usamos
+   intersticiais, anúncios de abertura nem recompensados neste fluxo.
+3. Configure no ambiente **production** do EAS as quatro variáveis públicas:
    ```
    EXPO_PUBLIC_ADMOB_ANDROID_APP_ID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
    EXPO_PUBLIC_ADMOB_IOS_APP_ID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
    EXPO_PUBLIC_ADMOB_BANNER_ID_ANDROID=ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ
    EXPO_PUBLIC_ADMOB_BANNER_ID_IOS=ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ
    ```
-   Deixando em branco, o app usa os IDs de teste do Google (`TestIds.BANNER`) e
-   os App IDs de teste já configurados em `app.config.js`.
-3. Como o App ID é lido em tempo de build nativo (não só no bundle JS), depois de
-   mudar o `.env` é preciso gerar um novo build (`eas build`) ou rodar
-   `npx expo prebuild --clean` antes de testar localmente — **não funciona no Expo
-   Go**, só em dev client / build gerado pelo EAS.
-4. Se for buildar pela EAS Build (nuvem), configure essas mesmas variáveis também
-   em *Project settings → Environment variables* no [expo.dev](https://expo.dev),
-   já que o `.env` local não é enviado para o servidor de build.
+   `eas.json` escolhe `EXPO_PUBLIC_ADMOB_MODE=production` e o ambiente production
+   nos builds de loja; preview usa seu próprio ambiente e força `test` mesmo se
+   houver IDs reais nele. App ID (`~`) e Banner ID (`/`) devem pertencer ao mesmo
+   editor; IDs oficiais de teste são recusados no modo production. `off` permite
+   um lançamento deliberadamente sem publicidade, alterando o perfil de build.
+   Localmente, `.env.example` começa em `test`; IDs reais sozinhos não ativam anúncios.
+4. Configure mensagens em **Privacidade e mensagens** do AdMob, associadas aos apps
+   e à [política pública](https://marcoujogou.com.br/politica-de-privacidade/).
+   Revise regiões, público-alvo e ATT/iOS conforme a distribuição real. O app usa
+   `AdsConsent.gatherConsent()`, verifica `canRequestAds`, adia a medição nativa
+   (`delayAppMeasurementInit`) e oferece **Perfil → Privacidade e conta → Opções de
+   privacidade dos anúncios** quando o UMP indicar que a opção é obrigatória.
+   A mudança de escolhas desmonta os banners e atualiza a autorização antes de
+   novos pedidos. Falha de rede só permite pedidos se o próprio UMP confirmar
+   consentimento anterior válido; o app não grava uma autorização paralela.
+   Os banners pedem anúncios não personalizados e não recebem localização,
+   contatos, e-mail ou identidade do jogador como parâmetros de segmentação.
+   O banner adaptativo usa a largura útil do card (inclusive em telas estreitas),
+   limita a altura a 100 pontos e desaparece quando não há preenchimento/erro.
+   Isso não dispensa as declarações de coleta/compartilhamento do SDK nas lojas.
+5. Com o **ID real do editor**, publique `app-ads.txt` na raiz de marcoujogou.com.br
+   e configure esse site nas fichas das lojas. Não invente um publisher ID nem use
+   o ID de teste nesse arquivo. Revise verificação do app/conta, pagamentos e status
+   de prontidão no Google; cadastrar IDs não garante liberação de anúncios.
+6. Gere **novo build nativo**: `eas build --profile preview --platform android`
+   para APK de validação com anúncios de teste; `eas build --profile production
+   --platform android` para AAB e `--platform ios` para o artefato iOS. Mudanças em
+   App IDs e opções do plugin exigem recompilação nativa, não apenas atualização JS.
+   Não clique em anúncios reais nem automatize tráfego neles durante QA.
+7. Homologue UMP/privacidade em Android e iPhone físicos antes da submissão. Os
+   testes sintéticos (`node scripts/test-admob.cjs`) não comprovam entrega real,
+   aprovação AdMob, preenchimento de anúncios, receita ou aprovação das lojas.
+
+Referências: [consentimento UMP](https://docs.page/invertase/react-native-google-mobile-ads/european-user-consent)
+e [prontidão/verificação de apps no AdMob](https://support.google.com/admob/answer/10564477?hl=pt-BR).
 
 ## Grupos, convidados e convites
 

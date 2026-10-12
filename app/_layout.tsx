@@ -9,7 +9,6 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation';
 import { usePlatformAccessSync } from '@/hooks/usePlatformAccessSync';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
-import { initializeAds } from '@/lib/ads';
 import { startDemoHistory } from '@/lib/history';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -23,7 +22,6 @@ export default function RootLayout() {
   useSupabaseSync();
   usePlatformAccessSync();
   useEffect(() => {
-    initializeAds();
     void usePlatformStore.getState().loadPublic();
   }, []);
 
