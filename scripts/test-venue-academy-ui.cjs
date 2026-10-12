@@ -43,6 +43,7 @@ const player = {
 };
 let owner = true,
   deny = false,
+  denyVenue = false,
   actions = [],
   bills = [],
   seats = [];
@@ -126,6 +127,13 @@ async function run() {
             credits: [],
             notices: [],
           };
+      } else if (
+        url.pathname.endsWith("/venue_snapshot") &&
+        denyVenue &&
+        body.p_venue
+      ) {
+        status = 403;
+        json = { message: "OPERAÇÃO: Sem acesso ao PDV." };
       } else if (url.pathname.endsWith("/venue_snapshot"))
         json = body.p_venue
           ? {
@@ -335,6 +343,30 @@ async function run() {
     await page.setViewportSize({ width: 1280, height: 900 });
     await fits();
     await shot("pdv-lateral-desktop");
+    await page
+      .getByRole("button", { name: "Ir para pedidos da comanda aberta" })
+      .click();
+    await page
+      .getByText(
+        "Comanda indisponível ou sem permissão. Atualize seu acesso.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(
+      await page.getByText("Cliente teste", { exact: true }).count(),
+      0,
+      "cached tab must not bypass server read permission",
+    );
+    await page.getByRole("button", { name: "Voltar", exact: true }).click();
+    await page.getByText("C-TESTE · Cliente teste", { exact: true }).waitFor();
+    denyVenue = true;
+    await page.getByRole("button", { name: "Atualizar times" }).click();
+    await page.getByText("Sem acesso ao PDV.", { exact: true }).waitFor();
+    assert.equal(
+      await page.getByText("C-TESTE · Cliente teste", { exact: true }).count(),
+      0,
+    );
+    denyVenue = false;
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(base + `/operacao/ao-vivo?establishmentId=${venue}`);
     await page

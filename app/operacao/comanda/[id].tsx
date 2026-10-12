@@ -15,12 +15,14 @@ import { contactlessReadiness, startContactlessPayment } from '@/lib/contactless
 import { formatMoney, orderStatusLabel, tabStatusLabel, tabTotals } from '@/lib/establishmentOperations';
 import { getGateway, outstandingByParticipant, paymentMethodLabel } from '@/lib/paymentGateways';
 import { HistoryEntryLink } from '@/components/HistoryEntryLink';
+import { useTabReadAccess } from '@/hooks/useTabReadAccess';
 import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import type { PaymentMethod } from '@/types';
 
 export default function TabDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const readAccess = useTabReadAccess(id);
   const tab = useAppStore((s) => s.serviceTabs.find((row) => row.id === id));
   const participants = useAppStore(useShallow((s) => s.tabParticipants.filter((row) => row.tabId === id)));
   const orders = useAppStore(useShallow((s) => s.serviceOrders.filter((row) => row.tabId === id)));
@@ -66,6 +68,7 @@ export default function TabDetailScreen() {
   const currentIntent = paymentIntents.find((row) => row.id === currentIntentId) ?? null;
   const canOrder = tab?.status === 'open';
 
+  if (!readAccess.allowed) return <Screen><Button small variant="ghost" label="Voltar" onPress={()=>router.back()} /><Text style={styles.empty}>{readAccess.loading?'Verificando acesso à comanda...':'Comanda indisponível ou sem permissão. Atualize seu acesso.'}</Text><Button label="Verificar novamente" onPress={()=>void readAccess.refresh()}/></Screen>;
   if (!tab) return <Screen><Text style={styles.empty}>Comanda não encontrada.</Text></Screen>;
   const tabId = tab.id;
 

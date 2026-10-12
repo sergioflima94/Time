@@ -14,6 +14,7 @@ import { Button } from "./ui/Button";
 import { TextField } from "./ui/TextField";
 import { AdaptiveSelect } from "./ui/AdaptiveSelect";
 import { useVenueOperations } from "@/hooks/useVenueOperations";
+import { useAuthStore } from "@/store/useAuthStore";
 import { sendVenueInvite, venueAction } from "@/lib/venueOperations";
 import { createUuid } from "@/lib/uuid";
 import { useAppStore } from "@/store/useAppStore";
@@ -26,6 +27,10 @@ import {
 import { colors } from "@/constants/theme";
 import type { ServiceTab, TabParticipant } from "@/types";
 export function VenuePdv({ venue }: { venue: string | null }) {
+  const actor = useAuthStore((s) => s.authUserId);
+  return <VenuePdvContent key={`${actor}:${venue}`} venue={venue} />;
+}
+function VenuePdvContent({ venue }: { venue: string | null }) {
   const feed = useVenueOperations(venue),
     d = feed.data,
     { width } = useWindowDimensions();
@@ -143,7 +148,7 @@ export function VenuePdv({ venue }: { venue: string | null }) {
       {!!(message || feed.error) && (
         <Text style={s.message}>{message || feed.error}</Text>
       )}
-      {openedId && (
+      {openedId && d.capabilities?.includes("pdv") && (
         <Button
           label="Ir para pedidos da comanda aberta"
           onPress={() => router.push(`/operacao/comanda/${openedId}`)}
@@ -290,7 +295,7 @@ export function VenuePdv({ venue }: { venue: string | null }) {
           )}
         </Card>
       ))}
-      {[...tabs]
+      {(d.capabilities?.includes("pdv") ? [...tabs] : [])
         .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
         .map((t) => {
           const total = tabTotals(t.id, orders, items, payments);
