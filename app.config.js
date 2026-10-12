@@ -72,7 +72,7 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          photosPermission: 'O app usa suas fotos para você escolher a foto do seu perfil de jogador.',
+          photosPermission: 'Escolha fotos para seu perfil, times ou produtos da loja.',
         },
       ],
       [

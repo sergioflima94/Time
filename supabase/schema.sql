@@ -4012,3 +4012,488 @@ begin
 end $$;
 revoke all on function public.friend_discovery(text,jsonb) from public,anon;
 grant execute on function public.friend_discovery(text,jsonb) to authenticated;
+
+-- Shop: catalog, sellers, reservations, PSP reconciliation and buyer consent.
+
+-- Migration 20261012000000_shop.sql
+-- Loja física independente das comandas. Valores em centavos, sem carteira fictícia.
+create table public.shop_sellers (
+ id uuid primary key default gen_random_uuid(), owner_player_id uuid not null references players(id),
+ name text not null check(length(name) between 3 and 120), kind text not null check(kind in ('official','partner')),
+ status text not null default 'pending' check(status in ('pending','active','suspended','declined')),
+ phone text not null default '', pickup_address text not null default '', pickup_enabled boolean not null default true,
+ delivery_enabled boolean not null default false, delivery_fee_cents integer not null default 0 check(delivery_fee_cents between 0 and 100000),
+ cep_prefixes text[] not null default '{}', commission_bps integer not null default 0 check(commission_bps between 0 and 3000),
+ terms_version text not null, terms_at timestamptz not null default now(), revision integer not null default 1,
+ created_at timestamptz not null default now(), check(pickup_enabled or delivery_enabled)
+);
+create unique index shop_one_official on shop_sellers(kind) where kind='official';
+create table public.shop_products (
+ id uuid primary key default gen_random_uuid(), seller_id uuid not null references shop_sellers(id),
+ name text not null check(length(name) between 3 and 160), description text not null default '' check(length(description)<=4000),
+ category text not null check(category in ('ball','uniform','vest','boots','equipment','other')),
+ photos text[] not null default '{}', active boolean not null default false,
+ featured_until timestamptz, sponsorship_cents integer not null default 0, sponsorship_reference text,
+ revision integer not null default 1, created_at timestamptz not null default now(), check(cardinality(photos)<=5)
+);
+create table public.shop_variants (
+ id uuid primary key default gen_random_uuid(), product_id uuid not null references shop_products(id),
+ sku text not null check(length(sku) between 1 and 60), size text not null default '', color text not null default '',
+ price_cents integer not null check(price_cents between 1 and 100000000), cost_cents integer not null default 0 check(cost_cents>=0),
+ stock integer not null default 0 check(stock>=0), active boolean not null default true, revision integer not null default 1,
+ unique(product_id,sku)
+);
+create table public.shop_gateways (
+ id uuid primary key default gen_random_uuid(), seller_id uuid not null references shop_sellers(id),
+ provider text not null check(provider in ('mercado_pago','picpay')), collector_id text not null,
+ secret_id uuid not null, enabled boolean not null default false, created_at timestamptz not null default now()
+);
+create unique index shop_active_gateway on shop_gateways(seller_id) where enabled;
+create table public.shop_orders (
+ id uuid primary key default gen_random_uuid(), seller_id uuid not null references shop_sellers(id), buyer_id uuid not null references players(id),
+ nonce uuid not null, gateway_id uuid not null references shop_gateways(id),
+ status text not null default 'pending' check(status in ('pending','paid','ready','shipped','delivered','cancelled','refund_pending','refunded','payment_review')),
+ fulfillment text not null check(fulfillment in ('pickup','delivery')), address jsonb, customer_phone text not null,
+ pickup_address text not null, subtotal_cents integer not null, shipping_cents integer not null, total_cents integer not null,
+ commission_cents integer not null, commission_state text not null default 'pending' check(commission_state in ('pending','owed','received','reversed')),
+ commission_reference text, provider_fee_cents integer, payment_id text, payment_updated_at timestamptz,
+ checkout_state text not null default 'new' check(checkout_state in ('new','building','ready','review')),
+ checkout_url text, external_id text, pix_code text, stock_released boolean not null default false,
+ refund_reason text, refund_requested_at timestamptz, refund_building boolean not null default false, refund_restock boolean not null default false,
+ tracking text, carrier text, created_at timestamptz not null default now(), expires_at timestamptz not null default now()+interval '30 minutes',
+ updated_at timestamptz not null default now(), unique(buyer_id,nonce), check(total_cents=subtotal_cents+shipping_cents), check(total_cents>0)
+);
+create unique index shop_order_provider_payment on shop_orders(gateway_id,payment_id) where payment_id is not null;
+create table public.shop_order_lines (
+ order_id uuid references shop_orders(id), variant_id uuid references shop_variants(id),
+ product_name text not null, sku text not null, size text not null, color text not null,
+ quantity integer not null check(quantity between 1 and 99), unit_cents integer not null, cost_cents integer not null,
+ primary key(order_id,variant_id)
+);
+create table public.shop_events (
+ id bigint generated always as identity primary key, order_id uuid references shop_orders(id), seller_id uuid references shop_sellers(id),
+ actor_id uuid references players(id), action text not null, detail text not null default '', created_at timestamptz not null default now()
+);
+create index shop_order_seller_created on shop_orders(seller_id,created_at desc);
+create index shop_order_buyer_created on shop_orders(buyer_id,created_at desc);
+create index shop_products_catalog on shop_products(seller_id,active,created_at desc);
+do $$declare t text;begin foreach t in array array['shop_sellers','shop_products','shop_variants','shop_gateways','shop_orders','shop_order_lines','shop_events'] loop
+ execute format('alter table public.%I enable row level security',t); execute format('revoke all on public.%I from anon,authenticated',t);
+end loop;end $$;
+
+create function public.shop_admin(p_me uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$
+ select exists(select 1 from platform_admin_accounts a join players p on p.auth_user_id=a.auth_user_id where p.id=p_me and a.active and a.role in ('owner','admin'))
+ and not exists(select 1 from platform_account_controls where player_id=p_me and suspended)
+$$;
+create function public.shop_manager(p_seller uuid,p_me uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$
+ select p_me is not null and (public.shop_admin(p_me) or exists(select 1 from shop_sellers where id=p_seller and owner_player_id=p_me))
+ and not exists(select 1 from platform_account_controls where player_id=p_me and suspended)
+$$;
+create function public.shop_order_json(p_order uuid,p_me uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
+ select (to_jsonb(o)-array['nonce','gateway_id','refund_building','refund_restock']-case when public.shop_manager(o.seller_id,p_me) then array[]::text[] else array['commission_reference','commission_state','commission_cents','provider_fee_cents'] end)||jsonb_build_object(
+ 'seller_name',s.name,'seller_phone',s.phone,'buyer_name',p.name,'can_manage',public.shop_manager(o.seller_id,p_me),
+ 'provider',g.provider,'lines',(select coalesce(jsonb_agg(to_jsonb(l)-case when public.shop_manager(o.seller_id,p_me) then array['order_id'] else array['order_id','cost_cents'] end),'[]') from shop_order_lines l where l.order_id=o.id),
+ 'events',(select coalesce(jsonb_agg(jsonb_build_object('action',e.action,'detail',e.detail,'created_at',e.created_at) order by e.id),'[]') from shop_events e where e.order_id=o.id and (public.shop_manager(o.seller_id,p_me) or e.action not in ('commission_received','refund_approved'))))
+ from shop_orders o join shop_sellers s on s.id=o.seller_id join players p on p.id=o.buyer_id join shop_gateways g on g.id=o.gateway_id
+ where o.id=p_order and (o.buyer_id=p_me or public.shop_manager(o.seller_id,p_me))
+$$;
+create function public.shop_release(p_order uuid) returns void language plpgsql security definer set search_path=public,pg_temp as $$
+ declare o shop_orders;l record;begin select * into o from shop_orders where id=p_order for update;
+ if o.id is null or o.stock_released then return;end if;
+ for l in select * from shop_order_lines where order_id=o.id order by variant_id loop update shop_variants set stock=stock+l.quantity,revision=revision+1 where id=l.variant_id;end loop;
+ update shop_orders set stock_released=true where id=o.id;
+ end $$;
+create function public.shop_expire() returns void language plpgsql security definer set search_path=public,pg_temp as $$
+ declare o record;begin for o in select id from shop_orders where status='pending' and expires_at<now() order by id for update skip locked limit 100 loop
+ perform public.shop_release(o.id); update shop_orders set status='cancelled',updated_at=now() where id=o.id;
+ insert into shop_events(order_id,action,detail) values(o.id,'cancelled','Prazo do checkout encerrado. Pagamento tardio será tratado em revisão, sem reservar estoque novamente.');
+ end loop;end $$;
+
+create function public.shop_snapshot(p_mode text default 'catalog',p_query text default '',p_seller uuid default null,p_offset integer default 0) returns jsonb
+ language plpgsql security definer set search_path=public,pg_temp as $$
+ declare me uuid:=public.community_chat_me(); admin boolean:=coalesce(public.shop_admin(me),false); result jsonb; catalog jsonb; sellers jsonb;
+ begin
+ if length(coalesce(p_query,''))>160 or p_offset not between 0 and 100000 then raise exception 'LOJA:Busca inválida';end if;
+ if p_mode not in ('catalog','manage') then raise exception 'LOJA:Consulta inválida';end if;
+ if p_mode='manage' and me is null then raise exception 'LOJA:Entre na sua conta';end if;
+ -- Lazy expiration is idempotent and never marks a payment as approved.
+ if me is not null then perform public.shop_expire();end if;
+ select coalesce(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'kind',s.kind,'status',s.status,'phone',s.phone,
+ 'pickup_address',s.pickup_address,'pickup_enabled',s.pickup_enabled,'delivery_enabled',s.delivery_enabled,'delivery_fee_cents',s.delivery_fee_cents,
+ 'cep_prefixes',s.cep_prefixes,'revision',s.revision,'can_manage',public.shop_manager(s.id,me),
+ 'commission_bps',case when public.shop_manager(s.id,me) then s.commission_bps else null end,
+ 'gateway',(select jsonb_build_object('provider',g.provider,'enabled',g.enabled) from shop_gateways g where g.seller_id=s.id order by g.created_at desc limit 1))), '[]') into sellers
+ from shop_sellers s where (p_mode='catalog' and s.status='active') or (p_mode='manage' and public.shop_manager(s.id,me));
+ select coalesce(jsonb_agg(row),'[]') into catalog from (
+ select jsonb_build_object('id',p.id,'seller_id',p.seller_id,'seller_name',s.name,'seller_kind',s.kind,'name',p.name,'description',p.description,'category',p.category,
+ 'photos',p.photos,'active',p.active,'revision',p.revision,'sponsored',coalesce(p.featured_until>now(),false),
+ 'variants',(select coalesce(jsonb_agg(jsonb_build_object('id',v.id,'sku',v.sku,'size',v.size,'color',v.color,'price_cents',v.price_cents,'stock',v.stock,'active',v.active,'revision',v.revision,
+ 'cost_cents',case when p_mode='manage' then v.cost_cents else null end) order by v.sku),'[]') from shop_variants v where v.product_id=p.id and (p_mode='manage' or v.active))) row
+ from shop_products p join shop_sellers s on s.id=p.seller_id
+ where ((p_mode='catalog' and p.active and s.status='active') or (p_mode='manage' and public.shop_manager(s.id,me)))
+ and (p_seller is null or p.seller_id=p_seller) and (p_query='' or position(lower(p_query) in lower(p.name||' '||s.name||' '||p.description))>0)
+ order by (coalesce(p.featured_until>now(),false)) desc,p.created_at desc,p.id limit 40 offset p_offset) q;
+ result:=jsonb_build_object('admin',admin,'sellers',sellers,'products',catalog,'offset',p_offset,'orders','[]'::jsonb);
+ if me is not null then result:=result||jsonb_build_object('orders',(select coalesce(jsonb_agg(public.shop_order_json(id,me)),'[]') from (select id from shop_orders o
+ where (p_mode='catalog' and o.buyer_id=me) or (p_mode='manage' and public.shop_manager(o.seller_id,me)) order by created_at desc limit 100) q));end if;
+ return result;end $$;
+
+create function public.shop_action(p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+ declare me uuid:=public.community_chat_me(); admin boolean:=coalesce(public.shop_admin(me),false); s shop_sellers;p shop_products;v shop_variants;o shop_orders;
+ item jsonb; ids uuid[]:='{}'; key uuid; total integer:=0; fee integer:=0; n integer; request_nonce uuid; g shop_gateways; reason text:=btrim(coalesce(p_data->>'reason',''));
+ begin
+ if me is null then raise exception 'LOJA:Entre com uma conta ativa';end if;
+ perform pg_advisory_xact_lock(hashtext('shop-user:'||me::text));
+ if p_action='seller_create' then
+  if p_data->>'termsVersion' is distinct from 'shop-v1' or not coalesce((p_data->>'consent')::boolean,false) then raise exception 'LOJA:Confirme os termos de vendedor e a publicação dos dados comerciais';end if;
+  if p_data->>'kind'='official' and not admin then raise exception 'LOJA:Somente a plataforma cria a loja oficial';end if;
+  if (select count(*) from shop_sellers where owner_player_id=me)>=5 then raise exception 'LOJA:Limite de lojas atingido';end if;
+  insert into shop_sellers(owner_player_id,name,kind,status,phone,pickup_address,terms_version) values(me,btrim(p_data->>'name'),case when admin and p_data->>'kind'='official' then 'official' else 'partner' end,
+   case when admin and p_data->>'kind'='official' then 'active' else 'pending' end,coalesce(p_data->>'phone',''),coalesce(p_data->>'pickupAddress',''),'shop-v1') returning * into s;
+  insert into shop_events(seller_id,actor_id,action,detail) values(s.id,me,'seller_created',s.kind);return jsonb_build_object('id',s.id);
+ elsif p_action in ('seller_save','seller_review') then
+  select * into s from shop_sellers where id=(p_data->>'id')::uuid for update;
+  if s.id is null or not public.shop_manager(s.id,me) or (p_data->>'revision')::integer is distinct from s.revision then raise exception 'LOJA:Loja indisponível ou alterada; atualize';end if;
+  if p_action='seller_review' then
+   if not admin or length(reason) not between 8 and 500 or p_data->>'status' not in ('active','suspended','declined') then raise exception 'LOJA:Revisão administrativa exige autorização e motivo';end if;
+   if (p_data->>'commissionBps')::integer not between 0 and 3000 then raise exception 'LOJA:Comissão inválida';end if;
+   update shop_sellers set status=p_data->>'status',commission_bps=case when kind='official' then 0 else (p_data->>'commissionBps')::integer end,revision=revision+1 where id=s.id;
+  else
+   if length(coalesce(p_data->>'phone',''))>30 or length(coalesce(p_data->>'pickupAddress',''))>500 then raise exception 'LOJA:Dados comerciais inválidos';end if;
+   if exists(select 1 from jsonb_array_elements_text(coalesce(p_data->'cepPrefixes','[]')) x where x !~ '^[0-9]{3,8}$') then raise exception 'LOJA:Use prefixos de CEP com 3 a 8 dígitos';end if;
+   update shop_sellers set name=btrim(p_data->>'name'),phone=coalesce(p_data->>'phone',''),pickup_address=coalesce(p_data->>'pickupAddress',''),
+    pickup_enabled=coalesce((p_data->>'pickupEnabled')::boolean,true),delivery_enabled=coalesce((p_data->>'deliveryEnabled')::boolean,false),delivery_fee_cents=coalesce((p_data->>'deliveryFeeCents')::integer,0),
+    cep_prefixes=array(select jsonb_array_elements_text(coalesce(p_data->'cepPrefixes','[]'))),revision=revision+1 where id=s.id;
+  end if;
+  insert into shop_events(seller_id,actor_id,action,detail) values(s.id,me,p_action,reason);return jsonb_build_object('id',s.id);
+ elsif p_action='product_save' then
+  select * into s from shop_sellers where id=(p_data->>'sellerId')::uuid for update;
+  if s.id is null or not public.shop_manager(s.id,me) then raise exception 'LOJA:Sem permissão para este catálogo';end if;
+  if jsonb_typeof(p_data->'variants') is distinct from 'array' or jsonb_array_length(p_data->'variants') not between 1 and 30 then raise exception 'LOJA:Informe de 1 a 30 variações';end if;
+  if jsonb_array_length(coalesce(p_data->'photos','[]'))>5 or exists(select 1 from jsonb_array_elements_text(coalesce(p_data->'photos','[]')) u where u !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|png|webp)$') then raise exception 'LOJA:Use fotos enviadas à galeria da loja';end if;
+  key:=nullif(p_data->>'id','')::uuid;
+  if key is not null then select * into p from shop_products where id=key and seller_id=s.id for update;
+   if p.id is null or (p_data->>'revision')::integer is distinct from p.revision then raise exception 'LOJA:Produto alterado; atualize antes de salvar';end if;
+   update shop_products set name=btrim(p_data->>'name'),description=coalesce(p_data->>'description',''),category=p_data->>'category',photos=array(select jsonb_array_elements_text(coalesce(p_data->'photos','[]'))),
+    active=coalesce((p_data->>'active')::boolean,false),revision=revision+1 where id=key returning * into p;
+  else insert into shop_products(seller_id,name,description,category,photos,active) values(s.id,btrim(p_data->>'name'),coalesce(p_data->>'description',''),p_data->>'category',array(select jsonb_array_elements_text(coalesce(p_data->'photos','[]'))),coalesce((p_data->>'active')::boolean,false)) returning * into p;end if;
+  for item in select value from jsonb_array_elements(p_data->'variants') loop
+   key:=nullif(item->>'id','')::uuid;
+   if key is not null then select * into v from shop_variants where id=key and product_id=p.id for update;
+    if v.id is null or v.revision is distinct from (item->>'revision')::integer then raise exception 'LOJA:Estoque/variação alterados; atualize';end if;
+    update shop_variants set sku=item->>'sku',size=coalesce(item->>'size',''),color=coalesce(item->>'color',''),price_cents=(item->>'priceCents')::integer,cost_cents=coalesce((item->>'costCents')::integer,0),stock=(item->>'stock')::integer,active=coalesce((item->>'active')::boolean,true),revision=revision+1 where id=key;
+   else insert into shop_variants(product_id,sku,size,color,price_cents,cost_cents,stock,active) values(p.id,item->>'sku',coalesce(item->>'size',''),coalesce(item->>'color',''),(item->>'priceCents')::integer,coalesce((item->>'costCents')::integer,0),(item->>'stock')::integer,coalesce((item->>'active')::boolean,true)) returning id into key;end if;
+   ids:=array_append(ids,key);
+  end loop;
+  update shop_variants set active=false,revision=revision+1 where product_id=p.id and not(id=any(ids));
+  insert into shop_events(seller_id,actor_id,action,detail) values(s.id,me,'product_saved',p.name);return jsonb_build_object('id',p.id);
+ elsif p_action='sponsor' then
+  if not admin or length(reason)<8 or length(coalesce(p_data->>'reference',''))<3 then raise exception 'LOJA:Destaque exige confirmação administrativa e referência do acordo';end if;
+  update shop_products set featured_until=(p_data->>'until')::timestamptz,sponsorship_cents=(p_data->>'amountCents')::integer,sponsorship_reference=p_data->>'reference',revision=revision+1 where id=(p_data->>'id')::uuid returning * into p;
+  if p.id is null or (p_data->>'amountCents')::integer<0 or (p_data->>'until')::timestamptz>now()+interval '366 days' then raise exception 'LOJA:Destaque inválido';end if;
+  insert into shop_events(seller_id,actor_id,action,detail) values(p.seller_id,me,'sponsor',reason);return jsonb_build_object('id',p.id);
+ elsif p_action='prepare_order' then
+  perform public.shop_expire();request_nonce:=(p_data->>'nonce')::uuid;
+  if request_nonce is null then raise exception 'LOJA:Identificador obrigatório';end if;
+  select * into o from shop_orders where buyer_id=me and shop_orders.nonce=request_nonce;
+  if o.id is not null then if o.seller_id is distinct from (p_data->>'sellerId')::uuid then raise exception 'LOJA:Identificador já utilizado';end if;return public.shop_order_json(o.id,me);end if;
+  if (select count(*) from shop_orders where buyer_id=me and created_at>now()-interval '1 hour')>=20 then raise exception 'LOJA:Aguarde antes de criar novos pedidos';end if;
+  select * into s from shop_sellers where id=(p_data->>'sellerId')::uuid and status='active' for update;
+  if s.id is null then raise exception 'LOJA:Vendedor indisponível';end if;
+  select * into g from shop_gateways where seller_id=s.id and enabled;
+  if g.id is null then raise exception 'LOJA:O vendedor ainda não habilitou pagamentos homologados';end if;
+  if p_data->>'fulfillment'='pickup' then if not s.pickup_enabled or length(s.pickup_address)<5 then raise exception 'LOJA:Retirada não configurada';end if;
+  elsif p_data->>'fulfillment'='delivery' then
+   if not s.delivery_enabled or coalesce(p_data->'address'->>'cep','') !~ '^\d{8}$' or length(coalesce(p_data->'address'->>'street',''))<3 or length(coalesce(p_data->'address'->>'number',''))<1 or length(coalesce(p_data->'address'->>'city',''))<2 or coalesce(p_data->'address'->>'state','') !~ '^[A-Z]{2}$' then raise exception 'LOJA:Entrega/endereço inválidos';end if;
+   if cardinality(s.cep_prefixes)>0 and not exists(select 1 from unnest(s.cep_prefixes) x where (p_data->'address'->>'cep') like x||'%') then raise exception 'LOJA:CEP fora da área de entrega';end if;
+   fee:=s.delivery_fee_cents;
+  else raise exception 'LOJA:Escolha entrega ou retirada';end if;
+  if length(coalesce(p_data->>'phone','')) not between 8 and 30 then raise exception 'LOJA:Informe telefone para este pedido';end if;
+  if jsonb_typeof(p_data->'items') is distinct from 'array' or jsonb_array_length(p_data->'items') not between 1 and 25 then raise exception 'LOJA:Carrinho inválido';end if;
+  -- Deterministic row locks and server-side price/stock resolution.
+  for item in select value from jsonb_array_elements(p_data->'items') order by value->>'variantId' loop
+   key:=(item->>'variantId')::uuid;n:=(item->>'quantity')::integer;
+   if key is null or key=any(ids) or n is null or n not between 1 and 99 then raise exception 'LOJA:Quantidade/variação inválida';end if;
+   select v0.* into v from shop_variants v0 join shop_products p0 on p0.id=v0.product_id where v0.id=key and p0.seller_id=s.id and p0.active and v0.active for update of v0;
+   if v.id is null or v.stock<n then raise exception 'LOJA:Produto indisponível ou estoque insuficiente';end if;
+   ids:=array_append(ids,key);total:=total+v.price_cents*n;
+  end loop;
+  insert into shop_orders(seller_id,buyer_id,nonce,gateway_id,fulfillment,address,customer_phone,pickup_address,subtotal_cents,shipping_cents,total_cents,commission_cents)
+   values(s.id,me,request_nonce,g.id,p_data->>'fulfillment',case when p_data->>'fulfillment'='delivery' then p_data->'address' else null end,p_data->>'phone',s.pickup_address,total,fee,total+fee,round(total*s.commission_bps/10000.0)) returning * into o;
+  for item in select value from jsonb_array_elements(p_data->'items') order by value->>'variantId' loop
+   select * into v from shop_variants where id=(item->>'variantId')::uuid;select * into p from shop_products where id=v.product_id;n:=(item->>'quantity')::integer;
+   insert into shop_order_lines values(o.id,v.id,p.name,v.sku,v.size,v.color,n,v.price_cents,v.cost_cents);
+   update shop_variants set stock=stock-n,revision=revision+1 where id=v.id;
+  end loop;
+  insert into shop_events(order_id,seller_id,actor_id,action,detail) values(o.id,s.id,me,'pending','Estoque reservado por 30 minutos. Aguardando pagamento validado.');return public.shop_order_json(o.id,me);
+ elsif p_action in ('cancel','refund_request','fulfill','commission_received','restock_return','refund_decline') then
+  select * into o from shop_orders where id=(p_data->>'id')::uuid for update;
+  if o.id is null or (o.buyer_id<>me and not public.shop_manager(o.seller_id,me)) then raise exception 'LOJA:Pedido indisponível';end if;
+  if p_action='cancel' then
+   if o.status<>'pending' then raise exception 'LOJA:Pedido pago exige solicitação de reembolso';end if;
+   perform public.shop_release(o.id);update shop_orders set status='cancelled',updated_at=now() where id=o.id;
+  elsif p_action='refund_request' then
+   if o.status not in ('paid','ready','shipped','delivered','payment_review') or length(reason) not between 8 and 500 then raise exception 'LOJA:Informe motivo; este pedido não permite a solicitação';end if;
+   update shop_orders set refund_reason=reason,refund_requested_at=now(),updated_at=now() where id=o.id;
+  elsif p_action='restock_return' then
+   if not public.shop_manager(o.seller_id,me) or o.status<>'refunded' or not coalesce((p_data->>'received')::boolean,false) or length(reason)<8 then raise exception 'LOJA:Confirme o recebimento físico da devolução';end if;
+   perform public.shop_release(o.id);
+  elsif p_action='refund_decline' then
+   if not public.shop_manager(o.seller_id,me) or o.refund_requested_at is null or o.status in ('refund_pending','refunded') or length(reason)<8 then raise exception 'LOJA:Resposta de reembolso indisponível';end if;
+   update shop_orders set refund_requested_at=null,refund_reason=reason,updated_at=now() where id=o.id;
+  elsif p_action='commission_received' then
+   if not admin or o.commission_state<>'owed' or length(coalesce(p_data->>'reference',''))<3 or length(reason)<8 then raise exception 'LOJA:Baixa exige confirmação administrativa e referência do recebimento';end if;
+   update shop_orders set commission_state='received',commission_reference=p_data->>'reference',updated_at=now() where id=o.id;
+  else
+   if not public.shop_manager(o.seller_id,me) then raise exception 'LOJA:Somente o vendedor pode preparar a entrega';end if;
+   if not((o.status='paid' and p_data->>'status'='ready') or (o.status in ('paid','ready') and o.fulfillment='delivery' and p_data->>'status'='shipped') or (o.status in ('paid','ready','shipped') and p_data->>'status'='delivered')) then raise exception 'LOJA:Transição de entrega inválida';end if;
+   update shop_orders set status=p_data->>'status',tracking=left(p_data->>'tracking',160),carrier=left(p_data->>'carrier',80),updated_at=now() where id=o.id;
+  end if;
+  insert into shop_events(order_id,seller_id,actor_id,action,detail) values(o.id,o.seller_id,me,p_action,reason);return public.shop_order_json(o.id,me);
+ end if;
+ raise exception 'LOJA:Ação inválida';end $$;
+revoke all on function public.shop_admin(uuid),public.shop_manager(uuid,uuid),public.shop_order_json(uuid,uuid),public.shop_release(uuid),public.shop_expire(),public.shop_snapshot(text,text,uuid,integer),public.shop_action(text,jsonb) from public,anon,authenticated;
+grant execute on function public.shop_snapshot(text,text,uuid,integer) to anon,authenticated;
+grant execute on function public.shop_action(text,jsonb) to authenticated;
+
+-- Migration 20261012001000_shop_payments.sql
+-- Only authenticated, server-verified PSP results can reach these service-only RPCs.
+alter table shop_orders add column refund_payment_id text;
+create table public.shop_receipts (
+ gateway_id uuid references shop_gateways(id), payment_id text, order_id uuid not null references shop_orders(id),
+ status text not null check(status in ('approved','refunded','partial_refund','charged_back')),
+ amount_cents integer not null, updated_at timestamptz not null, primary key(gateway_id,payment_id)
+);
+alter table shop_receipts enable row level security;
+revoke all on shop_receipts from anon,authenticated;
+create function public.shop_order(p_order uuid) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid:=public.community_chat_me();r jsonb;begin r:=public.shop_order_json(p_order,me);
+if r is null then raise exception 'LOJA:Pedido indisponível';end if;
+return r||jsonb_build_object('receipts',(select coalesce(jsonb_agg(jsonb_build_object('payment_id',payment_id,'status',status,'amount_cents',amount_cents)),'[]') from shop_receipts where order_id=p_order));end $$;
+revoke all on function public.shop_order(uuid) from public,anon;
+grant execute on function public.shop_order(uuid) to authenticated;
+
+create function public.shop_service(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid;s shop_sellers;o shop_orders;g shop_gateways;secret uuid;r shop_receipts;paid_count integer;total_refunded integer;stamp timestamptz;pay_id text;
+begin
+ if p_data ? 'actor' then select id into me from players where auth_user_id=(p_data->>'actor')::uuid and not is_guest;
+  if me is null or exists(select 1 from platform_account_controls where player_id=me and suspended) then raise exception 'LOJA:Conta indisponível';end if;
+ end if;
+ if p_action='gateway_save' then
+  select * into s from shop_sellers where id=(p_data->>'sellerId')::uuid for update;
+  if not public.shop_manager(s.id,me) or s.status<>'active' or jsonb_typeof(p_data->'credentials') is distinct from 'object' then raise exception 'LOJA:Vendedor não autorizado';end if;
+  select vault.create_secret((p_data->'credentials')::text) into secret;
+  update shop_gateways set enabled=false where seller_id=s.id;
+  insert into shop_gateways(seller_id,provider,collector_id,secret_id,enabled) values(s.id,p_data->>'provider',p_data->>'collectorId',secret,true) returning * into g;
+  insert into shop_events(seller_id,actor_id,action) values(s.id,me,'gateway_connected');return jsonb_build_object('id',g.id);
+ elsif p_action='gateway_context' then
+  select * into g from shop_gateways where id=(p_data->>'gatewayId')::uuid;
+  if g.id is null then raise exception 'LOJA:Conexão indisponível';end if;
+  return (to_jsonb(g)-'secret_id')||jsonb_build_object('credentials',(select decrypted_secret::jsonb from vault.decrypted_secrets where id=g.secret_id));
+ end if;
+ select * into o from shop_orders where id=(p_data->>'orderId')::uuid for update;
+ if o.id is null then raise exception 'LOJA:Pedido indisponível';end if;
+ select * into g from shop_gateways where id=o.gateway_id;
+ if p_action in ('context','claim_checkout','claim_refund') and (me is null or (o.buyer_id<>me and not public.shop_manager(o.seller_id,me))) then raise exception 'LOJA:Sem permissão para o pedido';end if;
+ if p_action='context' then return to_jsonb(o)||jsonb_build_object('gateway',to_jsonb(g)-'secret_id','credentials',(select decrypted_secret::jsonb from vault.decrypted_secrets where id=g.secret_id),'receipts',(select coalesce(jsonb_agg(to_jsonb(r0)),'[]') from shop_receipts r0 where r0.order_id=o.id));
+ elsif p_action='claim_checkout' then
+  if o.status<>'pending' or o.expires_at<now() or not g.enabled or o.buyer_id<>me then raise exception 'LOJA:Checkout indisponível';end if;
+  if o.checkout_state<>'new' then return jsonb_build_object('claimed',false,'url',o.checkout_url);end if;
+  update shop_orders set checkout_state='building',updated_at=now() where id=o.id;return jsonb_build_object('claimed',true);
+ elsif p_action='checkout_save' then
+  if o.checkout_state not in ('building','review') then raise exception 'LOJA:Estado de checkout inválido';end if;
+  update shop_orders set external_id=p_data->>'externalId',checkout_url=p_data->>'url',pix_code=p_data->>'pixCode',checkout_state='ready',updated_at=now() where id=o.id;return '{}';
+ elsif p_action='claim_refund' then
+  if not public.shop_manager(o.seller_id,me) or length(coalesce(p_data->>'reason','')) not between 8 and 500 then raise exception 'LOJA:Reembolso exige vendedor e motivo';end if;
+  pay_id:=coalesce(p_data->>'paymentId',o.payment_id);
+  select * into r from shop_receipts where gateway_id=g.id and payment_id=pay_id and order_id=o.id and status='approved';
+  if r.payment_id is null then raise exception 'LOJA:Pagamento não permite reembolso integral automático; reconcilie primeiro';end if;
+  if o.refund_building then return jsonb_build_object('claimed',false);end if;
+  update shop_orders set status='refund_pending',refund_payment_id=pay_id,refund_building=true,refund_restock=coalesce((p_data->>'restock')::boolean,false),refund_reason=p_data->>'reason',updated_at=now() where id=o.id;
+  insert into shop_events(order_id,seller_id,actor_id,action,detail) values(o.id,o.seller_id,me,'refund_approved',p_data->>'reason');return jsonb_build_object('claimed',true,'paymentId',pay_id);
+ elsif p_action='settle' then
+  if g.id is distinct from (p_data->>'gatewayId')::uuid or (p_data->>'amountCents')::integer is distinct from o.total_cents or p_data->>'currency' is distinct from 'BRL' then raise exception 'LOJA:Valor, moeda ou destinatário divergentes';end if;
+  pay_id:=p_data->>'paymentId';stamp:=(p_data->>'updatedAt')::timestamptz;
+  if pay_id is null or length(pay_id)>100 or stamp is null or p_data->>'status' not in ('approved','refunded','partial_refund','charged_back') then raise exception 'LOJA:Resultado de pagamento inválido';end if;
+  select * into r from shop_receipts where gateway_id=g.id and payment_id=pay_id for update;
+  if r.order_id is not null and r.order_id<>o.id then raise exception 'LOJA:Pagamento vinculado a outro pedido';end if;
+  if r.payment_id is not null and (r.updated_at>stamp or (r.status='refunded' and p_data->>'status'='approved')) then return '{}';end if;
+  insert into shop_receipts values(g.id,pay_id,o.id,p_data->>'status',o.total_cents,stamp) on conflict(gateway_id,payment_id) do update set status=excluded.status,updated_at=excluded.updated_at;
+  select count(*) into paid_count from shop_receipts where order_id=o.id and status='approved';
+  if p_data->>'status'='approved' then
+   if paid_count>1 or o.stock_released or o.status='cancelled' or (o.status='pending' and o.expires_at<now()) then
+    update shop_orders set status='payment_review',payment_id=coalesce(payment_id,pay_id),payment_updated_at=stamp,updated_at=now() where id=o.id;
+   elsif o.status='pending' then
+    update shop_orders set status='paid',payment_id=pay_id,payment_updated_at=stamp,commission_state=case when commission_cents>0 then 'owed' else 'pending' end,provider_fee_cents=nullif(p_data->>'feeCents','')::integer,updated_at=now() where id=o.id;
+    insert into shop_events(order_id,action,detail) values(o.id,'paid','Pagamento confirmado por consulta autenticada ao provedor.');
+   end if;
+  elsif p_data->>'status'='refunded' and paid_count=0 and not exists(select 1 from shop_receipts where order_id=o.id and status in ('partial_refund','charged_back')) then
+   if o.refund_restock then perform public.shop_release(o.id);end if;
+   update shop_orders set status='refunded',commission_state='reversed',refund_building=false,payment_updated_at=stamp,updated_at=now() where id=o.id;
+   if o.status<>'refunded' then insert into shop_events(order_id,action,detail) values(o.id,'refunded','Reembolso integral confirmado no provedor.');end if;
+  else
+   update shop_orders set status='payment_review',refund_building=case when refund_payment_id=pay_id then false else refund_building end,payment_updated_at=stamp,updated_at=now() where id=o.id;
+  end if;
+  return jsonb_build_object('orderId',o.id);
+ end if;
+ raise exception 'LOJA:Ação de serviço inválida';end $$;
+revoke all on function public.shop_service(text,jsonb) from public,anon,authenticated;
+grant execute on function public.shop_service(text,jsonb) to service_role;
+grant execute on function public.shop_expire() to service_role;
+do $$begin if to_regprocedure('cron.schedule(text,text,text)') is not null then
+ perform cron.schedule('shop-stock-expiration','*/5 * * * *','select public.shop_expire();');
+end if;end $$;
+
+create function public.shop_upload_allowed() returns boolean language sql stable security definer set search_path=public,pg_temp as $$
+ select public.community_chat_me() is not null and (public.shop_admin(public.community_chat_me()) or exists(select 1 from shop_sellers where owner_player_id=public.community_chat_me()))
+$$;
+revoke all on function public.shop_upload_allowed() from public,anon;
+grant execute on function public.shop_upload_allowed() to authenticated;
+-- PGlite fixtures omit Storage; production uses the Supabase bucket and policies.
+do $$begin if to_regclass('storage.buckets') is not null then
+ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('shop-media','shop-media',true,5242880,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
+ execute $p$create policy shop_media_read on storage.objects for select to anon,authenticated using(bucket_id='shop-media')$p$;
+ execute $p$create policy shop_media_insert on storage.objects for insert to authenticated with check(bucket_id='shop-media' and (storage.foldername(name))[1]=auth.uid()::text and public.shop_upload_allowed())$p$;
+ end if;end $$;
+
+-- Migration 20261012002000_shop_hardening.sql
+grant select on shop_orders to service_role;
+create unique index shop_external_charge on shop_orders(gateway_id,external_id) where external_id is not null;
+alter function public.shop_action(text,jsonb) rename to shop_action_core;
+revoke all on function public.shop_action_core(text,jsonb) from public,anon,authenticated;
+create function public.shop_action(p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid:=public.community_chat_me();s uuid;result jsonb;v jsonb;
+begin
+ if me is null then raise exception 'LOJA:Entre com uma conta ativa';end if;
+ if p_action='gateway_disconnect' then
+  s:=(p_data->>'sellerId')::uuid;if not public.shop_manager(s,me) or length(coalesce(p_data->>'reason',''))<8 then raise exception 'LOJA:Desativação exige responsável e motivo';end if;
+  update shop_gateways set enabled=false where seller_id=s;
+  insert into shop_events(seller_id,actor_id,action,detail) values(s,me,'gateway_disconnected',p_data->>'reason');return '{}';
+ elsif p_action='product_archive' then
+  select seller_id into s from shop_products where id=(p_data->>'id')::uuid;
+  if not public.shop_manager(s,me) then raise exception 'LOJA:Produto indisponível';end if;
+  update shop_products set active=false,revision=revision+1 where id=(p_data->>'id')::uuid;return '{}';
+ elsif p_action='product_save' then
+  for v in select value from jsonb_array_elements(p_data->'variants') loop
+   if length(coalesce(v->>'size',''))>60 or length(coalesce(v->>'color',''))>60 or (v->>'stock')::integer>1000000 then raise exception 'LOJA:Variação fora dos limites';end if;
+  end loop;
+ elsif p_action='prepare_order' and p_data->>'fulfillment'='delivery' then
+  if length(coalesce(p_data->'address'->>'street',''))>200 or length(coalesce(p_data->'address'->>'city',''))>80 or length(coalesce(p_data->'address'->>'number',''))>20 or length(coalesce(p_data->'address'->>'complement',''))>120 then raise exception 'LOJA:Endereço fora dos limites';end if;
+  p_data:=jsonb_set(p_data,'{address}',jsonb_build_object('cep',p_data->'address'->>'cep','street',p_data->'address'->>'street','number',p_data->'address'->>'number','complement',coalesce(p_data->'address'->>'complement',''),'city',p_data->'address'->>'city','state',p_data->'address'->>'state'));
+ end if;
+ result:=public.shop_action_core(p_action,p_data);return result;
+end $$;
+revoke all on function public.shop_action(text,jsonb) from public,anon;
+grant execute on function public.shop_action(text,jsonb) to authenticated;
+
+create function public.shop_cart(p_variants uuid[]) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare result jsonb;begin if cardinality(p_variants)>100 then raise exception 'LOJA:Carrinho fora do limite';end if;
+select coalesce(jsonb_agg(jsonb_build_object('id',p.id,'seller_id',p.seller_id,'seller_name',s.name,'seller_kind',s.kind,'name',p.name,'description',p.description,'category',p.category,'photos',p.photos,'active',p.active,'revision',p.revision,'sponsored',coalesce(p.featured_until>now(),false),
+'variants',(select jsonb_agg(jsonb_build_object('id',v.id,'sku',v.sku,'size',v.size,'color',v.color,'price_cents',v.price_cents,'stock',v.stock,'active',v.active,'revision',v.revision,'cost_cents',null)) from shop_variants v where v.product_id=p.id and v.id=any(p_variants) and v.active))),'[]') into result
+from shop_products p join shop_sellers s on s.id=p.seller_id where p.active and s.status='active' and exists(select 1 from shop_variants v where v.product_id=p.id and v.id=any(p_variants) and v.active);
+return result;end $$;
+revoke all on function public.shop_cart(uuid[]) from public;
+grant execute on function public.shop_cart(uuid[]) to anon,authenticated;
+
+alter function public.shop_service(text,jsonb) rename to shop_service_core;
+revoke all on function public.shop_service_core(text,jsonb) from public,anon,authenticated,service_role;
+create function public.shop_service(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+begin if p_action='review' then
+ update shop_orders set status='payment_review',updated_at=now() where id=(p_data->>'orderId')::uuid and status not in ('refunded');
+ insert into shop_events(order_id,action,detail) values((p_data->>'orderId')::uuid,'payment_review','Resultado do provedor exige revisão financeira; entrega bloqueada.');return '{}';
+end if;return public.shop_service_core(p_action,p_data);end $$;
+revoke all on function public.shop_service(text,jsonb) from public,anon,authenticated;
+grant execute on function public.shop_service(text,jsonb) to service_role;
+
+-- Migration 20261012003000_shop_consent.sql
+-- Buyer acceptance and a preflight that authorizes the seller before any PSP call.
+alter table shop_orders add column buyer_terms_version text;
+alter table shop_orders add column buyer_terms_at timestamptz;
+alter function public.shop_action(text,jsonb) rename to shop_action_validated;
+revoke all on function public.shop_action_validated(text,jsonb) from public,anon,authenticated;
+create function public.shop_action(p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare result jsonb;begin
+ if p_action='prepare_order' then
+  if p_data->>'termsVersion' is distinct from 'shop-buy-v1' or not coalesce((p_data->>'consent')::boolean,false) then raise exception 'LOJA:Confirme os itens, vendedor e condições de entrega';end if;
+ end if;
+ if p_action='sponsor' and (length(coalesce(p_data->>'reason',''))>500 or length(coalesce(p_data->>'reference',''))>160) then raise exception 'LOJA:Acordo fora dos limites';end if;
+ if p_action in ('seller_create','seller_save') and (length(coalesce(p_data->>'phone',''))>30 or length(coalesce(p_data->>'pickupAddress',''))>500) then raise exception 'LOJA:Dados comerciais fora dos limites';end if;
+ result:=public.shop_action_validated(p_action,p_data);
+ if p_action='prepare_order' then update shop_orders set buyer_terms_version='shop-buy-v1',buyer_terms_at=coalesce(buyer_terms_at,now()) where id=(result->>'id')::uuid and buyer_terms_version is null;end if;
+ return result;
+end $$;
+revoke all on function public.shop_action(text,jsonb) from public,anon;
+grant execute on function public.shop_action(text,jsonb) to authenticated;
+-- Numeric arithmetic must not overflow for larger baskets before commission rounding.
+do $$declare source text;begin
+ source:=pg_get_functiondef('public.shop_action_core(text,jsonb)'::regprocedure);
+ if position('round(total*s.commission_bps/10000.0)' in source)=0 then raise exception 'Unexpected shop_action_core definition';end if;
+ execute replace(source,'round(total*s.commission_bps/10000.0)','round(total::numeric*s.commission_bps/10000.0)');
+end $$;
+create or replace function public.shop_service(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid;s shop_sellers;begin
+ if p_action='seller_access' then
+  select id into me from players where auth_user_id=(p_data->>'actor')::uuid and not is_guest;
+  select * into s from shop_sellers where id=(p_data->>'sellerId')::uuid;
+  if s.id is null or not public.shop_manager(s.id,me) or s.status<>'active' then raise exception 'LOJA:Vendedor não autorizado';end if;return '{}';
+ elsif p_action='review' then
+  update shop_orders set status='payment_review',updated_at=now() where id=(p_data->>'orderId')::uuid and status<>'refunded';
+  if found then insert into shop_events(order_id,action,detail) values((p_data->>'orderId')::uuid,'payment_review','Resultado do provedor exige revisão financeira; entrega bloqueada.');end if;return '{}';
+ end if;return public.shop_service_core(p_action,p_data);
+end $$;
+revoke all on function public.shop_service(text,jsonb) from public,anon,authenticated;
+grant execute on function public.shop_service(text,jsonb) to service_role;
+
+-- Migration 20261012004000_shop_gateway_approval.sql
+-- Authentication of merchant credentials is not approval to accept live payments.
+do $$declare source text;begin
+ source:=pg_get_functiondef('public.shop_service_core(text,jsonb)'::regprocedure);
+ if position('p_data->>''collectorId'',secret,true)' in source)=0 then raise exception 'Unexpected gateway_save definition';end if;
+ execute replace(source,'p_data->>''collectorId'',secret,true)','p_data->>''collectorId'',secret,false)');
+ source:=pg_get_functiondef('public.shop_snapshot(text,text,uuid,integer)'::regprocedure);
+ if position('jsonb_build_object(''provider'',g.provider,''enabled'',g.enabled)' in source)=0 then raise exception 'Unexpected shop_snapshot definition';end if;
+ execute replace(source,'jsonb_build_object(''provider'',g.provider,''enabled'',g.enabled)','jsonb_build_object(''provider'',g.provider,''enabled'',g.enabled,''id'',case when public.shop_manager(s.id,me) then g.id else null end)');
+end $$;
+create or replace function public.shop_action(p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare result jsonb;me uuid:=public.community_chat_me();g shop_gateways;begin
+ if p_action='gateway_enable' then
+  if me is null or not public.shop_admin(me) or not coalesce((p_data->>'verified')::boolean,false) or length(coalesce(p_data->>'reason','')) not between 8 and 500 then raise exception 'LOJA:Liberação exige administrador, homologação confirmada e motivo';end if;
+  select * into g from shop_gateways where id=(p_data->>'id')::uuid for update;
+  if g.id is null or not exists(select 1 from shop_sellers where id=g.seller_id and status='active') then raise exception 'LOJA:Conexão ou vendedor indisponível';end if;
+  if exists(select 1 from shop_gateways where seller_id=g.seller_id and created_at>g.created_at) then raise exception 'LOJA:Use a conexão mais recente';end if;
+  update shop_gateways set enabled=false where seller_id=g.seller_id and id<>g.id;
+  update shop_gateways set enabled=true where id=g.id;
+  insert into shop_events(seller_id,actor_id,action,detail) values(g.seller_id,me,'gateway_homologated',p_data->>'reason');return '{}';
+ end if;
+ if p_action='prepare_order' then
+  if p_data->>'termsVersion' is distinct from 'shop-buy-v1' or not coalesce((p_data->>'consent')::boolean,false) then raise exception 'LOJA:Confirme os itens, vendedor e condições de entrega';end if;
+ end if;
+ if p_action='commission_received' and not exists(select 1 from shop_orders where id=(p_data->>'id')::uuid and status in ('paid','ready','shipped','delivered')) then raise exception 'LOJA:Comissão exige pedido com pagamento sem revisão';end if;
+ if p_action='sponsor' and (length(coalesce(p_data->>'reason',''))>500 or length(coalesce(p_data->>'reference',''))>160) then raise exception 'LOJA:Acordo fora dos limites';end if;
+ if p_action in ('seller_create','seller_save') and (length(coalesce(p_data->>'phone',''))>30 or length(coalesce(p_data->>'pickupAddress',''))>500) then raise exception 'LOJA:Dados comerciais fora dos limites';end if;
+ result:=public.shop_action_validated(p_action,p_data);
+ if p_action='prepare_order' then update shop_orders set buyer_terms_version='shop-buy-v1',buyer_terms_at=coalesce(buyer_terms_at,now()) where id=(result->>'id')::uuid and buyer_terms_version is null;end if;
+ return result;
+end $$;
+revoke all on function public.shop_action(text,jsonb) from public,anon;
+grant execute on function public.shop_action(text,jsonb) to authenticated;
+
+-- Migration 20261012005000_shop_history.sql
+-- Filter the managed store before the report limit; history uses a stable cursor.
+do $$declare source text;begin
+ source:=pg_get_functiondef('public.shop_snapshot(text,text,uuid,integer)'::regprocedure);
+ execute replace(source,'where (p_mode=''catalog'' and o.buyer_id=me) or (p_mode=''manage'' and public.shop_manager(o.seller_id,me)) order by created_at desc limit 100)',
+ 'where ((p_mode=''catalog'' and o.buyer_id=me) or (p_mode=''manage'' and public.shop_manager(o.seller_id,me))) and (p_seller is null or o.seller_id=p_seller) order by created_at desc,id desc limit 100)');
+end $$;
+create function public.shop_orders_page(p_mode text default 'buyer',p_seller uuid default null,p_before timestamptz default null,p_before_id uuid default null) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid:=public.community_chat_me();ids uuid[];result jsonb;begin
+ if me is null or p_mode not in ('buyer','manage') then raise exception 'LOJA:Entre com uma conta ativa';end if;
+ if (p_before is null)<>(p_before_id is null) then raise exception 'LOJA:Cursor inválido';end if;
+ select array_agg(id order by created_at desc,id desc) into ids from (select id,created_at from shop_orders o
+ where ((p_mode='buyer' and o.buyer_id=me) or (p_mode='manage' and public.shop_manager(o.seller_id,me))) and (p_seller is null or o.seller_id=p_seller)
+ and (p_before is null or (o.created_at,o.id)<(p_before,p_before_id)) order by o.created_at desc,o.id desc limit 31) q;
+ select coalesce(jsonb_agg(public.shop_order_json(id,me) order by ordinal),'[]') into result from unnest(ids[1:30]) with ordinality as q(id,ordinal);
+ return jsonb_build_object('orders',result,'hasMore',coalesce(cardinality(ids)>30,false));
+end $$;
+revoke all on function public.shop_orders_page(text,uuid,timestamptz,uuid) from public,anon;
+grant execute on function public.shop_orders_page(text,uuid,timestamptz,uuid) to authenticated;

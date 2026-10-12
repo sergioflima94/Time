@@ -451,3 +451,9 @@ verify_jwt = true
 
 [functions.commercial-payment-webhook]
 verify_jwt = false
+
+[functions.shop-payment]
+verify_jwt = true
+
+[functions.shop-webhook]
+verify_jwt = false

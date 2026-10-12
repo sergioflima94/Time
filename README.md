@@ -1,5 +1,108 @@
 # MarcouJogou
 
+## Loja oficial e parceiros
+
+`/loja` é a loja de produtos físicos, independente das comandas e do saldo de
+demonstração. A Home e a Central levam à loja; em Admin da plataforma, use
+**Loja oficial, parceiros e comissões**. Não há produtos/vendedores fictícios
+inseridos no Supabase de produção: cadastre seu catálogo antes de divulgar.
+
+- **Seus produtos:** um administrador cria a loja oficial em `/loja/gerenciar`.
+  Publique bolas, uniformes, coletes, calçados e equipamentos com até 5 fotos,
+  descrição, SKU, tamanho/cor, preço, custo privado e estoque por variação.
+  Rascunhos, variações desativadas e arquivamento preservam pedidos antigos.
+- **Parcerias:** o vendedor solicita cadastro e aceita `shop-v1`. Você aprova,
+  recusa ou suspende, registra motivo e negocia comissão entre 0% e 30%.
+  Parceiros não se autoaprovam nem veem pedidos/custos de outros vendedores.
+- **Compra:** vitrine pública, filtros por categoria/vendedor/pesquisa, carrinho
+  persistido só com IDs/quantidades. Cada vendedor gera um pedido separado.
+  Login, aceite `shop-buy-v1`, telefone e entrega/retirada são necessários para
+  fechar. Preços, frete e estoque são revalidados no servidor; uma chave de
+  tentativa evita duplicar pedidos ao repetir a mesma requisição.
+- **Entrega:** retirada no endereço comercial ou frete fixo com cobertura por
+  prefixos de CEP. O vendedor prepara, registra transportadora/rastreio e
+  confirma entrega. Não há cotação automática dos Correios, emissão de nota
+  fiscal ou prazo de transporte calculado. Combine essas condições com o cliente.
+- **Estoque:** pedido pendente reserva unidades por 30 minutos. Cancelamento
+  ou expiração libera uma única vez. `shop-stock-expiration` é registrado se
+  `pg_cron` estiver disponível; sem ele, consultas autenticadas/novos pedidos
+  executam a limpeza. Não contar com um job instalado sem verificar o banco.
+- **Pagamento:** Mercado Pago Checkout Pro e PicPay Empresas Payment Link,
+  na conta do vendedor, com Pix/cartão conforme sua habilitação no PSP.
+  Abrir/retornar do checkout não comprova pagamento: somente consultas
+  autenticadas ao PSP, acionadas por webhook ou reconciliação, alteram o status.
+  Pagamento tardio, duplicado, estorno parcial ou divergente bloqueia entrega
+  e requer revisão; não promete estoque já liberado.
+- **Devolução:** cliente solicita, vendedor registra decisão e pode pedir
+  reembolso integral do pagamento escolhido. Um POST aceito não significa
+  reembolso concluído: o backend consulta novamente. Estoque só retorna
+  quando o vendedor confirma recebimento físico. Em caso de resposta incerta,
+  reconciliar antes de repetir; parcial/chargeback exige atendimento do PSP.
+- **Sua receita:** margem bruta de produtos próprios, comissões de parceiros
+  e acordos de destaque identificados como **Patrocinado**. Comissão é uma
+  obrigação registrada, não split automático: você registra referência e motivo
+  depois de receber do parceiro. O resumo dos 100 pedidos recentes não é lucro
+  líquido; taxas desconhecidas, frete, impostos e estornos exigem conciliação.
+
+### Habilitar pagamentos da loja
+
+As migrações `20261012000000` a `20261012005000` e as Edge Functions
+`shop-payment`/`shop-webhook` foram aplicadas no projeto
+`oyhbmbstsiagwljatawq`. Tabelas privadas usam RPCs com permissões; clientes
+nunca executam `shop_service`. Fotos comerciais usam o bucket público
+`shop-media` (JPG/PNG/WebP até 5 MB, envio autorizado por vendedor/admin).
+Tokens e segredos de webhook ficam criptografados no Supabase Vault.
+
+**As vendas reais ainda não foram homologadas e ficam bloqueadas por padrão.**
+O código e testes não constituem homologação, contratação de PSP ou aprovação
+jurídica/fiscal. Não foram feitos pagamentos reais nesta implementação.
+
+1. Após contratar e revisar a integração, habilite `SHOP_PAYMENTS_ENABLED=true`
+   como secret da Edge Function (nunca `EXPO_PUBLIC_`). PicPay exige também
+   `SHOP_PICPAY_ENABLED=true`, separado por precisar validar seu identificador
+   de Payment Link, OAuth, transações e comportamento de devolução.
+2. Vendedor conecta credenciais de produção em **Configurar → Receber pagamentos**.
+   Mercado Pago: Access Token e segredo de assinatura. PicPay: Client ID,
+   Client Secret e API Key de Authorization do webhook. Autenticação no PSP
+   é validada antes do armazenamento. Campos não ficam no armazenamento local.
+3. Configure no PSP a URL retornada:
+   `https://oyhbmbstsiagwljatawq.supabase.co/functions/v1/shop-webhook/<gateway-id>`.
+   A URL PicPay não contém query string. Mercado Pago valida `x-signature` e
+   `x-request-id`; PicPay exige Authorization, seguido de consulta à API.
+4. **Conectar não libera vendas.** Após homologar recebedor, checkout, webhook,
+   confirmação e reembolso com o PSP, administrador da plataforma confirma
+   a homologação daquela conta com motivo/referência em Configurar.
+   O vendedor não pode liberar sua própria conexão. Ambas as travas, por
+   conta e global, devem estar habilitadas para checkout real.
+5. Se uma requisição tiver resposta incerta, use **Conferir pagamento no provedor**.
+   Não gere outra cobrança para “tentar resolver”. Mercado Pago recupera uma
+   preferência única por referência; PicPay/ambiguidade requer atendimento.
+   PicPay utiliza validade de link por data: ela pode exceder os 30 minutos
+   da reserva. Nunca pague links antigos; pagamentos após expiração ficam
+   em revisão, sem entrega automática.
+
+Integrações oficiais: [Mercado Pago — preferências Checkout Pro](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro-preferences/create-preference/post),
+[PicPay — autenticação](https://developers-business.picpay.com/payment-link/docs/authentication),
+[Payment Link](https://developers-business.picpay.com/payment-link/docs/api/create-charge),
+[transações](https://developers-business.picpay.com/payment-link/docs/api/find-transactions),
+[webhook](https://developers-business.picpay.com/payment-link/docs/webhook) e
+[reembolso](https://developers-business.picpay.com/payment-link/docs/api/refund-charge).
+Tarifas dependem do contrato do vendedor; não há promessa de Pix gratuito,
+parcelamento ou repasse automático de comissão nesta loja.
+
+Testes: `node scripts/test-shop-sql.cjs`, `node scripts/test-shop-gateways.cjs`
+e `node scripts/test-shop-ui.cjs` (bundle web em `TEST_URL`, Chrome/Playwright).
+Usam banco isolado e respostas simuladas, sem contas/cobranças reais. Cobrem
+permissões, homologação, valores no servidor, estoque, consentimento/endereço,
+pagamentos duplicados/tardios, devolução, assinaturas e UI 320/390/1280 px.
+Histórico de pedidos usa páginas de 30 com cursor de data/ID, inclusive para
+pedidos antigos, sem misturar lojas ou dados de compradores. O resumo financeiro
+continua limitado aos 100 pedidos recentes da loja selecionada.
+Dados de endereço/contato de pedidos não ficam no carrinho e só são exibidos
+ao comprador, vendedor responsável e administradores autorizados. Exclusão
+de conta/imagens e retenção legal continuam exigindo atendimento manual;
+arquivar produto não elimina arquivos ou registros financeiros.
+
 ## Seletores adaptáveis de times e campos
 
 `AdaptiveSelect` mantém até 3 opções como botões. Com 4 ou mais, mostra somente
@@ -1374,8 +1477,9 @@ em `src/lib/growth.ts`, e os contratos de domínio em `src/types/growth.ts`.
   emergência, responsável legal e indicação de dados médicos restritos.
 - **Retrospectivas**: cards de craque, recordes, sequências e momentos compartilháveis;
   temas animados e exportação sem marca d'água são possibilidades Premium.
-- **Loja e aluguel**: venda/aluguel, estoque, retirada associada à reserva e lançamento
-  automático na carteira.
+- **Loja**: agora usa o módulo de produtos físicos descrito no início deste README,
+  sem saldo de demonstração. Aluguel legado continua separado; em produção,
+  consultar o estabelecimento não faz uma cobrança/reserva fictícia.
 
 O `supabase/schema.sql` contém as tabelas e políticas RLS correspondentes:
 `multi_sport_scoreboards`, `scoreboard_segments`, `chat_channels`, `chat_participants`,
@@ -1704,8 +1808,10 @@ Pedido do dono do produto — priorizado assim: (1) dono do campo + conta pra re
   ficam restritos ao cliente envolvido ou à equipe do estabelecimento.
 - **Aluguel de bola, coletes etc.**: item avulso associado a uma reserva — depende do
   agendamento acima existir primeiro.
-- **E-commerce**: venda (não aluguel) de coletes, uniforme, bolas, chuteiras — catálogo,
-  carrinho, checkout, pedidos. Loja única do app pra começar (não multi-vendedor).
+- ✅ **E-commerce**: a proposta inicial de loja única foi ampliada para loja oficial
+  e parceiros aprovados, com catálogo, carrinho, estoque, pedidos e entrega.
+  Checkout real depende de credenciais/homologação e liberação por conta; veja
+  o estado e as limitações da implementação no início deste README.
 
 ### Configurar geração de emblema por IA
 

@@ -80,6 +80,7 @@ export default function RootLayout() {
             <Stack.Screen name="convite/[code]" />
             <Stack.Screen name="aulas" />
             <Stack.Screen name="campeonato" />
+            <Stack.Screen name="loja" />
           </Stack>
           <FriendInviteNavigation />
         </SafeAreaProvider>

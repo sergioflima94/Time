@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
@@ -19,8 +19,9 @@ import { useGrowthStore } from '@/store/useGrowthStore';
 import type { MultiSportScoreboard } from '@/types/growth';
 
 export default function GrowthFeatureScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, rentals } = useLocalSearchParams<{ slug: string; rentals?:string }>();
   const feature = getGrowthFeature(slug);
+  if(feature.id==='loja'&&rentals!=='1')return <Redirect href="/loja"/>;
   return (
     <Screen>
       <View style={styles.header}>
@@ -217,13 +218,16 @@ function Highlights() {
 
 function Storefront() {
   const playerId = useAppStore((state) => state.currentPlayerId);
-  const listings = useGrowthStore((state) => state.commerceListings);
+  const allListings = useGrowthStore((state) => state.commerceListings);
+  const listings=allListings.filter(item=>item.kind==='rental'&&item.active);
   const orders = useGrowthStore((state) => state.rentalOrders);
   const reserve = useGrowthStore((state) => state.reserveListing);
   const [notice, setNotice] = useState('');
   return <>
     {orders.length > 0 && <Card style={[styles.section, { borderColor: colors.success }]}><Text style={styles.cardTitle}>Retiradas agendadas</Text>{orders.map((order) => { const item = listings.find((row) => row.id === order.listingId); return <ReportRow key={order.id} label={item?.name ?? 'Equipamento'} value={`${new Date(order.pickupAt).toLocaleDateString('pt-BR')} · ${order.status}`} />; })}</Card>}
-    <View style={styles.storeGrid}>{listings.map((item) => <Card key={item.id} style={styles.storeItem}><View style={[styles.productIcon, { backgroundColor: item.kind === 'rental' ? '#3B82F622' : '#F9731622' }]}><Ionicons name={item.category === 'ball' ? 'football-outline' : item.category === 'boots' ? 'walk-outline' : 'shirt-outline'} size={28} color={item.kind === 'rental' ? colors.secondary : '#F97316'} /></View><Badge label={item.kind === 'rental' ? 'ALUGUEL' : 'VENDA'} color={item.kind === 'rental' ? colors.secondary : '#F97316'} /><Text style={styles.storeName}>{item.name}</Text><Text style={styles.offerPrice}>{currency(item.price)}</Text><Text style={styles.caption}>{item.stock} em estoque</Text><Button label={item.kind === 'rental' ? 'Reservar' : 'Comprar'} small disabled={item.stock === 0} onPress={() => setNotice(reserve(item.id, playerId) ? `${item.name} confirmado e debitado da carteira.` : 'Saldo insuficiente ou item sem estoque.')} style={{ marginTop: spacing.sm }} /></Card>)}</View>
+    {!isMockMode&&<Info text="Aluguel não usa saldo simulado. Consulte o estabelecimento sobre disponibilidade e retirada. Compras de produtos ficam na nova loja."/>}
+    <Button small label="Abrir loja de produtos" variant="outline" onPress={()=>router.push('/loja')}/>
+    <View style={styles.storeGrid}>{listings.map((item) => <Card key={item.id} style={styles.storeItem}><View style={[styles.productIcon, { backgroundColor: '#3B82F622' }]}><Ionicons name={item.category === 'ball' ? 'football-outline' : item.category === 'boots' ? 'walk-outline' : 'shirt-outline'} size={28} color={colors.secondary} /></View><Badge label="ALUGUEL" color={colors.secondary}/><Text style={styles.storeName}>{item.name}</Text><Text style={styles.offerPrice}>{currency(item.price)}</Text><Text style={styles.caption}>{item.stock} em estoque</Text><Button label={isMockMode?'Reservar (demo)':'Consultar estabelecimento'} small disabled={item.stock === 0} onPress={() => isMockMode?setNotice(reserve(item.id, playerId) ? `${item.name} reservado em demonstração, sem cobrança real.` : 'Saldo de demonstração insuficiente ou item sem estoque.'):router.push('/campos')} style={{ marginTop: spacing.sm }} /></Card>)}</View>
     {!!notice && <Text style={styles.notice}>{notice}</Text>}
     <Info text="A retirada pode ser associada à reserva da quadra. O app monetiza por comissão, destaque do produto ou mensalidade da loja." />
   </>;

@@ -5449,6 +5449,493 @@ export type Database = {
           },
         ]
       }
+      shop_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          detail: string
+          id: number
+          order_id: string | null
+          seller_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: string
+          id?: never
+          order_id?: string | null
+          seller_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: string
+          id?: never
+          order_id?: string | null
+          seller_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_events_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "shop_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_gateways: {
+        Row: {
+          collector_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          provider: string
+          secret_id: string
+          seller_id: string
+        }
+        Insert: {
+          collector_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          provider: string
+          secret_id: string
+          seller_id: string
+        }
+        Update: {
+          collector_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          provider?: string
+          secret_id?: string
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_gateways_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "shop_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_order_lines: {
+        Row: {
+          color: string
+          cost_cents: number
+          order_id: string
+          product_name: string
+          quantity: number
+          size: string
+          sku: string
+          unit_cents: number
+          variant_id: string
+        }
+        Insert: {
+          color: string
+          cost_cents: number
+          order_id: string
+          product_name: string
+          quantity: number
+          size: string
+          sku: string
+          unit_cents: number
+          variant_id: string
+        }
+        Update: {
+          color?: string
+          cost_cents?: number
+          order_id?: string
+          product_name?: string
+          quantity?: number
+          size?: string
+          sku?: string
+          unit_cents?: number
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_order_lines_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "shop_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_orders: {
+        Row: {
+          address: Json | null
+          buyer_id: string
+          buyer_terms_at: string | null
+          buyer_terms_version: string | null
+          carrier: string | null
+          checkout_state: string
+          checkout_url: string | null
+          commission_cents: number
+          commission_reference: string | null
+          commission_state: string
+          created_at: string
+          customer_phone: string
+          expires_at: string
+          external_id: string | null
+          fulfillment: string
+          gateway_id: string
+          id: string
+          nonce: string
+          payment_id: string | null
+          payment_updated_at: string | null
+          pickup_address: string
+          pix_code: string | null
+          provider_fee_cents: number | null
+          refund_building: boolean
+          refund_payment_id: string | null
+          refund_reason: string | null
+          refund_requested_at: string | null
+          refund_restock: boolean
+          seller_id: string
+          shipping_cents: number
+          status: string
+          stock_released: boolean
+          subtotal_cents: number
+          total_cents: number
+          tracking: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: Json | null
+          buyer_id: string
+          buyer_terms_at?: string | null
+          buyer_terms_version?: string | null
+          carrier?: string | null
+          checkout_state?: string
+          checkout_url?: string | null
+          commission_cents: number
+          commission_reference?: string | null
+          commission_state?: string
+          created_at?: string
+          customer_phone: string
+          expires_at?: string
+          external_id?: string | null
+          fulfillment: string
+          gateway_id: string
+          id?: string
+          nonce: string
+          payment_id?: string | null
+          payment_updated_at?: string | null
+          pickup_address: string
+          pix_code?: string | null
+          provider_fee_cents?: number | null
+          refund_building?: boolean
+          refund_payment_id?: string | null
+          refund_reason?: string | null
+          refund_requested_at?: string | null
+          refund_restock?: boolean
+          seller_id: string
+          shipping_cents: number
+          status?: string
+          stock_released?: boolean
+          subtotal_cents: number
+          total_cents: number
+          tracking?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: Json | null
+          buyer_id?: string
+          buyer_terms_at?: string | null
+          buyer_terms_version?: string | null
+          carrier?: string | null
+          checkout_state?: string
+          checkout_url?: string | null
+          commission_cents?: number
+          commission_reference?: string | null
+          commission_state?: string
+          created_at?: string
+          customer_phone?: string
+          expires_at?: string
+          external_id?: string | null
+          fulfillment?: string
+          gateway_id?: string
+          id?: string
+          nonce?: string
+          payment_id?: string | null
+          payment_updated_at?: string | null
+          pickup_address?: string
+          pix_code?: string | null
+          provider_fee_cents?: number | null
+          refund_building?: boolean
+          refund_payment_id?: string | null
+          refund_reason?: string | null
+          refund_requested_at?: string | null
+          refund_restock?: boolean
+          seller_id?: string
+          shipping_cents?: number
+          status?: string
+          stock_released?: boolean
+          subtotal_cents?: number
+          total_cents?: number
+          tracking?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_orders_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_orders_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "shop_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_orders_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "shop_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_products: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          description: string
+          featured_until: string | null
+          id: string
+          name: string
+          photos: string[]
+          revision: number
+          seller_id: string
+          sponsorship_cents: number
+          sponsorship_reference: string | null
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          created_at?: string
+          description?: string
+          featured_until?: string | null
+          id?: string
+          name: string
+          photos?: string[]
+          revision?: number
+          seller_id: string
+          sponsorship_cents?: number
+          sponsorship_reference?: string | null
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          description?: string
+          featured_until?: string | null
+          id?: string
+          name?: string
+          photos?: string[]
+          revision?: number
+          seller_id?: string
+          sponsorship_cents?: number
+          sponsorship_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_products_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "shop_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_receipts: {
+        Row: {
+          amount_cents: number
+          gateway_id: string
+          order_id: string
+          payment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          gateway_id: string
+          order_id: string
+          payment_id: string
+          status: string
+          updated_at: string
+        }
+        Update: {
+          amount_cents?: number
+          gateway_id?: string
+          order_id?: string
+          payment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_receipts_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "shop_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_receipts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_sellers: {
+        Row: {
+          cep_prefixes: string[]
+          commission_bps: number
+          created_at: string
+          delivery_enabled: boolean
+          delivery_fee_cents: number
+          id: string
+          kind: string
+          name: string
+          owner_player_id: string
+          phone: string
+          pickup_address: string
+          pickup_enabled: boolean
+          revision: number
+          status: string
+          terms_at: string
+          terms_version: string
+        }
+        Insert: {
+          cep_prefixes?: string[]
+          commission_bps?: number
+          created_at?: string
+          delivery_enabled?: boolean
+          delivery_fee_cents?: number
+          id?: string
+          kind: string
+          name: string
+          owner_player_id: string
+          phone?: string
+          pickup_address?: string
+          pickup_enabled?: boolean
+          revision?: number
+          status?: string
+          terms_at?: string
+          terms_version: string
+        }
+        Update: {
+          cep_prefixes?: string[]
+          commission_bps?: number
+          created_at?: string
+          delivery_enabled?: boolean
+          delivery_fee_cents?: number
+          id?: string
+          kind?: string
+          name?: string
+          owner_player_id?: string
+          phone?: string
+          pickup_address?: string
+          pickup_enabled?: boolean
+          revision?: number
+          status?: string
+          terms_at?: string
+          terms_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_sellers_owner_player_id_fkey"
+            columns: ["owner_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_variants: {
+        Row: {
+          active: boolean
+          color: string
+          cost_cents: number
+          id: string
+          price_cents: number
+          product_id: string
+          revision: number
+          size: string
+          sku: string
+          stock: number
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          cost_cents?: number
+          id?: string
+          price_cents: number
+          product_id: string
+          revision?: number
+          size?: string
+          sku: string
+          stock?: number
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          cost_cents?: number
+          id?: string
+          price_cents?: number
+          product_id?: string
+          revision?: number
+          size?: string
+          sku?: string
+          stock?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "shop_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sport_catalog: {
         Row: {
           definition: Json
@@ -6701,6 +7188,52 @@ export type Database = {
         Args: { p_intent_id: string }
         Returns: string
       }
+      shop_action: { Args: { p_action: string; p_data?: Json }; Returns: Json }
+      shop_action_core: {
+        Args: { p_action: string; p_data?: Json }
+        Returns: Json
+      }
+      shop_action_validated: {
+        Args: { p_action: string; p_data?: Json }
+        Returns: Json
+      }
+      shop_admin: { Args: { p_me: string }; Returns: boolean }
+      shop_cart: { Args: { p_variants: string[] }; Returns: Json }
+      shop_expire: { Args: never; Returns: undefined }
+      shop_manager: {
+        Args: { p_me: string; p_seller: string }
+        Returns: boolean
+      }
+      shop_order: { Args: { p_order: string }; Returns: Json }
+      shop_order_json: {
+        Args: { p_me: string; p_order: string }
+        Returns: Json
+      }
+      shop_orders_page: {
+        Args: {
+          p_before?: string
+          p_before_id?: string
+          p_mode?: string
+          p_seller?: string
+        }
+        Returns: Json
+      }
+      shop_release: { Args: { p_order: string }; Returns: undefined }
+      shop_service: { Args: { p_action: string; p_data: Json }; Returns: Json }
+      shop_service_core: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
+      }
+      shop_snapshot: {
+        Args: {
+          p_mode?: string
+          p_offset?: number
+          p_query?: string
+          p_seller?: string
+        }
+        Returns: Json
+      }
+      shop_upload_allowed: { Args: never; Returns: boolean }
       venue_review_action: {
         Args: { p_action: string; p_data: Json }
         Returns: Json
