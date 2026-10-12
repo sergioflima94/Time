@@ -203,7 +203,8 @@ export function mercadoReceipt(payment: Context, ctx: Context) {
     String(payment.collector_id) !== ctx.gateway.collector_id ||
     payment.live_mode !== true ||
     payment.currency_id !== "BRL" ||
-    payment.external_reference !== `shop:${ctx.id}` ||
+    payment.external_reference !== (ctx.reference ?? `shop:${ctx.id}`) ||
+    (ctx.required_method && payment.payment_method_id !== ctx.required_method) ||
     cents(payment.transaction_amount) !== ctx.total_cents
   )
     throw new ShopDiscrepancy(
@@ -254,7 +255,7 @@ export async function verifiedReceipts(
         ]
       : (
           await providerJson(
-            `https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent("shop:" + ctx.id)}&sort=date_created&criteria=desc&limit=50`,
+            `https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(ctx.reference ?? "shop:" + ctx.id)}&sort=date_created&criteria=desc&limit=50`,
             token,
             undefined,
             fetcher,

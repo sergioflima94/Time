@@ -460,3 +460,12 @@ verify_jwt = false
 
 [functions.venue-invite]
 verify_jwt = false
+
+[functions.invoice-payment]
+verify_jwt = false
+
+[functions.invoice-webhook]
+verify_jwt = false
+
+[functions.invoice-reminders]
+verify_jwt = false

@@ -71,7 +71,7 @@ export function VenueCash({ venue }: { venue: string | null }) {
           </Text>
         </Card>
       )}
-      {d.invoice_pending_cents !== undefined && <Card style={{gap:12}}><Text style={{color:colors.text}}>Faturas a receber {moneyCents(d.invoice_pending_cents)} · não entram no caixa até o pagamento.</Text><Text style={{color:colors.text}}>Recebido hoje em contas de clientes e locações: {moneyCents(d.credit_received_cents ?? 0)} · conferido pelo caixa.</Text><Button small variant="outline" label="Clientes e faturas" onPress={()=>router.push({pathname:'/operacao/faturas',params:{establishmentId:venue??''}})}/></Card>}
+      {d.invoice_pending_cents !== undefined && <Card style={{gap:12}}><Text style={{color:colors.text}}>Faturas a receber {moneyCents(d.invoice_pending_cents)} · não entram no caixa até o pagamento.</Text><Text style={{color:colors.text}}>Recebido hoje em contas de clientes e locações: {moneyCents(d.credit_received_cents ?? 0)} · conferido pelo caixa ou provedor. Valores brutos, não lucro nem saldo bancário líquido.</Text><Button small variant="outline" label="Clientes e faturas" onPress={()=>router.push({pathname:'/operacao/faturas',params:{establishmentId:venue??''}})}/></Card>}
       {canCash && (
         <Card style={{ gap: 12 }}>
           <Text style={{ color: colors.text, fontWeight: "700" }}>

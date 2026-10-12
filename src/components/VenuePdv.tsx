@@ -34,7 +34,7 @@ export function VenuePdv({ venue }: { venue: string | null }) {
 }
 function VenuePdvContent({ venue }: { venue: string | null }) {
   const feed = useVenueOperations(venue),
-    credit = useCustomerInvoices(venue, null, 'directory'),
+    credit = useCustomerInvoices(venue, null, "directory"),
     d = feed.data,
     { width } = useWindowDimensions();
   const tabs = useAppStore(
@@ -71,17 +71,23 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
         participant: Record<string, unknown>;
         inviteId: string | null;
       };
-      const r = creditCustomer ? await creditAction<OpenResult>('open_tab', { accountId: creditCustomer, table }, nonce.current) : await venueAction<OpenResult>("tab_open", {
-        venueId: venue,
-        requestId: nonce.current,
-        playerId: player || null,
-        name,
-        email,
-        phone,
-        table,
-        consent: !player && consent,
-        channel,
-      });
+      const r = creditCustomer
+        ? await creditAction<OpenResult>(
+            "open_tab",
+            { accountId: creditCustomer, table },
+            nonce.current,
+          )
+        : await venueAction<OpenResult>("tab_open", {
+            venueId: venue,
+            requestId: nonce.current,
+            playerId: player || null,
+            name,
+            email,
+            phone,
+            table,
+            consent: !player && consent,
+            channel,
+          });
       const t = r.tab,
         p = r.participant,
         tab: ServiceTab = {
@@ -193,12 +199,41 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
                 Sem times na agenda de hoje. Use cliente avulso.
               </Text>
             )}
-            {!!credit.data.customers?.length && <AdaptiveSelect label="Clientes com conta autorizada" value={creditCustomer} onChange={v=>{setCreditCustomer(v);setTeam('');setPlayer('');nonce.current=createUuid();}} options={credit.data.customers.map(c=>({value:c.id,label:c.name}))}/>}
-            {!!credit.error && <Text style={s.meta}>Clientes autorizados indisponíveis. Atualize para consultar.</Text>}
+            {!!credit.data.customers?.length && (
+              <AdaptiveSelect
+                label="Clientes com conta autorizada"
+                value={creditCustomer}
+                onChange={(v) => {
+                  setCreditCustomer(v);
+                  setTeam("");
+                  setPlayer("");
+                  nonce.current = createUuid();
+                }}
+                options={credit.data.customers.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                }))}
+              />
+            )}
+            {!!credit.error && (
+              <Text style={s.meta}>
+                Clientes autorizados indisponíveis. Atualize para consultar.
+              </Text>
+            )}
           </Card>
           <Card style={[s.card, { flex: 1 }]}>
             <Text style={s.heading}>Abrir comanda</Text>
-            {creditCustomer ? <Text style={s.meta}>Cliente autorizado: {credit.data.customers?.find(c=>c.id===creditCustomer)?.name}. Abrir comanda não gera dívida: o cliente escolhe pagar agora ou faturar ao fechar.</Text> : selected ? (
+            {creditCustomer ? (
+              <Text style={s.meta}>
+                Cliente autorizado:{" "}
+                {
+                  credit.data.customers?.find((c) => c.id === creditCustomer)
+                    ?.name
+                }
+                . Abrir comanda não gera dívida: o cliente escolhe pagar agora
+                ou faturar ao fechar.
+              </Text>
+            ) : selected ? (
               <AdaptiveSelect
                 label={`Jogador de ${selected.name}`}
                 value={player}
@@ -261,9 +296,11 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
               label="Abrir comanda"
               loading={busy}
               disabled={
-                creditCustomer ? !credit.data.customers?.some(c=>c.id===creditCustomer) : selected
-                  ? !player
-                  : !name.trim() || (!email.trim() && !phone.trim())
+                creditCustomer
+                  ? !credit.data.customers?.some((c) => c.id === creditCustomer)
+                  : selected
+                    ? !player
+                    : !name.trim() || (!email.trim() && !phone.trim())
               }
               onPress={() => void open()}
             />
@@ -315,7 +352,14 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
               </Text>
               <Text style={s.meta}>
                 {tabStatusLabel(t.status)} · {t.tableLabel ?? "Sem mesa"} ·
-                saldo {formatMoney(total.balance)}
+                saldo a receber agora{" "}
+                {formatMoney(
+                  (d.tab_credit_balances?.find((x) => x.id === t.id)
+                    ?.balance_cents ?? Math.round(total.balance * 100)) / 100,
+                )}
+                {!!d.tab_credit_balances?.find((x) => x.id === t.id)
+                  ?.transferred_cents &&
+                  ` · ${formatMoney((d.tab_credit_balances?.find((x) => x.id === t.id)?.transferred_cents ?? 0) / 100)} em faturas`}
               </Text>
               <Button
                 small

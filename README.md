@@ -2017,56 +2017,124 @@ e [Point Tap do Mercado Pago](https://www.mercadopago.com.br/developers/pt/suppo
 
 ## Clientes autorizados com fatura aberta
 
-O dono acessa **Estabelecimento → Clientes e faturas**, informa o e-mail de uma conta
-confirmada, libera o crédito e define **dia de corte (1–31)** e **limite total em aberto**.
-Dia 29/30/31 é ajustado ao último dia de meses mais curtos. Corte e vencimento usam
-o fuso de Brasília; lançamentos no próprio dia do corte ainda pertencem ao ciclo.
-Não há juros, débito automático ou alteração retroativa da data de faturas existentes.
-Para mudar o corte é necessário quitar o saldo; o limite não pode ficar abaixo da dívida.
-Suspender crédito impede novos lançamentos, mas conserva extratos e recebimentos.
+O dono acessa **Estabelecimento → Clientes e faturas**, autoriza uma conta confirmada
+pelo e-mail e define **limite total em aberto**, **dia de corte (1–31)** e
+**dias para pagar após o corte (0–45)**. Datas usam Brasília; corte 29–31 é ajustado ao
+último dia do mês. O vencimento de cada fatura fica congelado na emissão.
+Alterar prazo afeta apenas novas faturas. Mudar corte exige quitar saldo; limite não
+pode ficar abaixo da dívida. Suspender crédito conserva extrato e recebimentos.
+Não há juros nem débito automático. Pré-cadastro de balcão não recebe crédito.
 
-- **PDV:** clientes autorizados aparecem separados dos times em atendimento. Abrir
-  sua comanda não gera dívida nem obriga a comprar a prazo.
-- **Consumo:** ao fechar, o cliente escolhe pagar na hora (fluxo existente Pix/cartão/
-  dinheiro) ou **Deixar na fatura**, com aceite explícito. Nesta versão, assume **todo
-  o saldo restante da comanda**, inclusive itens compartilhados; não é transferência
-  de partes individuais. Pagamentos manuais anteriores são descontados. Cada visita
-  abre uma nova comanda; todas podem acumular no mesmo ciclo.
-- **Locações:** em Clientes e faturas, dono ou funcionário com **caixa + reservas**
-  informa um preço combinado para uma reserva existente e uma ocorrência específica.
-  O cliente aceita faturar ou paga presencialmente; a reserva semanal não é faturada
-  inteira nem automaticamente. Recusar o preço **não cancela a reserva**. Reservas
-  vinculadas a um jogo do mesmo campo/time/dia usam o rateio existente, sem duplicar
-  a locação inteira. O valor fica congelado; a reserva não muda após aceite financeiro.
-- **Cliente:** **Home → Minhas faturas** mostra estabelecimentos, limites, extratos,
-  datas de corte, saldos e locações aguardando escolha. O cliente não pode marcar sua
-  própria dívida como paga. Pré-cadastro de balcão não dá crédito nem transfere dívida.
-- **Recebimento:** dono/caixa autorizado registra dinheiro ou **Pix conferido no banco**,
-  informa referência bancária no Pix e confirma a conferência. Faturas aceitam recebimentos
-  parciais ou antecipados; a locação paga na hora exige o valor integral. Esta baixa é
-  presencial/manual, **não é conciliação automática de gateway**. Pagamento online de
-  faturas, estorno de seus recebimentos e renegociação não estão implementados.
-- **Financeiro:** emissão de fatura fica em contas a receber, não no faturamento recebido.
-  Caixa e Operação ao vivo separam saldo pendente dos recebimentos efetivos. Dinheiro
-  recebido de faturas/locações entra uma vez na conferência do turno; Pix manual não entra
-  no dinheiro da gaveta. Extratos guardam o registro e a origem do aceite.
-- **Segurança:** acesso e transações validados no servidor; cliente vê só suas contas,
-  caixa/relatórios veem apenas o estabelecimento autorizado. Somente dono libera crédito.
-  A dívida depende de limite disponível e ausência de fatura vencida; pagar na hora continua
-  possível. Nonce idempotente evita duplicar operações. Comanda faturada fecha para consumo,
-  não cria `sale_payments` e bloqueia novas cobranças e alterações financeiras. **Qualquer
-  intenção de pagamento já criada**, mesmo cancelada/expirada, impede migrar essa comanda
-  para fatura, evitando cobrança tardia simultânea. Estorno real de um pagamento anterior
-  exige revisão do dono: gera aviso, não dívida nova automática.
+### Os sete recursos
 
-Backend: migrations `20261012020000_customer_invoices.sql` e
-`20261012021000_customer_invoice_operations.sql` e
-`20261012022000_customer_invoice_tab_totals.sql` e
-`20261012023000_customer_invoice_allocation_guard.sql`; RPCs `credit_snapshot` e `credit_action`.
-Não importar tabelas de crédito para a sincronização otimista. Dados privados são consultados
-novamente ao mudar conta/estabelecimento e removidos da tela após erro de autorização.
-Verificação isolada: `node scripts/test-customer-invoices-sql.cjs` e
-`scripts/test-customer-invoices-ui.cjs` (backend interceptado, sem dívida/pagamento real).
+1. **Correções auditadas:** somente o dono pode estornar integralmente um registro
+   manual ou conceder abatimento até o saldo pendente, com motivo e confirmação.
+   Recibo original permanece. Estornar registro manual não devolve dinheiro nem
+   reabre turno de caixa fechado. Pix online exige devolução integral comprovada
+   pelo gateway; só pedir reembolso não baixa nem estorna.
+2. **Pix da fatura:** criação, QR/link real, consulta, webhook verificado,
+   recuperação de resposta perdida e devolução integral em Mercado Pago/PicPay.
+   Enquanto houver checkout pendente, inconclusivo ou divergente, outra baixa
+   manual e novos lançamentos nessa fatura ficam bloqueados. Resposta repetida
+   do provedor não duplica recebimento. Valores recebidos são brutos: não são
+   lucro nem saldo líquido disponível no banco.
+3. **Corte e vencimento separados:** faturas mostram ambas as datas. Restrição por
+   atraso começa após vencimento, não no corte. Pode pagar antecipado ou parcial
+   pelo caixa; o Pix gerado cobra o saldo integral congelado daquela intenção.
+4. **Comanda por pessoa:** todos os itens e pagamentos devem estar distribuídos.
+   Cada cliente identificado/confirmado pode aceitar faturar apenas sua parte;
+   caixa autorizado pode registrar o aceite presencial. Após o primeiro aceite,
+   consumo, preços e divisões dessa comanda ficam congelados. Demais partes podem
+   ir às faturas dos respectivos titulares ou ser recebidas no balcão em
+   dinheiro/Pix conferido. Checkout online legado do saldo inteiro deixa de aparecer
+   após transferência parcial; cada fatura tem seu próprio Pix. Alternativa:
+   um cliente autorizado assume o saldo inteiro com consentimento explícito.
+5. **Lembretes opcionais:** aviso no app ativado por padrão; e-mail/WhatsApp somente
+   com aceite do próprio cliente e contato verificado pelo Auth. Telefone do perfil
+   não comprova titularidade. Um aviso antes do vencimento (últimos três dias),
+   no dia e em atraso; ciclos antigos são agrupados pelo mais antigo pendente.
+   Rotina nativa diária às **9h de Brasília**. Preferência revista antes de enviar,
+   eventos idempotentes e envio inconclusivo não repetido automaticamente.
+   Aceito pelo provedor não significa entregue. O texto externo não expõe valores
+   ou detalhes da dívida.
+6. **Gestão e extrato:** busca por cliente/estabelecimento, situação e período de
+   vencimento, resumo do filtro e paginação. CSV exporta todas as páginas do filtro
+   até 1.000 faturas, avisa truncamento e escapa fórmulas. Recibo compartilhável/
+   baixável é **não fiscal**, identifica forma real de pagamento e eventual estorno.
+   Compartilhar arquivo é uma ação explícita do usuário, fora do controle do app.
+7. **Aulas e cotas consolidadas:** aceite por cobrança mensal/avulsa de
+   `academy_bills` ou pela própria cota de jogo. Origem passa a `invoiced` e
+   `invoice_paid`, sem nova cobrança na tela original. Rateio congela custo e
+   presentes confirmados, distribui centavos exatos no servidor e não aceita
+   mudança de campo/preço que desvie recebimento. Parcelas de aula antigas
+   (`class_enrollments`) não são migradas automaticamente. Reservas vinculadas
+   a jogo usam a cota; nunca locação inteira e cota simultâneas.
+
+### Operação e segurança
+
+Home → **Minhas faturas** mostra apenas as contas do cliente. Dono/funcionários
+precisam das permissões de caixa/relatórios do estabelecimento, verificadas no servidor.
+Só o dono libera/suspende crédito, conecta gateway e corrige recebimentos.
+Aceite, limite disponível e ausência de atraso são rechecados na transação.
+Faturar não é receber; o PDV e o painel ao vivo separam saldo diferido do saldo
+a cobrar na comanda. Dinheiro efetivamente recebido entra uma vez na conferência
+do turno; Pix não entra no numerário da gaveta.
+
+Locações continuam por ocorrência de reserva existente e preço combinado:
+cliente aceita ou paga na hora; recusar preço não cancela a reserva.
+Qualquer intenção online previamente criada na comanda impede migrá-la para
+fatura, mesmo expirada/cancelada, para evitar pagamento tardio em outra origem.
+Não importar tabelas de crédito na sincronização otimista: RPCs privadas e
+consultas novas ao mudar usuário/estabelecimento; erro limpa dados da tela.
+
+### Configuração de gateways e mensagens
+
+Em **Estabelecimento → Pagamentos → Configurar Pix das faturas**, o dono informa
+credenciais de produção e segredo de webhook. O backend autentica no provedor e
+guarda a credencial no Vault, nunca no bundle/AsyncStorage. Trocar conta preserva
+credencial/recebedor das intenções de fatura em andamento e bloqueia troca com
+checkout legado de comanda pendente. Cartão/aproximação só mantêm habilitação
+anterior quando a mesma conta recebedora é comprovada; não são homologados
+automaticamente por esta configuração.
+
+- **Mercado Pago:** Access Token de produção e segredo de assinatura; usa
+  `/v1/payments` Pix com referência `invoice:<uuid>`. URL por intenção:
+  `https://oyhbmbstsiagwljatawq.supabase.co/functions/v1/invoice-webhook/<ID-DA-COBRANCA>`.
+  Configure notificações e assinatura na integração. HMAC é conferido e o
+  recurso de pagamento é consultado na API; body do webhook não comprova dinheiro.
+- **PicPay:** Client ID/Secret de Payment Link e segredo Authorization.
+  Após salvar, configure a URL estática retornada:
+  `https://oyhbmbstsiagwljatawq.supabase.co/functions/v1/invoice-webhook/gateway/<ID-DO-GATEWAY>`.
+  Link com BRCODE/PIX apenas, cliente verifica no checkout do provedor.
+  Autorização e transações são consultadas na API do PicPay.
+- **Liberação financeira:** Edge secrets `INVOICE_PAYMENTS_ENABLED=true` e, para
+  PicPay, `INVOICE_PICPAY_ENABLED=true` **somente após homologação real**. Sem
+  liberação, app explica o bloqueio e não cria cobrança. Integração implementada
+  e testada com provas sintéticas não significa contrato/conta homologados.
+- **Exceções:** só devolução integral automática; parcial, duplicidade e pagamento
+  excedente exigem conferência no portal do provedor. Dono pode registrar motivo
+  de revisão ou encerramento após expiração + cinco minutos, mas deve encerrar
+  **no provedor** primeiro. Expirar no app não cancela no banco nem gera recibo.
+- **Mensagens externas:** `invoice-reminders` aceita somente `x-invoice-job`,
+  comparado ao secret `INVOICE_JOB_SECRET`; o par fica no Vault via RPC privada
+  `credit_reminder_setup(secret, URL-da-funcao)`. Ative
+  `INVOICE_MESSAGES_ENABLED=true` apenas com Resend (`RESEND_API_KEY`,
+  `VENUE_INVITE_FROM`) e/ou Evolution Go (`EVOLUTION_GO_URL`,
+  `EVOLUTION_GO_API_KEY`) configurados. Avisos no app independem desses fornecedores.
+
+Estado da implantação de 12/10/2026: backend e job diário de avisos no app publicados.
+Worker externo ainda precisa do par `INVOICE_JOB_SECRET`/Vault e das credenciais de
+mensageria; cobrança real ainda depende de credenciais e liberação/homologação.
+Nenhuma cobrança ou mensagem externa foi disparada na validação.
+
+Backend: migrations `20261012020000`–`20261012023000` e
+`20261012030000`–`20261012037000`; projeção em `supabase/schema.sql`.
+RPCs autenticadas `credit_snapshot`, `credit_action`, `credit_search`,
+`credit_export`; PSP, credenciais e worker são restritos a service role.
+Verificação: `node scripts/test-customer-invoices-sql.cjs`,
+`node scripts/test-invoice-gateways.cjs`, `node scripts/test-invoice-edge.cjs` e
+`scripts/test-customer-invoices-ui.cjs` (inclui `invoice-v2-ui.cjs`).
+Banco e navegador isolados; nenhum Pix, dívida real ou mensagem é gerado nos testes.
 
 ## Multi-esporte
 

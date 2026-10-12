@@ -11,6 +11,7 @@ const users = Array.from({ length: 4 }, () => randomUUID());
 async function who(i) {
   await db.exec("reset role");
   await q("select set_config('request.jwt.claim.sub',$1,false)", [users[i]]);
+  await q("select set_config('request.jwt.claim.role','authenticated',false)");
   await db.exec("set role authenticated");
 }
 const act = async (action, data, requestId = randomUUID()) =>
@@ -371,7 +372,7 @@ async function run() {
     assert.equal(m, null);
     await db.exec("reset role");
     await q(
-      "update venue_credit_invoices set cut_date=current_date-1 where id=$1",
+      "update venue_credit_invoices set cut_date=current_date-1,due_date=current_date-1 where id=$1",
       [invoice],
     );
     await who(0);
@@ -583,6 +584,7 @@ async function run() {
       }),
       /não autorizado/,
     );
+    await require('./invoice-v2-cases.cjs')({db,q,who,act,users,p,venue,field,account,meal});
     console.log(
       "PASS: customer credit, consent, cut dates, immutable sources, privacy, limits, receipts, rentals, idempotence and arrears",
     );

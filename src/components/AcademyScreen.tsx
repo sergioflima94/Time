@@ -542,12 +542,43 @@ export function AcademyScreen({
           </Text>
           <Text style={styles.text}>
             {b.name} ·{" "}
-            {b.status === "pending"
-              ? "A combinar / pendente"
-              : b.status === "cancelled"
-                ? "Cancelada"
-                : "Recebimento registrado"}
+            {b.status === "invoiced"
+              ? "Na fatura do cliente"
+              : b.status === "invoice_paid"
+                ? "Quitada pela fatura"
+                : b.status === "pending"
+                  ? "A combinar / pendente"
+                  : b.status === "cancelled"
+                    ? "Cancelada"
+                    : "Recebimento registrado"}
           </Text>
+          {(!venue ||
+            access.data.owner ||
+            access.data.capabilities?.includes("cash") ||
+            access.data.capabilities?.includes("reports")) &&
+            b.plan !== "legacy" &&
+            b.status !== "cancelled" &&
+            b.status !== "cash_paid" && (
+              <Button
+                small
+                variant="outline"
+                label={
+                  b.status === "pending"
+                    ? "Consultar opção de faturar aula"
+                    : "Consultar fatura da aula"
+                }
+                onPress={() =>
+                  router.push(
+                    venue
+                      ? {
+                          pathname: "/operacao/faturas",
+                          params: { establishmentId: venue },
+                        }
+                      : "/faturas",
+                  )
+                }
+              />
+            )}
           {b.status === "pending" &&
             b.plan !== "legacy" &&
             (access.data.owner ||

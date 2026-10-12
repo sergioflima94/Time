@@ -70,6 +70,11 @@ export interface VenueSnapshot {
   classes_cash_cents?: number;
   invoice_pending_cents?: number;
   credit_received_cents?: number;
+  tab_credit_balances?: {
+    id: string;
+    balance_cents: number;
+    transferred_cents: number;
+  }[];
   shifts?: {
     id: string;
     status: string;

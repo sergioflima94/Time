@@ -5295,3 +5295,581 @@ do $$declare previous text;body text;begin
  ) then raise exception ''FATURA: Pagamento e parte consumida devem pertencer à mesma comanda.'';end if;');
  if body=previous then raise exception 'credit allocation hook missing';end if;execute body;
 end$$;
+
+-- Invoice ledger v2: migrations 20261012030000 through 20261012036000.
+-- Immutable corrections, separate due dates, individually attributable sources.
+alter table venue_credit_accounts add column due_days int not null default 0 check(due_days between 0 and 45);
+alter table venue_credit_invoices add column due_date date;
+update venue_credit_invoices set due_date=cut_date;
+alter table venue_credit_invoices alter column due_date set not null;
+create function credit_invoice_due() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$begin
+ new.due_date:=new.cut_date+(select due_days from venue_credit_accounts where id=new.account_id);return new;end$$;
+create trigger credit_invoice_due before insert on venue_credit_invoices for each row execute function credit_invoice_due();
+alter table venue_credit_lines drop constraint venue_credit_lines_kind_check;
+alter table venue_credit_lines drop constraint venue_credit_lines_check;
+alter table venue_credit_lines drop constraint venue_credit_lines_tab_id_key;
+alter table venue_credit_lines add column participant_id uuid references tab_participants(id);
+alter table venue_credit_lines add column academy_bill_id uuid unique references academy_bills(id);
+alter table venue_credit_lines add column game_payment_id uuid unique references payments(id);
+alter table venue_credit_lines add constraint credit_line_source check(
+ (kind='food' and tab_id is not null and rental_id is null and academy_bill_id is null and game_payment_id is null) or
+ (kind='rental' and rental_id is not null and tab_id is null and academy_bill_id is null and game_payment_id is null and participant_id is null) or
+ (kind='class' and academy_bill_id is not null and tab_id is null and rental_id is null and game_payment_id is null and participant_id is null) or
+ (kind='game' and game_payment_id is not null and tab_id is null and rental_id is null and academy_bill_id is null and participant_id is null));
+create unique index credit_whole_tab_once on venue_credit_lines(tab_id) where tab_id is not null and participant_id is null;
+create unique index credit_tab_person_once on venue_credit_lines(tab_id,participant_id) where participant_id is not null;
+create table venue_credit_reversals(id uuid primary key default gen_random_uuid(),payment_id uuid not null unique references venue_credit_payments(id),reason text not null check(length(trim(reason)) between 8 and 500),actor uuid not null references players(id),created_at timestamptz not null default clock_timestamp(),provider_confirmed boolean not null default false);
+create table venue_credit_notes(id uuid primary key default gen_random_uuid(),invoice_id uuid not null references venue_credit_invoices(id),amount_cents int not null check(amount_cents>0),reason text not null check(length(trim(reason)) between 8 and 500),actor uuid not null references players(id),created_at timestamptz not null default clock_timestamp());
+create table venue_credit_game_terms(game_id uuid primary key references games(id),establishment_id uuid not null references establishments(id),cost_cents int not null check(cost_cents>0),roster uuid[] not null check(cardinality(roster)>0),created_at timestamptz not null default now());
+-- Private transaction capability; never expose a GUC which clients could forge.
+create table venue_credit_mutations(tx bigint primary key,tab_id uuid,source_id uuid,purpose text not null);
+alter table venue_credit_payments drop constraint venue_credit_payments_method_check;
+alter table venue_credit_payments drop constraint venue_credit_payments_rental_id_key;
+alter table venue_credit_payments add constraint venue_credit_payments_method_check check(method in('cash','manual_pix','online_pix'));
+alter table academy_bills drop constraint academy_bills_status_check;
+alter table academy_bills add constraint academy_bills_status_check check(status in('pending','cash_paid','cancelled','invoiced','invoice_paid'));
+alter table payments drop constraint payments_status_check;
+alter table payments add constraint payments_status_check check(status in('pending','paid','waived','invoiced','invoice_paid'));
+do $$declare t text;begin foreach t in array array['venue_credit_reversals','venue_credit_notes','venue_credit_game_terms','venue_credit_mutations'] loop execute format('alter table %I enable row level security',t);execute format('revoke all on %I from anon,authenticated',t);end loop;end$$;
+create or replace function credit_balance(i uuid) returns bigint language sql stable security definer set search_path=public,pg_temp as $$
+ select coalesce((select sum(amount_cents) from venue_credit_lines where invoice_id=i),0)
+ -coalesce((select sum(amount_cents) from venue_credit_notes where invoice_id=i),0)
+ -coalesce((select sum(p.amount_cents) from venue_credit_payments p where invoice_id=i and not exists(select 1 from venue_credit_reversals r where r.payment_id=p.id)),0)
+$$;
+create function credit_due_overdue(a uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$
+ select exists(select 1 from venue_credit_invoices where account_id=a and due_date<(now() at time zone 'America/Sao_Paulo')::date and credit_balance(id)>0)
+$$;
+create function credit_refresh_sources(i uuid) returns void language plpgsql security definer set search_path=public,pg_temp as $$declare l record;settled boolean:=credit_balance(i)=0;begin
+ for l in select * from venue_credit_lines where invoice_id=i and kind in('class','game') loop
+  insert into venue_credit_mutations(tx,source_id,purpose) values(txid_current(),coalesce(l.academy_bill_id,l.game_payment_id),'source_sync');
+  if l.kind='class' then update academy_bills set status=case when settled then 'invoice_paid' else 'invoiced' end where id=l.academy_bill_id;
+  else update payments set status=case when settled then 'invoice_paid' else 'invoiced' end where id=l.game_payment_id;end if;
+  delete from venue_credit_mutations where tx=txid_current();
+ end loop;
+end$$;
+create function credit_unified_source_guard() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$declare d jsonb:=case when tg_op='INSERT' then to_jsonb(new) else to_jsonb(old) end;k uuid:=(d->>'id')::uuid;begin
+ if exists(select 1 from venue_credit_mutations where tx=txid_current() and source_id=k and purpose='source_sync') then return new;end if;
+ if exists(select 1 from venue_credit_lines where academy_bill_id=k or game_payment_id=k) or (tg_op<>'DELETE' and to_jsonb(new)->>'status' in('invoiced','invoice_paid')) then raise exception 'FATURA: Cobrança transferida: receba ou corrija somente na fatura.';end if;
+ if tg_op='DELETE' then return old;end if;return new;end$$;
+create trigger credit_unified_guard before insert or update or delete on academy_bills for each row execute function credit_unified_source_guard();
+create trigger credit_unified_guard before insert or update or delete on payments for each row execute function credit_unified_source_guard();
+create function credit_game_terms_guard() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$begin
+ if exists(select 1 from venue_credit_game_terms where game_id=old.id) and (tg_op='DELETE' or new.field_id is distinct from old.field_id or new.field_cost is distinct from old.field_cost or new.pelada_id is distinct from old.pelada_id) then raise exception 'FATURA: Rateio já aceito em fatura. Preço e recebedor estão congelados.';end if;
+ if tg_op='DELETE' then return old;end if;return new;end$$;
+create trigger credit_game_terms_guard before update or delete on games for each row execute function credit_game_terms_guard();
+alter function credit_invoice_json(uuid) rename to credit_invoice_json_v1;
+revoke all on function credit_invoice_json_v1(uuid) from public,anon,authenticated;
+create function credit_invoice_json(p_invoice uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
+ select credit_invoice_json_v1(i.id)||jsonb_build_object('due_date',i.due_date,
+ 'status',case when credit_balance(i.id)=0 then case when i.cut_date>=(now() at time zone 'America/Sao_Paulo')::date then 'zero_open' else 'paid' end when i.due_date<(now() at time zone 'America/Sao_Paulo')::date then 'overdue' else 'open' end,
+ 'credits_cents',coalesce((select sum(amount_cents) from venue_credit_notes where invoice_id=i.id),0),
+ 'notes',coalesce((select jsonb_agg(n order by created_at) from venue_credit_notes n where invoice_id=i.id),'[]'::jsonb),
+ 'payments',coalesce((select jsonb_agg(to_jsonb(p)||jsonb_build_object('reversal',(select to_jsonb(r) from venue_credit_reversals r where r.payment_id=p.id),'confirmation',case when p.method='online_pix' then 'gateway' else 'counter' end) order by paid_at) from venue_credit_payments p where p.invoice_id=i.id),'[]'::jsonb))
+ from venue_credit_invoices i where i.id=p_invoice
+$$;
+-- Keep the proven v1 actions; forward additions via a wrapper with identical API.
+alter function credit_action(text,jsonb) rename to credit_action_v1;
+revoke all on function credit_action_v1(text,jsonb) from public,anon,authenticated;
+do $$declare b text;begin
+ b:=pg_get_functiondef('credit_action_v1(text,jsonb)'::regprocedure);
+ b:=replace(b,'cut_date<(now() at time zone ''America/Sao_Paulo'')::date','due_date<(now() at time zone ''America/Sao_Paulo'')::date');
+ b:=replace(b,'from venue_credit_allocations a where a.line_id=l.id','from venue_credit_allocations a where a.line_id=l.id and not exists(select 1 from venue_credit_reversals r where r.payment_id=a.payment_id)');execute b;
+ b:=pg_get_functiondef('credit_snapshot(uuid,uuid,text)'::regprocedure);
+ b:=replace(b,'cut_date<(now() at time zone ''America/Sao_Paulo'')::date','due_date<(now() at time zone ''America/Sao_Paulo'')::date');execute b;
+ b:=replace(b,'where r.rental_id=q.id','where r.rental_id=q.id and not exists(select 1 from venue_credit_reversals x where x.payment_id=r.id)');execute b;
+ b:=pg_get_functiondef('venue_snapshot(uuid)'::regprocedure);
+ b:=replace(b,'where a.establishment_id=v and (p.paid_at','where a.establishment_id=v and not exists(select 1 from venue_credit_reversals x where x.payment_id=p.id) and (p.paid_at');execute b;
+ b:=pg_get_functiondef('venue_action(text,jsonb)'::regprocedure);
+ b:=replace(b,'and p.method=''cash'' and p.paid_at>=shift.opened_at','and p.method=''cash'' and p.paid_at>=shift.opened_at and not exists(select 1 from venue_credit_reversals x where x.payment_id=p.id)');execute b;
+ b:=pg_get_functiondef('academy_action(text,jsonb)'::regprocedure);
+ b:=replace(b,'and status=''cash_paid''','and status in(''cash_paid'',''invoice_paid'')');execute b;
+end$$;
+create function credit_action(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid:=community_chat_me();a venue_credit_accounts;p venue_credit_payments;i venue_credit_invoices;r venue_credit_requests;nonce uuid;v uuid;result jsonb;n bigint;d integer;
+begin
+ if me is null then raise exception 'FATURA: Entre na sua conta.';end if;
+ if jsonb_typeof(p_data) is distinct from 'object' or pg_column_size(p_data)>16384 then raise exception 'FATURA: Dados inválidos.';end if;
+ nonce:=(p_data->>'requestId')::uuid;if nonce is null then raise exception 'FATURA: Identificador obrigatório.';end if;
+ perform pg_advisory_xact_lock(hashtext(nonce::text));select * into r from venue_credit_requests where id=nonce;
+ if r.id is not null then if r.actor<>me or r.action<>p_action or r.request_data<>p_data then raise exception 'FATURA: Identificador já utilizado.';end if;return r.result;end if;
+ if p_action='account_save' then
+  d:=coalesce((p_data->>'dueDays')::int,0);if d not between 0 and 45 then raise exception 'FATURA: Vencimento deve ser de 0 a 45 dias após o corte.';end if;
+  result:=credit_action_v1(p_action,p_data);update venue_credit_accounts set due_days=d where id=(result->>'id')::uuid;return result;
+ elsif p_action in('reverse_payment','credit_note') then
+  if p_action='reverse_payment' then select * into p from venue_credit_payments where id=(p_data->>'paymentId')::uuid;select * into i from venue_credit_invoices where id=p.invoice_id;select * into a from venue_credit_accounts where id=coalesce(i.account_id,(select account_id from venue_credit_rentals where id=p.rental_id)) for update;
+  else select * into i from venue_credit_invoices where id=(p_data->>'invoiceId')::uuid;select * into a from venue_credit_accounts where id=i.account_id for update;end if;
+  v:=a.establishment_id;if not is_establishment_owner(v) then raise exception 'FATURA: Somente o dono corrige recebimentos e concede abatimentos.';end if;
+  if (p_data->>'confirmed')::boolean is distinct from true or length(trim(p_data->>'reason')) not between 8 and 500 or p_data->>'reason' is null then raise exception 'FATURA: Confirme e informe motivo de 8 a 500 caracteres.';end if;
+  if p_action='reverse_payment' then
+   if p.method='online_pix' then raise exception 'FATURA: Pagamento online precisa de devolução confirmada pelo provedor.';end if;
+   insert into venue_credit_reversals(payment_id,reason,actor) values(p.id,trim(p_data->>'reason'),me);
+   -- A direct rental corrected after collection becomes a pending offer again.
+   if p.rental_id is not null then update venue_credit_rentals set status='pending' where id=p.rental_id;end if;
+   result:=jsonb_build_object('id',p.id);n:=p.amount_cents;
+  else n:=(p_data->>'amountCents')::int;
+   if n is null or n<=0 or n>credit_balance(i.id) then raise exception 'FATURA: Abatimento limitado ao saldo em aberto. Devolva primeiro o pagamento, se necessário.';end if;
+   insert into venue_credit_notes(invoice_id,amount_cents,reason,actor) values(i.id,n,trim(p_data->>'reason'),me);
+   result:=jsonb_build_object('id',i.id);
+  end if;
+  if i.id is not null then perform credit_refresh_sources(i.id);end if;
+  insert into venue_notices(player_id,establishment_id,title,body) values(a.player_id,v,'Correção financeira registrada','Consulte o extrato da sua fatura. O histórico anterior foi preservado.');
+ else
+  result:=credit_action_v1(p_action,p_data);
+  if p_action='receive_invoice' then perform credit_refresh_sources((p_data->>'invoiceId')::uuid);end if;
+  return result;
+ end if;
+ insert into venue_credit_requests values(nonce,me,p_action,p_data,result,now());
+ insert into venue_audit(establishment_id,actor,action,target_id,details) values(v,me,'credit_'||p_action,(result->>'id')::uuid,jsonb_build_object('amountCents',n,'reason',trim(p_data->>'reason')));perform venue_ping(v);return result;
+end$$;
+revoke all on function credit_invoice_due(),credit_due_overdue(uuid),credit_refresh_sources(uuid),credit_unified_source_guard(),credit_game_terms_guard(),credit_invoice_json(uuid),credit_action(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_action(text,jsonb) to authenticated;
+
+create function credit_invoice_held(i uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select false$$;
+create function credit_post_entry(a uuid,kind text,amount int,description text,t uuid default null,person uuid default null,bill uuid default null,gamepay uuid default null) returns uuid language plpgsql security definer set search_path=public,pg_temp as $$
+declare account venue_credit_accounts;invoice uuid;cut date;me uuid:=community_chat_me();begin
+ select * into account from venue_credit_accounts where id=a for update;
+ if account.id is null or not account.enabled or (account.player_id<>me and not venue_can(account.establishment_id,'cash')) then raise exception 'FATURA: Cliente não autorizado.';end if;
+ if amount is null or amount<=0 or credit_account_balance(a)+amount>account.limit_cents or credit_due_overdue(a) then raise exception 'FATURA: Limite insuficiente ou fatura vencida. Pague na hora.';end if;
+ cut:=credit_cut_date(account.cut_day,(now() at time zone 'America/Sao_Paulo')::date);
+ insert into venue_credit_invoices(account_id,cut_date) values(a,cut) on conflict(account_id,cut_date) do update set cut_date=excluded.cut_date returning id into invoice;
+ if credit_invoice_held(invoice) then raise exception 'FATURA: Há Pix em preparação ou reconciliação nesta fatura. Verifique primeiro.';end if;
+ insert into venue_credit_lines(invoice_id,kind,tab_id,participant_id,academy_bill_id,game_payment_id,description,amount_cents,accepted_by,acceptance)
+ values(invoice,kind,t,person,bill,gamepay,description,amount,me,case when me=account.player_id then 'app' else 'counter' end);
+ insert into venue_notices(player_id,establishment_id,title,body) values(account.player_id,account.establishment_id,'Lançamento na fatura',description||'. Consulte valor e vencimento no seu extrato.');return invoice;
+end$$;
+create function credit_tab_parts(t uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
+ select coalesce(jsonb_agg(jsonb_build_object('id',p.id,'player_id',p.player_id,'name',p.name,
+ 'consumed_cents',coalesce((select sum(s.amount_cents) from order_item_shares s join service_order_items i on i.id=s.item_id join service_orders o on o.id=i.order_id where s.participant_id=p.id and o.tab_id=t and o.status<>'cancelled' and i.status<>'cancelled'),0),
+ 'remaining_cents',greatest(0,coalesce((select sum(s.amount_cents) from order_item_shares s join service_order_items i on i.id=s.item_id join service_orders o on o.id=i.order_id where s.participant_id=p.id and o.tab_id=t and o.status<>'cancelled' and i.status<>'cancelled'),0)-
+ coalesce((select sum(x.amount_cents) from sale_payment_allocations x join sale_payments pay on pay.id=x.payment_id join order_item_shares s on s.id=x.item_share_id where pay.tab_id=t and s.participant_id=p.id and pay.reversed_at is null),0)-
+ coalesce((select sum(l.amount_cents) from venue_credit_lines l where l.tab_id=t and l.participant_id=p.id),0)),
+ 'invoice_id',(select invoice_id from venue_credit_lines where tab_id=t and participant_id=p.id)
+ ) order by p.name,p.id),'[]'::jsonb) from tab_participants p where tab_id=t
+$$;
+alter function credit_snapshot(uuid,uuid,text) rename to credit_snapshot_v1;
+revoke all on function credit_snapshot_v1(uuid,uuid,text) from public,anon,authenticated;
+create function credit_snapshot(p_venue uuid default null,p_tab uuid default null,p_mode text default 'statement') returns jsonb language plpgsql stable security definer set search_path=public,pg_temp as $$
+declare me uuid:=community_chat_me();t service_tabs;gross bigint;paid bigint;transferred bigint;parttotal bigint;allocated bigint;allparts jsonb;staff boolean;result jsonb;begin
+ if me is null then raise exception 'FATURA: Entre na sua conta.';end if;
+ if p_mode<>'tab' then return credit_snapshot_v1(p_venue,p_tab,p_mode);end if;
+ select * into t from service_tabs where id=p_tab;if not credit_tab_read(p_tab) then raise exception 'FATURA: Sem acesso à comanda.';end if;staff:=venue_can(t.establishment_id,'cash');
+ select coalesce(round(sum(i.quantity*i.unit_price)*100),0) into gross from service_order_items i join service_orders o on o.id=i.order_id where o.tab_id=p_tab and i.status<>'cancelled' and o.status<>'cancelled';
+ select coalesce(round(sum(amount)*100),0) into paid from sale_payments where tab_id=p_tab and reversed_at is null;
+ select coalesce(sum(amount_cents),0) into transferred from venue_credit_lines where tab_id=p_tab;
+ allparts:=credit_tab_parts(p_tab);
+ select coalesce(sum((x->>'consumed_cents')::bigint),0) into parttotal from jsonb_array_elements(allparts)x;
+ select coalesce(sum(x.amount_cents),0) into allocated from sale_payment_allocations x join sale_payments p on p.id=x.payment_id where p.tab_id=p_tab and p.reversed_at is null;
+ result:=jsonb_build_object('me',me,'venue_id',t.establishment_id,'can_record',staff,'tab_id',p_tab,'gross_cents',gross,'paid_cents',paid,'balance_cents',greatest(0,gross-paid-transferred),'transferred_cents',transferred,'has_transfers',transferred>0,
+ 'can_bill',t.status in('open','awaiting_payment','partially_paid'),'split_ready',parttotal=gross and allocated=paid,
+ 'payment_started',exists(select 1 from sale_payment_intents where tab_id=p_tab),
+ 'parts',coalesce((select jsonb_agg(x) from jsonb_array_elements(allparts)x where staff or (x->>'player_id')::uuid=me),'[]'::jsonb),
+ 'billed',(select to_jsonb(l)||jsonb_build_object('cut_date',i.cut_date,'due_date',i.due_date,'customer_name',p.name,'invoice_balance_cents',credit_balance(i.id)) from venue_credit_lines l join venue_credit_invoices i on i.id=l.invoice_id join venue_credit_accounts a on a.id=i.account_id join players p on p.id=a.player_id where l.tab_id=p_tab and l.participant_id is null),
+ 'accounts',coalesce((select jsonb_agg(to_jsonb(a)||jsonb_build_object('name',p.name,'balance_cents',credit_account_balance(a.id),'overdue',credit_due_overdue(a.id))) from venue_credit_accounts a join players p on p.id=a.player_id where a.establishment_id=t.establishment_id and a.enabled and (a.player_id=me or staff)),'[]'::jsonb));return result;
+end$$;
+alter function credit_action(text,jsonb) rename to credit_action_v2;
+revoke all on function credit_action_v2(text,jsonb) from public,anon,authenticated;
+create function credit_action(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare me uuid:=community_chat_me();nonce uuid;r venue_credit_requests;a venue_credit_accounts;t service_tabs;pt tab_participants;b academy_bills;g games;gp payments;terms venue_credit_game_terms;
+ result jsonb;v uuid;invoice uuid;amount bigint;ctx jsonb;part jsonb;payment uuid;allocation record;cut date;roster uuid[];cost int;idx int;begin
+ if me is null or jsonb_typeof(p_data) is distinct from 'object' or pg_column_size(p_data)>16384 then raise exception 'FATURA: Entre na conta e informe dados válidos.';end if;
+ nonce:=(p_data->>'requestId')::uuid;if nonce is null then raise exception 'FATURA: Identificador obrigatório.';end if;
+ perform pg_advisory_xact_lock(hashtext(nonce::text));select * into r from venue_credit_requests where id=nonce;
+ if r.id is not null then if r.actor<>me or r.action<>p_action or r.request_data<>p_data then raise exception 'FATURA: Identificador já utilizado.';end if;return r.result;end if;
+ if p_action in('post_part','pay_part','post_class','post_game') then
+  if (p_data->>'consent')::boolean is distinct from true then raise exception 'FATURA: Confirme o valor e sua autorização.';end if;
+  if p_action<>'pay_part' then select * into a from venue_credit_accounts where id=(p_data->>'accountId')::uuid for update;v:=a.establishment_id;
+   if a.id is null or (a.player_id<>me and not venue_can(v,'cash')) then raise exception 'FATURA: Cliente não autorizado.';end if;
+  end if;
+  if p_action in('post_part','pay_part') then
+   select * into t from service_tabs where id=(p_data->>'tabId')::uuid for update;
+   if t.id is null or not credit_tab_read(t.id) or t.status not in('open','awaiting_payment','partially_paid') or exists(select 1 from venue_credit_lines where tab_id=t.id and participant_id is null) then raise exception 'FATURA: Comanda indisponível.';end if;
+   if exists(select 1 from sale_payment_intents where tab_id=t.id) then raise exception 'FATURA: Resolva o pagamento online iniciado antes de separar a comanda.';end if;
+   select * into pt from tab_participants where id=(p_data->>'participantId')::uuid and tab_id=t.id;
+   ctx:=credit_snapshot(null,t.id,'tab');if not (ctx->>'split_ready')::boolean then raise exception 'FATURA: Distribua todos os itens e os pagamentos entre as pessoas antes de faturar por pessoa.';end if;
+   if p_action='post_part' and (t.establishment_id<>v or pt.player_id is distinct from a.player_id) then raise exception 'FATURA: A parte precisa pertencer ao cliente autorizado.';end if;
+   v:=t.establishment_id;part:=(select x from jsonb_array_elements(credit_tab_parts(t.id))x where (x->>'id')::uuid=pt.id);amount:=(part->>'remaining_cents')::bigint;
+   if amount is null or amount<=0 or amount is distinct from (p_data->>'expectedCents')::int then raise exception 'FATURA: O saldo da pessoa mudou. Atualize.';end if;
+   if p_action='post_part' then invoice:=credit_post_entry(a.id,'food',amount::int,'Consumo · '||t.label||' · '||pt.name,t.id,pt.id);result:=jsonb_build_object('id',invoice);
+   else
+    if not venue_can(v,'cash') or (p_data->>'confirmed')::boolean is distinct from true or p_data->>'method' not in('cash','manual_pix') then raise exception 'FATURA: Só o caixa confirma dinheiro ou Pix recebido.';end if;
+    if p_data->>'method'='manual_pix' and (coalesce(length(trim(p_data->>'reference')),0)<4) then raise exception 'FATURA: Informe a referência do Pix conferido.';end if;
+    perform pg_advisory_xact_lock(hashtext('cash:'||v::text));insert into venue_credit_mutations(tx,tab_id,purpose) values(txid_current(),t.id,'pay_part');
+    insert into sale_payments(tab_id,payer_player_id,payer_name,amount,method,paid_at) values(t.id,pt.player_id,pt.name,amount/100.0,case when p_data->>'method'='cash' then 'cash' else 'pix' end,clock_timestamp()) returning id into payment;
+    for allocation in select s.id,greatest(0,s.amount_cents-coalesce((select sum(x.amount_cents) from sale_payment_allocations x join sale_payments p on p.id=x.payment_id where x.item_share_id=s.id and p.reversed_at is null),0)) remaining from order_item_shares s join service_order_items i on i.id=s.item_id join service_orders o on o.id=i.order_id where s.participant_id=pt.id and o.tab_id=t.id and i.status<>'cancelled' and o.status<>'cancelled' loop
+     if allocation.remaining>0 then insert into sale_payment_allocations(payment_id,item_share_id,amount_cents) values(payment,allocation.id,allocation.remaining);end if;
+    end loop;delete from venue_credit_mutations where tx=txid_current();result:=jsonb_build_object('id',payment);
+   end if;
+   ctx:=credit_snapshot(null,t.id,'tab');if (ctx->>'balance_cents')::bigint=0 then update service_tabs set status='closed',closed_at=now() where id=t.id;end if;
+  elsif p_action='post_class' then
+   select * into b from academy_bills where id=(p_data->>'billId')::uuid for update;
+   if b.id is null or b.player_id<>a.player_id or b.status<>'pending' or b.plan='legacy' or not exists(select 1 from class_programs where id=b.program_id and establishment_id=v) then raise exception 'FATURA: Aula não disponível para este cliente/estabelecimento.';end if;
+   amount:=b.amount_cents;if amount is distinct from (p_data->>'expectedCents')::int then raise exception 'FATURA: O valor da aula mudou. Atualize.';end if;
+   invoice:=credit_post_entry(a.id,'class',amount::int,'Aula · '||(select name from class_programs where id=b.program_id)||' · '||coalesce(b.competence::text,'avulsa'),null,null,b.id);
+   perform credit_refresh_sources(invoice);result:=jsonb_build_object('id',invoice);
+  else
+   select * into g from games where id=(p_data->>'gameId')::uuid for update;
+   if g.id is null or g.status='cancelled' or not exists(select 1 from fields where id=g.field_id and establishment_id=v) then raise exception 'FATURA: Jogo não pertence a este estabelecimento.';end if;
+   select * into terms from venue_credit_game_terms where game_id=g.id;
+   if terms.game_id is null then
+    select array_agg(player_id order by player_id) into roster from attendances where game_id=g.id and status='confirmed';cost:=round(g.field_cost*100)::int;
+    if coalesce(cardinality(roster),0)=0 or cost is null or cost<=0 then raise exception 'FATURA: Jogo sem custo ou participantes confirmados.';end if;
+   else roster:=terms.roster;cost:=terms.cost_cents;end if;
+   idx:=array_position(roster,a.player_id);if idx is null then raise exception 'FATURA: Cliente não está no rateio confirmado.';end if;
+   amount:=cost/cardinality(roster)+case when idx<=cost%cardinality(roster) then 1 else 0 end;
+   if amount is distinct from (p_data->>'expectedCents')::int then raise exception 'FATURA: O rateio mudou. Atualize o valor antes de aceitar.';end if;
+   insert into payments(game_id,player_id) values(g.id,a.player_id) on conflict(game_id,player_id) do nothing;
+   select * into gp from payments where game_id=g.id and player_id=a.player_id for update;
+   if gp.status<>'pending' then raise exception 'FATURA: Cota já paga, dispensada ou transferida.';end if;
+   insert into venue_credit_game_terms(game_id,establishment_id,cost_cents,roster) values(g.id,v,cost,roster) on conflict do nothing;
+   invoice:=credit_post_entry(a.id,'game',amount::int,'Cota · '||(select name from peladas where id=g.pelada_id)||' · '||to_char(g.scheduled_at at time zone 'America/Sao_Paulo','DD/MM/YYYY'),null,null,null,gp.id);
+   perform credit_refresh_sources(invoice);result:=jsonb_build_object('id',invoice);
+  end if;
+  insert into venue_credit_requests values(nonce,me,p_action,p_data,result,now());
+  insert into venue_audit(establishment_id,actor,action,target_id,details) values(v,me,'credit_'||p_action,(result->>'id')::uuid,jsonb_build_object('amountCents',amount));perform venue_ping(v);return result;
+ end if;
+ return credit_action_v2(p_action,p_data);
+end$$;
+do $$declare b text;begin
+ b:=pg_get_functiondef('credit_source_guard()'::regprocedure);
+ b:=replace(b,'if exists(select 1 from venue_credit_lines where tab_id=tab) then','if exists(select 1 from venue_credit_lines where tab_id=tab) then
+  if tg_op=''INSERT'' and tg_table_name in(''sale_payments'',''sale_payment_allocations'') and exists(select 1 from venue_credit_mutations where tx=txid_current() and tab_id=tab and purpose=''pay_part'') then return new;end if;');execute b;
+end$$;
+revoke all on function credit_post_entry(uuid,text,int,text,uuid,uuid,uuid,uuid),credit_invoice_held(uuid),credit_tab_parts(uuid),credit_snapshot(uuid,uuid,text),credit_action(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_snapshot(uuid,uuid,text),credit_action(text,jsonb) to authenticated;
+
+create table venue_credit_intents (
+ id uuid primary key default gen_random_uuid(),invoice_id uuid not null references venue_credit_invoices(id),gateway_id uuid not null references payment_gateway_connections(id),secret_id uuid not null,
+ provider text not null check(provider in('mercado_pago','picpay')),amount_cents int not null check(amount_cents>0),created_by uuid not null references players(id),
+ state text not null default 'building' check(state in('building','pending','uncertain','paid','cancelled','refunded','review')),
+ external_id text,provider_payment_id text,pix_code text,checkout_url text,collector_id text,payment_id uuid unique references venue_credit_payments(id),
+ expires_at timestamptz not null default (now()+interval '30 minutes'),created_at timestamptz not null default now(),refund_requested_at timestamptz,
+ unique(gateway_id,external_id)
+);
+create unique index credit_one_live_checkout on venue_credit_intents(invoice_id) where state in('building','pending','uncertain','review');
+create unique index credit_picpay_order_number on venue_credit_intents(gateway_id,substr(id::text,1,15));
+create table venue_credit_gateway_events(id uuid primary key default gen_random_uuid(),intent_id uuid not null references venue_credit_intents(id),provider_payment_id text not null,event_status text not null,provider_updated_at timestamptz,amount_cents int not null,created_at timestamptz not null default now(),unique(intent_id,provider_payment_id,event_status,provider_updated_at));
+create table venue_credit_gateway_reviews(id uuid primary key default gen_random_uuid(),intent_id uuid not null references venue_credit_intents(id),code text not null,created_at timestamptz not null default now(),resolved_at timestamptz,resolved_by uuid references players(id),resolution text);
+do $$declare t text;begin foreach t in array array['venue_credit_intents','venue_credit_gateway_events','venue_credit_gateway_reviews'] loop execute format('alter table %I enable row level security',t);execute format('revoke all on %I from anon,authenticated',t);end loop;end$$;
+create or replace function credit_invoice_held(i uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from venue_credit_intents where invoice_id=i and state in('building','pending','uncertain','review'))$$;
+create function credit_line_hold_guard() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$begin if credit_invoice_held(new.invoice_id) then raise exception 'FATURA: Há pagamento em preparação ou reconciliação. Resolva antes de alterar o saldo.';end if;return new;end$$;
+create trigger credit_line_hold_guard before insert on venue_credit_lines for each row execute function credit_line_hold_guard();
+alter function credit_action(text,jsonb) rename to credit_action_v3;
+revoke all on function credit_action_v3(text,jsonb) from public,anon,authenticated;
+create function credit_action(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$declare i uuid;a uuid;result jsonb;begin
+ if community_chat_me() is null then raise exception 'FATURA: Entre na conta.';end if;
+ if p_action in('receive_invoice','credit_note','reverse_payment') then
+  i:=case when p_action='reverse_payment' then (select invoice_id from venue_credit_payments where id=(p_data->>'paymentId')::uuid) else (p_data->>'invoiceId')::uuid end;
+  select account_id into a from venue_credit_invoices where id=i;perform 1 from venue_credit_accounts where id=a for update;
+  -- An exact successful retry returns the original receipt even if a later checkout exists.
+  if not exists(select 1 from venue_credit_requests where id=(p_data->>'requestId')::uuid and actor=community_chat_me() and action=p_action and request_data=p_data) and credit_invoice_held(i) then raise exception 'FATURA: Consulte ou cancele o Pix no provedor antes de baixar ou corrigir manualmente.';end if;
+ end if;
+ return credit_action_v3(p_action,p_data);
+end$$;
+create function credit_actor_allowed(p uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from players where id=p and not is_guest and not exists(select 1 from platform_account_controls where player_id=p and suspended))$$;
+create function credit_actor_can(v uuid,p uuid,c text) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select credit_actor_allowed(p) and (exists(select 1 from establishments where id=v and owner_player_id=p) or exists(select 1 from establishment_staff s join venue_staff_grants g using(establishment_id,player_id) where s.establishment_id=v and s.player_id=p and s.active and c=any(g.capabilities)))$$;
+-- Service-only context: the raw credential envelope is never returned by a client RPC.
+create function credit_payment_service(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,vault,pg_temp as $$
+declare who uuid;a venue_credit_accounts;i venue_credit_invoices;c payment_gateway_connections;t venue_credit_intents;nonce uuid;prior venue_credit_requests;result jsonb;secret jsonb;
+ n bigint;pay uuid;remaining int;part int;entry_row record;ref text;stamp timestamptz;provider_state text;claimed boolean:=false;begin
+ if auth.role()<>'service_role' or jsonb_typeof(p_data) is distinct from 'object' or pg_column_size(p_data)>32768 then raise exception 'FATURA: Serviço não autorizado.';end if;
+ if p_action in('prepare','context','refund_claim','recover_access') then
+  select id into who from players where auth_user_id=(p_data->>'actor')::uuid and not is_guest;if not credit_actor_allowed(who) then raise exception 'FATURA: Conta não autorizada.';end if;
+ end if;
+ if p_action='prepare' then
+  select * into i from venue_credit_invoices where id=(p_data->>'invoiceId')::uuid;
+  select * into a from venue_credit_accounts where id=i.account_id for update;
+  if a.id is null or (a.player_id<>who and not credit_actor_can(a.establishment_id,who,'cash')) then raise exception 'FATURA: Sem acesso à fatura.';end if;
+  nonce:=(p_data->>'requestId')::uuid;if nonce is null then raise exception 'FATURA: Identificador obrigatório.';end if;
+  perform pg_advisory_xact_lock(hashtext(nonce::text));select * into prior from venue_credit_requests where id=nonce;
+  if prior.id is not null then if prior.actor<>who or prior.action<>'checkout_prepare' or prior.request_data<>p_data then raise exception 'FATURA: Identificador já utilizado.';end if;return prior.result||jsonb_build_object('claimed',false);end if;
+  select * into t from venue_credit_intents where invoice_id=i.id and state in('building','pending','uncertain','review');
+  if t.id is null then
+   n:=credit_balance(i.id);if n<=0 then raise exception 'FATURA: Fatura sem saldo.';end if;
+   select * into c from payment_gateway_connections where establishment_id=a.establishment_id and status='connected' and pix_enabled and provider in('mercado_pago','picpay') and credential_secret_id is not null;
+   if c.id is null then raise exception 'FATURA: O estabelecimento precisa configurar um gateway Pix.';end if;
+   if c.provider='picpay' and (p_data->>'allowPicpay')::boolean is distinct from true then raise exception 'FATURA: PicPay de faturas aguarda homologação específica.';end if;
+   select decrypted_secret::jsonb into secret from vault.decrypted_secrets where id=c.credential_secret_id;
+   if secret is null or coalesce(length(secret->>'webhookSecret'),0)<16 or (c.provider='mercado_pago' and coalesce(secret->>'accessToken','')='') or (c.provider='picpay' and (coalesce(secret->>'clientId','')='' or coalesce(secret->>'clientSecret','')='')) then raise exception 'FATURA: Configure credenciais e segredo de webhook no Vault.';end if;
+   insert into venue_credit_intents(invoice_id,gateway_id,secret_id,provider,amount_cents,created_by) values(i.id,c.id,c.credential_secret_id,c.provider,n,who) returning * into t;claimed:=true;
+  end if;
+  result:=jsonb_build_object('id',t.id,'claimed',claimed);insert into venue_credit_requests values(nonce,who,'checkout_prepare',p_data,result,now());return result;
+ end if;
+ select * into t from venue_credit_intents where id=(p_data->>'intentId')::uuid;
+ select * into i from venue_credit_invoices where id=t.invoice_id;select * into a from venue_credit_accounts where id=i.account_id for update;
+ select * into t from venue_credit_intents where id=t.id for update;
+ if t.id is null then raise exception 'FATURA: Cobrança não encontrada.';end if;
+ if p_action in('context','refund_claim','recover_access') and (a.player_id<>who and not credit_actor_can(a.establishment_id,who,'cash')) then raise exception 'FATURA: Sem acesso à cobrança.';end if;
+ if p_action in('refund_claim','recover_access') and not exists(select 1 from establishments where id=a.establishment_id and owner_player_id=who) then raise exception 'FATURA: Só o dono trata devoluções e recuperação.';end if;
+ if p_action='refund_claim' then
+  if exists(select 1 from venue_credit_intents where invoice_id=i.id and id<>t.id and state in('building','pending','uncertain','review')) then raise exception 'FATURA: Resolva a outra cobrança ativa antes de devolver um recebimento anterior.';end if;
+  if t.state<>'paid' or t.payment_id is null then raise exception 'FATURA: Só um pagamento confirmado pode ser devolvido.';end if;
+  if t.refund_requested_at is not null then return jsonb_build_object('claimed',false);end if;
+  update venue_credit_intents set refund_requested_at=now() where id=t.id;return jsonb_build_object('claimed',true);
+ elsif p_action='recover_access' then return jsonb_build_object('allowed',true);
+ elsif p_action in('context','webhook_context') then
+  select decrypted_secret::jsonb into secret from vault.decrypted_secrets where id=t.secret_id;
+  if secret is null then raise exception 'FATURA: Credencial histórica indisponível. Procure o dono.';end if;
+  return to_jsonb(t)||jsonb_build_object('gateway',jsonb_build_object('id',t.gateway_id,'provider',t.provider,'collector_id',t.collector_id),'credentials',secret,'total_cents',t.amount_cents,'reference','invoice:'||t.id::text,'required_method','pix',
+   'customer',(select jsonb_build_object('name',p.name,'email',u.email) from players p join auth.users u on u.id=p.auth_user_id where p.id=a.player_id),
+   'venue_id',a.establishment_id,'can_refund',exists(select 1 from establishments where id=a.establishment_id and owner_player_id=who));
+ elsif p_action='checkout_save' then
+  if t.state not in('building','uncertain','pending') then return jsonb_build_object('id',t.id);end if;
+  if coalesce(p_data->>'externalId','')='' or (t.external_id is not null and t.external_id<>p_data->>'externalId') then raise exception 'FATURA: Cobrança externa divergente.';end if;
+  update venue_credit_intents set external_id=p_data->>'externalId',collector_id=coalesce(collector_id,p_data->>'collectorId'),pix_code=p_data->>'pixCode',checkout_url=p_data->>'url',state='pending' where id=t.id;
+ elsif p_action='uncertain' then update venue_credit_intents set state='uncertain' where id=t.id and state='building';
+ elsif p_action='review' then
+  insert into venue_credit_gateway_reviews(intent_id,code) select t.id,left(coalesce(p_data->>'code','provider_mismatch'),80) where not exists(select 1 from venue_credit_gateway_reviews where intent_id=t.id and resolved_at is null);
+  update venue_credit_intents set state='review' where id=t.id and state not in('refunded');
+  insert into venue_notices(player_id,establishment_id,title,body) select owner_player_id,id,'Pagamento de fatura precisa de conferência','O provedor retornou divergência ou resultado inconclusivo. Não faça outra baixa antes de conferir.' from establishments where id=a.establishment_id;
+ elsif p_action='settle' then
+  n:=(p_data->>'amountCents')::int;ref:=p_data->>'paymentId';stamp:=(p_data->>'updatedAt')::timestamptz;provider_state:=p_data->>'status';
+  if n is distinct from t.amount_cents or p_data->>'currency' is distinct from 'BRL' or (p_data->>'gatewayId')::uuid is distinct from t.gateway_id or ref is null or length(ref)>120 or stamp is null then raise exception 'FATURA: Confirmação divergente.';end if;
+  if t.provider_payment_id is not null and t.provider_payment_id<>ref then raise exception 'FATURA: Há mais de um pagamento no provedor. Revisão necessária.';end if;
+  if exists(select 1 from venue_credit_gateway_events where intent_id=t.id and provider_payment_id=ref and provider_updated_at>stamp) then return jsonb_build_object('id',t.id,'stale',true);end if;
+  if provider_state='approved' then
+   if t.state='refunded' then return jsonb_build_object('id',t.id,'stale',true);end if;
+   if t.payment_id is null then
+    if credit_balance(i.id)<t.amount_cents then raise exception 'FATURA: Saldo mudou; pagamento exige revisão para não cobrar duas vezes.';end if;
+    insert into venue_credit_payments(invoice_id,amount_cents,method,reference,received_by,paid_at) values(i.id,n,'online_pix',ref,t.created_by,clock_timestamp()) returning id into pay;
+    remaining:=n;for entry_row in select l.id,l.amount_cents-coalesce((select sum(x.amount_cents) from venue_credit_allocations x where x.line_id=l.id and not exists(select 1 from venue_credit_reversals r where r.payment_id=x.payment_id)),0) pending from venue_credit_lines l where invoice_id=i.id order by posted_at,id loop part:=least(remaining,entry_row.pending);if part>0 then insert into venue_credit_allocations values(pay,entry_row.id,part);remaining:=remaining-part;end if;exit when remaining=0;end loop;
+    if remaining<>0 then raise exception 'FATURA: Alocação financeira divergente.';end if;
+    update venue_credit_intents set state='paid',payment_id=pay,provider_payment_id=ref where id=t.id;
+   end if;
+  elsif provider_state='refunded' then
+   if t.payment_id is null then raise exception 'FATURA: Devolução sem recebimento registrado: reconcilie primeiro.';end if;
+   insert into venue_credit_reversals(payment_id,reason,actor,provider_confirmed) values(t.payment_id,'Devolução integral confirmada no provedor',t.created_by,true) on conflict(payment_id) do nothing;
+   update venue_credit_intents set state='refunded' where id=t.id;
+  else raise exception 'FATURA: Estado do provedor exige revisão.';end if;
+  insert into venue_credit_gateway_events(intent_id,provider_payment_id,event_status,provider_updated_at,amount_cents) values(t.id,ref,provider_state,stamp,n) on conflict do nothing;
+  insert into venue_credit_gateway_reviews(intent_id,code) select x.id,'another_receipt_changed_balance' from venue_credit_intents x where x.invoice_id=i.id and x.id<>t.id and x.state in('building','pending','uncertain') and x.amount_cents>credit_balance(i.id);
+  update venue_credit_intents set state='review' where invoice_id=i.id and id<>t.id and state in('building','pending','uncertain') and amount_cents>credit_balance(i.id);
+  perform credit_refresh_sources(i.id);
+  insert into venue_notices(player_id,establishment_id,title,body) select a.player_id,a.establishment_id,'Atualização de pagamento Pix','Consulte sua fatura; a confirmação foi verificada no provedor.' where not exists(select 1 from venue_notices where player_id=a.player_id and title='Atualização de pagamento Pix' and created_at>now()-interval '1 minute');
+ elsif p_action='terminal' then
+  if t.payment_id is not null then raise exception 'FATURA: Não cancele um recebimento sem devolver no provedor.';end if;
+  update venue_credit_intents set state='cancelled' where id=t.id and state in('building','pending','uncertain');
+ else raise exception 'FATURA: Serviço inválido.';end if;
+ perform venue_ping(a.establishment_id);return jsonb_build_object('id',t.id);
+end$$;
+create function credit_online_public(i uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
+ select jsonb_build_object('available',exists(select 1 from venue_credit_invoices x join venue_credit_accounts a on a.id=x.account_id join payment_gateway_connections c on c.establishment_id=a.establishment_id where x.id=i and c.status='connected' and c.pix_enabled and c.provider in('mercado_pago','picpay') and c.credential_secret_id is not null),
+ 'held',credit_invoice_held(i),'intents',coalesce((select jsonb_agg(jsonb_build_object('id',t.id,'state',state,'provider',provider,'amount_cents',amount_cents,'pix_code',pix_code,'checkout_url',checkout_url,'created_at',created_at,'expires_at',expires_at,'refund_requested_at',refund_requested_at) order by created_at desc) from (select * from venue_credit_intents where invoice_id=i order by created_at desc limit 10)t),'[]'::jsonb))
+$$;
+alter function credit_invoice_json(uuid) rename to credit_invoice_json_v2;
+revoke all on function credit_invoice_json_v2(uuid) from public,anon,authenticated;
+create function credit_invoice_json(p_invoice uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$select credit_invoice_json_v2(p_invoice)||jsonb_build_object('online',credit_online_public(p_invoice),'received_cents',coalesce((select sum(p.amount_cents) from venue_credit_payments p where invoice_id=p_invoice and not exists(select 1 from venue_credit_reversals r where r.payment_id=p.id)),0))$$;
+revoke all on function credit_line_hold_guard(),credit_actor_allowed(uuid),credit_actor_can(uuid,uuid,text),credit_payment_service(text,jsonb),credit_online_public(uuid),credit_invoice_json(uuid),credit_action(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_payment_service(text,jsonb) to service_role;
+grant execute on function credit_action(text,jsonb) to authenticated;
+
+create function credit_sources(v uuid default null) returns jsonb language plpgsql stable security definer set search_path=public,pg_temp as $$declare me uuid:=community_chat_me();result jsonb;begin
+ if me is null then raise exception 'FATURA: Entre na conta.';end if;
+ result:=jsonb_build_object('classes',coalesce((select jsonb_agg(x) from (select b.id,'class' kind,a.id account_id,a.player_id,p.name customer_name,cp.name description,b.plan,b.competence,b.amount_cents,a.establishment_id venue_id
+ from academy_bills b join class_programs cp on cp.id=b.program_id join venue_credit_accounts a on a.establishment_id=cp.establishment_id and a.player_id=b.player_id join players p on p.id=b.player_id
+ where a.enabled and b.status='pending' and b.plan<>'legacy' and b.amount_cents>0 and (v is null or a.establishment_id=v) and (a.player_id=me or v is not null and venue_can(v,'cash')) order by b.created_at desc limit 50)x),'[]'::jsonb),
+ 'games',coalesce((select jsonb_agg(x) from (select g.id,'game' kind,a.id account_id,a.player_id,p.name customer_name,team.name description,g.scheduled_at,a.establishment_id venue_id,
+ cost.n/cardinality(roster.ids)+case when array_position(roster.ids,a.player_id)<=cost.n%cardinality(roster.ids) then 1 else 0 end amount_cents
+ from games g join fields f on f.id=g.field_id join peladas team on team.id=g.pelada_id join venue_credit_accounts a on a.establishment_id=f.establishment_id join players p on p.id=a.player_id left join venue_credit_game_terms t on t.game_id=g.id
+ cross join lateral (select coalesce(t.roster,(select array_agg(player_id order by player_id) from attendances where game_id=g.id and status='confirmed')) ids)roster
+ cross join lateral (select coalesce(t.cost_cents,round(g.field_cost*100)::int) n)cost
+ where a.enabled and g.status<>'cancelled' and coalesce(cardinality(roster.ids),0)>0 and cost.n>0 and a.player_id=any(roster.ids) and (v is null or a.establishment_id=v) and (a.player_id=me or v is not null and venue_can(v,'cash'))
+ and not exists(select 1 from payments pay where pay.game_id=g.id and pay.player_id=a.player_id and pay.status<>'pending')
+ order by g.scheduled_at desc,a.player_id limit 50)x),'[]'::jsonb));return result;
+end$$;
+create function credit_filtered_ids(v uuid,q jsonb) returns setof uuid language plpgsql stable security definer set search_path=public,pg_temp as $$
+declare me uuid:=community_chat_me();staff boolean:=v is not null and (venue_can(v,'cash') or venue_can(v,'reports'));status text:=coalesce(q->>'status','all');needle text:=trim(coalesce(q->>'search',''));firstday date;lastday date;begin
+ if me is null then raise exception 'FATURA: Entre na conta.';end if;
+ if v is not null and not staff and not exists(select 1 from venue_credit_accounts where establishment_id=v and player_id=me) then raise exception 'FATURA: Sem acesso ao estabelecimento.';end if;
+ if jsonb_typeof(q) is distinct from 'object' or pg_column_size(q)>4096 or status not in('all','open','overdue','paid') or length(needle)>80 then raise exception 'FATURA: Filtros inválidos.';end if;
+ firstday:=nullif(q->>'from','')::date;lastday:=nullif(q->>'to','')::date;if firstday>lastday then raise exception 'FATURA: Período inválido.';end if;
+ return query select i.id from venue_credit_invoices i join venue_credit_accounts a on a.id=i.account_id join players p on p.id=a.player_id join establishments e on e.id=a.establishment_id
+ where (v is null or a.establishment_id=v) and (a.player_id=me or staff) and (needle='' or position(lower(needle) in lower(p.name||' '||e.name))>0)
+ and (firstday is null or i.due_date>=firstday) and (lastday is null or i.due_date<=lastday)
+ and (status='all' or status='paid' and credit_balance(i.id)=0 or status='overdue' and credit_balance(i.id)>0 and i.due_date<(now() at time zone 'America/Sao_Paulo')::date or status='open' and credit_balance(i.id)>0 and i.due_date>=(now() at time zone 'America/Sao_Paulo')::date);
+end$$;
+create function credit_search(p_venue uuid default null,p_query jsonb default '{}') returns jsonb language plpgsql stable security definer set search_path=public,pg_temp as $$
+declare result jsonb;page jsonb;has_more boolean;lastcut date;lastid uuid;lim int:=coalesce((p_query->>'limit')::int,20);begin
+ -- Re-use the authorization-safe metadata and replace the bounded legacy invoice list.
+ result:=credit_snapshot(p_venue,null,'statement');if lim not between 1 and 50 then raise exception 'FATURA: Página deve ter até 50 faturas.';end if;
+ lastcut:=nullif(p_query->>'beforeCut','')::date;lastid:=nullif(p_query->>'beforeId','')::uuid;
+ if (lastcut is null)<>(lastid is null) then raise exception 'FATURA: Cursor inválido.';end if;
+ select coalesce(jsonb_agg(credit_invoice_json(id) order by cut_date desc,id desc),'[]'::jsonb) into page from
+ (select i.id,i.cut_date from venue_credit_invoices i where i.id in(select credit_filtered_ids(p_venue,p_query)) and (lastcut is null or (i.cut_date,i.id)<(lastcut,lastid)) order by i.cut_date desc,i.id desc limit lim+1)x;
+ has_more:=jsonb_array_length(page)>lim;if has_more then page:=page-(jsonb_array_length(page)-1);end if;
+ return result||jsonb_build_object('invoices',page,'sources',credit_sources(p_venue),'has_more',has_more,'next_cursor',case when has_more then jsonb_build_object('beforeCut',page->-1->>'cut_date','beforeId',page->-1->>'id') end,
+ 'summary',(select jsonb_build_object('count',count(*),'pending_cents',coalesce(sum(credit_balance(id)),0),'overdue_cents',coalesce(sum(credit_balance(id))filter(where due_date<(now() at time zone 'America/Sao_Paulo')::date),0)) from venue_credit_invoices where id in(select credit_filtered_ids(p_venue,p_query))));
+end$$;
+create function credit_export(p_venue uuid default null,p_query jsonb default '{}') returns jsonb language plpgsql stable security definer set search_path=public,pg_temp as $$declare items jsonb;begin
+ select coalesce(jsonb_agg(credit_invoice_json(id) order by cut_date desc,id desc),'[]'::jsonb) into items from (select id,cut_date from venue_credit_invoices where id in(select credit_filtered_ids(p_venue,p_query)) order by cut_date desc,id desc limit 1001)x;
+ return jsonb_build_object('invoices',case when jsonb_array_length(items)>1000 then items-1000 else items end,'truncated',jsonb_array_length(items)>1000,'generated_at',now());
+end$$;
+create or replace function credit_refresh_sources(i uuid) returns void language plpgsql security definer set search_path=public,pg_temp as $$declare l record;settled boolean;begin
+ for l in select * from venue_credit_lines where invoice_id=i and kind in('class','game') loop
+  settled:=credit_balance(i)=0 or coalesce((select sum(x.amount_cents) from venue_credit_allocations x where x.line_id=l.id and not exists(select 1 from venue_credit_reversals r where r.payment_id=x.payment_id)),0)>=l.amount_cents;
+  insert into venue_credit_mutations(tx,source_id,purpose) values(txid_current(),coalesce(l.academy_bill_id,l.game_payment_id),'source_sync');
+  if l.kind='class' then update academy_bills set status=case when settled then 'invoice_paid' else 'invoiced' end where id=l.academy_bill_id;
+  else update payments set status=case when settled then 'invoice_paid' else 'invoiced' end where id=l.game_payment_id;end if;
+  delete from venue_credit_mutations where tx=txid_current();
+ end loop;
+end$$;
+revoke all on function credit_sources(uuid),credit_filtered_ids(uuid,jsonb),credit_search(uuid,jsonb),credit_export(uuid,jsonb) from public,anon,authenticated;
+grant execute on function credit_search(uuid,jsonb),credit_export(uuid,jsonb) to authenticated;
+
+create table venue_credit_preferences(account_id uuid primary key references venue_credit_accounts(id),in_app boolean not null default true,email boolean not null default false,whatsapp boolean not null default false,updated_at timestamptz not null default now());
+create table venue_credit_reminders(id uuid primary key default gen_random_uuid(),invoice_id uuid not null references venue_credit_invoices(id),account_id uuid not null references venue_credit_accounts(id),stage text not null check(stage in('before_due','due','overdue')),channel text not null check(channel in('app','email','whatsapp')),status text not null default 'queued' check(status in('queued','sending','available','accepted','failed','uncertain','cancelled')),provider_id text,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(invoice_id,stage,channel));
+create table venue_credit_job_config(id boolean primary key default true check(id),secret_id uuid not null,url text not null);
+do $$declare t text;begin foreach t in array array['venue_credit_preferences','venue_credit_reminders','venue_credit_job_config'] loop execute format('alter table %I enable row level security',t);execute format('revoke all on %I from anon,authenticated',t);end loop;end$$;
+create function credit_reminder_stage(i uuid) returns text language sql stable security definer set search_path=public,pg_temp as $$select case when credit_balance(id)<=0 then null when due_date<(now() at time zone 'America/Sao_Paulo')::date then 'overdue' when due_date=(now() at time zone 'America/Sao_Paulo')::date then 'due' when due_date<=(now() at time zone 'America/Sao_Paulo')::date+3 then 'before_due' end from venue_credit_invoices where id=i$$;
+create function credit_reminders_generate() returns int language plpgsql security definer set search_path=public,pg_temp as $$declare item record;channel text;pref venue_credit_preferences;counted int:=0;r uuid;begin
+ update venue_credit_reminders set status='cancelled',updated_at=now() where status='queued' and stage is distinct from credit_reminder_stage(invoice_id);
+ -- One relevant invoice per account, rather than a burst for every old unpaid month.
+ for item in select distinct on(i.account_id) i.*,a.player_id,a.establishment_id,credit_reminder_stage(i.id) stage from venue_credit_invoices i join venue_credit_accounts a on a.id=i.account_id where credit_reminder_stage(i.id) is not null and credit_actor_allowed(a.player_id) order by i.account_id,i.due_date,i.id loop
+  select * into pref from venue_credit_preferences where account_id=item.account_id;
+  foreach channel in array array['app','email','whatsapp'] loop
+   if channel='app' and coalesce(pref.in_app,true) or channel='email' and coalesce(pref.email,false) or channel='whatsapp' and coalesce(pref.whatsapp,false) then
+    insert into venue_credit_reminders(invoice_id,account_id,stage,channel) values(item.id,item.account_id,item.stage,channel) on conflict do nothing returning id into r;
+    if r is not null then counted:=counted+1;
+     if channel='app' then
+      insert into venue_notices(player_id,establishment_id,title,body) values(item.player_id,item.establishment_id,case item.stage when 'overdue' then 'Fatura em atraso' when 'due' then 'Fatura vence hoje' else 'Sua fatura vence em breve' end,'Consulte Minhas faturas para ver saldo, vencimento e formas de pagamento.');
+      update venue_credit_reminders set status='available',updated_at=now() where id=r;
+     end if;
+    end if;
+   end if;
+  end loop;
+ end loop;return counted;
+end$$;
+alter function credit_action(text,jsonb) rename to credit_action_v4;
+revoke all on function credit_action_v4(text,jsonb) from public,anon,authenticated;
+create function credit_action(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$declare me uuid:=community_chat_me();a venue_credit_accounts;t venue_credit_intents;i venue_credit_invoices;request venue_credit_requests;nonce uuid;begin
+ if p_action not in('reminder_preferences','resolve_review','release_checkout') then return credit_action_v4(p_action,p_data);end if;
+ if me is null or jsonb_typeof(p_data) is distinct from 'object' or pg_column_size(p_data)>8192 then raise exception 'FATURA: Entre na conta e informe dados válidos.';end if;
+ nonce:=(p_data->>'requestId')::uuid;if nonce is null then raise exception 'FATURA: Identificador obrigatório.';end if;
+ perform pg_advisory_xact_lock(hashtext(nonce::text));select * into request from venue_credit_requests where id=nonce;
+ if request.id is not null then if request.actor<>me or request.action<>p_action or request.request_data<>p_data then raise exception 'FATURA: Identificador já utilizado.';end if;return request.result;end if;
+ if p_action='reminder_preferences' then
+  select * into a from venue_credit_accounts where id=(p_data->>'accountId')::uuid for update;
+  if a.player_id is distinct from me then raise exception 'FATURA: Só o cliente escolhe seus lembretes.';end if;
+  if jsonb_typeof(p_data->'inApp') is distinct from 'boolean' or jsonb_typeof(p_data->'email') is distinct from 'boolean' or jsonb_typeof(p_data->'whatsapp') is distinct from 'boolean' then raise exception 'FATURA: Preferência inválida.';end if;
+  if (p_data->>'email')::boolean and not exists(select 1 from auth.users u join players p on p.auth_user_id=u.id where p.id=me and to_jsonb(u)->>'email_confirmed_at' is not null) then raise exception 'FATURA: Confirme seu e-mail antes de ativar.';end if;
+  if (p_data->>'whatsapp')::boolean and not exists(select 1 from auth.users u join players p on p.auth_user_id=u.id where p.id=me and to_jsonb(u)->>'phone_confirmed_at' is not null and to_jsonb(u)->>'phone' ~ '^55[0-9]{10,11}$') then raise exception 'FATURA: WhatsApp exige telefone brasileiro verificado na conta, não apenas no perfil.';end if;
+  insert into venue_credit_preferences values(a.id,(p_data->>'inApp')::boolean,(p_data->>'email')::boolean,(p_data->>'whatsapp')::boolean,now()) on conflict(account_id) do update set in_app=excluded.in_app,email=excluded.email,whatsapp=excluded.whatsapp,updated_at=now();
+  update venue_credit_reminders set status='cancelled',updated_at=now() where account_id=a.id and status='queued' and ((channel='app' and not (p_data->>'inApp')::boolean) or (channel='email' and not (p_data->>'email')::boolean) or (channel='whatsapp' and not (p_data->>'whatsapp')::boolean));
+ else
+  select * into t from venue_credit_intents where id=(p_data->>'intentId')::uuid;select * into i from venue_credit_invoices where id=t.invoice_id;select * into a from venue_credit_accounts where id=i.account_id for update;
+  select * into t from venue_credit_intents where id=t.id for update;
+  if not is_establishment_owner(a.establishment_id) then raise exception 'FATURA: Só o dono trata divergências.';end if;
+  if (p_data->>'confirmed')::boolean is distinct from true or coalesce(length(trim(p_data->>'reason')),0) not between 8 and 500 then raise exception 'FATURA: Confirme a conferência e informe o motivo.';end if;
+  if p_action='release_checkout' then
+   if t.payment_id is not null or now()<t.expires_at+interval '5 minutes' or t.state not in('building','pending','uncertain','review') then raise exception 'FATURA: Cobrança ainda ativa ou já paga. Consulte o provedor.';end if;
+   -- Human exception, never described as an automatic provider confirmation.
+   update venue_credit_intents set state='cancelled' where id=t.id;
+  else
+   update venue_credit_gateway_reviews set resolved_at=now(),resolved_by=me,resolution=trim(p_data->>'reason') where intent_id=t.id and resolved_at is null;
+   update venue_credit_intents set state=case when payment_id is not null then case when exists(select 1 from venue_credit_reversals where payment_id=t.payment_id) then 'refunded' else 'paid' end when external_id is null then 'uncertain' else 'pending' end where id=t.id;
+  end if;
+  insert into venue_audit(establishment_id,actor,action,target_id,details) values(a.establishment_id,me,'credit_'||p_action,t.id,jsonb_build_object('reason',trim(p_data->>'reason'),'human_confirmation',true));
+  insert into venue_notices(player_id,establishment_id,title,body) values(a.player_id,a.establishment_id,'Conferência financeira do estabelecimento','O dono registrou uma conferência manual. Consulte o extrato; isso não comprova novo pagamento.');perform venue_ping(a.establishment_id);
+ end if;
+ insert into venue_credit_requests values(nonce,me,p_action,p_data,jsonb_build_object('id',coalesce(t.id,a.id)),now());return jsonb_build_object('id',coalesce(t.id,a.id));
+end$$;
+create function credit_reminder_service(p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$declare r venue_credit_reminders;pref venue_credit_preferences;result jsonb;begin
+ if auth.role()<>'service_role' then raise exception 'FATURA: Serviço não autorizado.';end if;
+ if p_action='generate' then return jsonb_build_object('generated',credit_reminders_generate());end if;
+ if p_action='claim' then
+  select x.* into r from venue_credit_reminders x join venue_credit_preferences f on f.account_id=x.account_id where x.status='queued' and x.channel in('email','whatsapp') and x.stage=credit_reminder_stage(x.invoice_id) and
+   ((x.channel='email' and f.email) or (x.channel='whatsapp' and f.whatsapp)) and x.channel=any(array(select jsonb_array_elements_text(coalesce(p_data->'channels','["email","whatsapp"]'::jsonb)))) and not exists(select 1 from venue_credit_reminders z where z.account_id=x.account_id and z.channel=x.channel and z.status in('sending','accepted','uncertain') and (z.updated_at at time zone 'America/Sao_Paulo')::date=(now() at time zone 'America/Sao_Paulo')::date)
+   order by x.created_at,x.id for update of x skip locked limit 1;
+  if r.id is null then return '{}';end if;
+  select jsonb_build_object('id',r.id,'channel',r.channel,'email',u.email,'phone',case when to_jsonb(u)->>'phone_confirmed_at' is not null then to_jsonb(u)->>'phone' end) into result from venue_credit_accounts a join players p on p.id=a.player_id join auth.users u on u.id=p.auth_user_id where a.id=r.account_id and credit_actor_allowed(p.id) and
+   ((r.channel='email' and to_jsonb(u)->>'email_confirmed_at' is not null) or (r.channel='whatsapp' and to_jsonb(u)->>'phone_confirmed_at' is not null and to_jsonb(u)->>'phone' ~ '^55[0-9]{10,11}$'));
+  if result is null then update venue_credit_reminders set status='cancelled',updated_at=now() where id=r.id;return jsonb_build_object('skipped',true);end if;
+  update venue_credit_reminders set status='sending',updated_at=now() where id=r.id;return result;
+ end if;
+ if p_action not in('accepted','failed','uncertain') then raise exception 'FATURA: Ação inválida.';end if;
+ update venue_credit_reminders set status=p_action,provider_id=nullif(left(p_data->>'providerId',150),''),updated_at=now() where id=(p_data->>'id')::uuid and status='sending';return '{}';
+end$$;
+-- Enrich private metadata; public account/statement endpoints still enforce scope.
+alter function credit_snapshot(uuid,uuid,text) rename to credit_snapshot_v2;
+revoke all on function credit_snapshot_v2(uuid,uuid,text) from public,anon,authenticated;
+create function credit_snapshot(p_venue uuid default null,p_tab uuid default null,p_mode text default 'statement') returns jsonb language plpgsql stable security definer set search_path=public,pg_temp as $$declare result jsonb;me uuid:=community_chat_me();begin
+ result:=credit_snapshot_v2(p_venue,p_tab,p_mode);if p_mode<>'statement' then return result;end if;
+ return result||jsonb_build_object('preferences',coalesce((select jsonb_agg(jsonb_build_object('account_id',a.id,'in_app',coalesce(f.in_app,true),'email',coalesce(f.email,false),'whatsapp',coalesce(f.whatsapp,false),'email_verified',to_jsonb(u)->>'email_confirmed_at' is not null,'phone_verified',to_jsonb(u)->>'phone_confirmed_at' is not null and to_jsonb(u)->>'phone' ~ '^55[0-9]{10,11}$')) from venue_credit_accounts a left join venue_credit_preferences f on f.account_id=a.id join players p on p.id=a.player_id join auth.users u on u.id=p.auth_user_id where a.player_id=me and (p_venue is null or a.establishment_id=p_venue)),'[]'::jsonb),
+ 'reminders',coalesce((select jsonb_agg(x) from (select r.id,r.invoice_id,r.channel,r.stage,r.status,r.updated_at from venue_credit_reminders r join venue_credit_accounts a on a.id=r.account_id where (p_venue is null or a.establishment_id=p_venue) and (a.player_id=me or p_venue is not null and (venue_can(p_venue,'cash') or venue_can(p_venue,'reports'))) order by r.created_at desc limit 30)x),'[]'::jsonb),
+ 'reminders_scheduled',exists(select 1 from venue_credit_job_config));
+end$$;
+create function credit_reminder_setup(p_secret text,p_url text) returns void language plpgsql security definer set search_path=public,vault,pg_temp as $$declare k uuid;begin
+ if auth.role()<>'service_role' or coalesce(length(p_secret),0)<32 or p_url !~ '^https://[a-z0-9]{20}\.supabase\.co/functions/v1/invoice-reminders$' then raise exception 'FATURA: Configuração de serviço inválida.';end if;
+ k:=vault.create_secret(p_secret);insert into venue_credit_job_config values(true,k,p_url) on conflict(id) do update set secret_id=excluded.secret_id,url=excluded.url;
+end$$;
+create function credit_reminders_tick() returns void language plpgsql security definer set search_path=public,vault,pg_temp as $$declare c venue_credit_job_config;token text;begin
+ perform credit_reminders_generate();select * into c from venue_credit_job_config;
+ if c.id is not null and to_regnamespace('net') is not null then
+  select decrypted_secret into token from vault.decrypted_secrets where id=c.secret_id;
+  if token is not null then execute 'select net.http_post(url := $1,body := $2,headers := $3,timeout_milliseconds := 10000)' using c.url,'{}'::jsonb,jsonb_build_object('Content-Type','application/json','x-invoice-job',token);end if;
+ end if;
+end$$;
+revoke all on function credit_reminder_stage(uuid),credit_reminders_generate(),credit_reminder_service(text,jsonb),credit_reminder_setup(text,text),credit_reminders_tick(),credit_snapshot(uuid,uuid,text),credit_action(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_reminder_service(text,jsonb),credit_reminder_setup(text,text),credit_reminders_generate() to service_role;
+grant execute on function credit_snapshot(uuid,uuid,text),credit_action(text,jsonb) to authenticated;
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
+do $$begin if to_regnamespace('cron') is not null then perform cron.schedule('invoice-customer-reminders','0 12 * * *','select public.credit_reminders_tick();');end if;end$$;
+
+create function credit_operating_tabs(v uuid) returns jsonb language sql stable security definer set search_path=public,pg_temp as $$select coalesce(jsonb_agg(jsonb_build_object('id',t.id,'transferred_cents',coalesce((select sum(amount_cents) from venue_credit_lines where tab_id=t.id),0),'balance_cents',greatest(0,
+ coalesce((select round(sum(i.quantity*i.unit_price)*100) from service_order_items i join service_orders o on o.id=i.order_id where o.tab_id=t.id and i.status<>'cancelled' and o.status<>'cancelled'),0)-coalesce((select round(sum(amount)*100) from sale_payments where tab_id=t.id and reversed_at is null),0)-coalesce((select sum(amount_cents) from venue_credit_lines where tab_id=t.id),0)))),'[]'::jsonb) from service_tabs t where establishment_id=v and status not in('closed','cancelled')$$;
+do $$declare b text;begin
+ b:=pg_get_functiondef('venue_snapshot(uuid)'::regprocedure);
+ b:=replace(b,'if venue_can(v,''pdv'') then','if venue_can(v,''pdv'') then
+ result:=result||jsonb_build_object(''tab_credit_balances'',credit_operating_tabs(v));');execute b;
+end$$;
+create table venue_credit_gateway_limits(actor uuid not null references players(id),minute timestamptz not null,hits int not null,primary key(actor,minute));
+alter table venue_credit_gateway_limits enable row level security;revoke all on venue_credit_gateway_limits from anon,authenticated;
+alter function credit_payment_service(text,jsonb) rename to credit_payment_service_core;
+revoke all on function credit_payment_service_core(text,jsonb) from public,anon,authenticated;
+create function credit_payment_service(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$declare me uuid;n int;begin
+ if auth.role()<>'service_role' then raise exception 'FATURA: Serviço não autorizado.';end if;
+ if p_action='access' then
+  select id into me from players where auth_user_id=(p_data->>'actor')::uuid and not is_guest;if not credit_actor_allowed(me) then raise exception 'FATURA: Conta não autorizada.';end if;
+  delete from venue_credit_gateway_limits where minute<now()-interval '1 day';
+  insert into venue_credit_gateway_limits values(me,date_trunc('minute',now()),1) on conflict(actor,minute) do update set hits=venue_credit_gateway_limits.hits+1 returning hits into n;
+  if n>30 then raise exception 'FATURA: Muitas consultas ao provedor. Aguarde um minuto.';end if;return '{}';
+ end if;
+ return credit_payment_service_core(p_action,p_data);
+end$$;
+revoke all on function credit_operating_tabs(uuid),credit_payment_service(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_payment_service(text,jsonb) to service_role;
+
+alter table payment_gateway_connections add column verified_collector_id text;
+create function credit_gateway_connection(p_action text,p_data jsonb) returns jsonb language plpgsql security definer set search_path=public,vault,pg_temp as $$declare me uuid;v uuid:=(p_data->>'venueId')::uuid;c payment_gateway_connections;k uuid;creds jsonb;oldcreds jsonb;preserve boolean:=false;begin
+ if auth.role()<>'service_role' or jsonb_typeof(p_data) is distinct from 'object' or pg_column_size(p_data)>16384 then raise exception 'FATURA: Serviço não autorizado.';end if;
+ select id into me from players where auth_user_id=(p_data->>'actor')::uuid and not is_guest;
+ if not credit_actor_allowed(me) or not exists(select 1 from establishments where id=v and owner_player_id=me) then raise exception 'FATURA: Só o dono conecta o recebimento.';end if;
+ if p_action='access' then return '{}';end if;
+ if p_action<>'save' or p_data->>'provider' not in('mercado_pago','picpay') or (p_data->>'confirmed')::boolean is distinct from true then raise exception 'FATURA: Confirme a configuração e escolha um gateway suportado.';end if;
+ perform pg_advisory_xact_lock(hashtext('credit-gateway:'||v::text));select * into c from payment_gateway_connections where establishment_id=v for update;
+ if exists(select 1 from sale_payment_intents x join service_tabs t on t.id=x.tab_id where t.establishment_id=v and x.status='pending') then raise exception 'FATURA: Resolva as cobranças pendentes de comanda antes de mudar o recebimento.';end if;
+ creds:=p_data->'credentials';if jsonb_typeof(creds) is distinct from 'object' or coalesce(length(creds->>'webhookSecret'),0)<16 or coalesce(p_data->>'collectorId','')='' then raise exception 'FATURA: Credenciais verificadas e segredo de webhook obrigatórios.';end if;
+ select decrypted_secret::jsonb into oldcreds from vault.decrypted_secrets where id=c.credential_secret_id;
+ preserve:=c.status='connected' and c.provider=p_data->>'provider' and (c.verified_collector_id=p_data->>'collectorId' or c.provider='mercado_pago' and oldcreds->>'accessToken'=creds->>'accessToken' or c.provider='picpay' and oldcreds->>'clientId'=creds->>'clientId' and oldcreds->>'clientSecret'=creds->>'clientSecret');
+ k:=vault.create_secret(creds::text);
+ insert into payment_gateway_connections(establishment_id,provider,status,account_label,pix_enabled,card_enabled,contactless_enabled,credential_secret_id,connected_at,verified_collector_id)
+ values(v,p_data->>'provider','connected',left(p_data->>'accountLabel',100),true,false,false,k,now(),p_data->>'collectorId')
+ on conflict(establishment_id) do update set provider=excluded.provider,status='connected',account_label=excluded.account_label,pix_enabled=true,card_enabled=coalesce(preserve,false) and c.card_enabled,contactless_enabled=coalesce(preserve,false) and c.contactless_enabled,credential_secret_id=k,connected_at=now(),updated_at=now(),verified_collector_id=excluded.verified_collector_id returning * into c;
+ insert into venue_audit(establishment_id,actor,action,target_id,details) values(v,me,'credit_gateway_connected',c.id,jsonb_build_object('provider',c.provider,'credential_verified',true));perform venue_ping(v);
+ return jsonb_build_object('id',c.id,'provider',c.provider,'label',c.account_label);
+end$$;
+revoke all on function credit_gateway_connection(text,jsonb) from public,anon,authenticated;
+grant execute on function credit_gateway_connection(text,jsonb) to service_role;
+-- Remote plpgsql_check caught alias o colliding with the venue_occupancy variable.
+-- Keep authorization and transition rules unchanged; no customer data is mutated.
+do $$declare previous text;body text;begin
+ previous:=pg_get_functiondef('public.venue_action(text,jsonb)'::regprocedure);
+ body:=replace(previous,
+ 'from service_orders o,service_tabs t where i.id=k and i.order_id=o.id and o.tab_id=t.id',
+ 'from service_orders kitchen_order,service_tabs t where i.id=k and i.order_id=kitchen_order.id and kitchen_order.tab_id=t.id');
+ if body=previous then raise exception 'kitchen transition alias hook missing';end if;
+ body:=replace(body,'update service_orders o set status=case','update service_orders kitchen_order set status=case');
+ body:=replace(body,'where i.order_id=o.id','where i.order_id=kitchen_order.id');
+ body:=replace(body,'where o.id=(select order_id from service_order_items where id=k);','where kitchen_order.id=(select order_id from service_order_items where id=k);');
+ execute body;
+end$$;

@@ -51,6 +51,7 @@ const acct = {
   venue_name: "Arena da Resenha",
   enabled: true,
   cut_day: 15,
+  due_days: 5,
   limit_cents: 30000,
   balance_cents: 0,
   overdue: false,
@@ -71,7 +72,49 @@ let owner = true,
   denied = false,
   billed = null,
   invoices = [],
-  actions = [];
+  actions = [],
+  advanced = false,
+  shared = false,
+  searches = [];
+const preference = {
+  account_id: account,
+  in_app: true,
+  email: false,
+  whatsapp: false,
+  email_verified: true,
+  phone_verified: false,
+};
+const sources = {
+  classes: [
+    {
+      id: id(25),
+      kind: "class",
+      account_id: account,
+      description: "Vôlei mensal",
+      customer_name: acct.name,
+      amount_cents: 2000,
+    },
+  ],
+  games: [
+    {
+      id: id(26),
+      kind: "game",
+      account_id: account,
+      description: "Cota Resenha FC",
+      customer_name: acct.name,
+      amount_cents: 334,
+    },
+  ],
+};
+const parts = [
+  { id: participant, player_id: pid, name: acct.name, remaining_cents: 600 },
+  {
+    id: id(27),
+    player_id: id(28),
+    name: "Outro cliente",
+    remaining_cents: 600,
+  },
+];
 const rentalRow = {
   id: rental,
   account_id: account,
@@ -104,6 +147,12 @@ async function run() {
         errors.push(m.text());
     });
     await ctx.routeWebSocket(/supabase\.co/, (ws) => ws.close());
+    await ctx.addInitScript(() =>
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+      }),
+    );
     await ctx.route("https://*.supabase.co/**", async (route) => {
       const req = route.request(),
         url = new URL(req.url()),
@@ -156,7 +205,44 @@ async function run() {
           capabilities: owner ? ["cash", "reports", "pdv"] : [],
           teams: [],
         };
-      else if (url.pathname.endsWith("/credit_snapshot")) {
+      else if (url.pathname.endsWith("/credit_export"))
+        json = { invoices, truncated: false, generated_at: now };
+      else if (url.pathname.endsWith("/invoice-payment")) {
+        const i = invoices[0];
+        if (body.action === "checkout")
+          i.online = {
+            available: true,
+            held: true,
+            intents: [
+              {
+                id: id(30),
+                provider: "mercado_pago",
+                state: "pending",
+                amount_cents: i.balance_cents,
+                pix_code: "synthetic-pix-code-only",
+                expires_at: new Date(Date.now() + 1800000).toISOString(),
+              },
+            ],
+          };
+        if (body.action === "reconcile") {
+          i.online.held = false;
+          i.online.intents[0].state = "paid";
+          i.payments.push({
+            id: id(31),
+            amount_cents: i.balance_cents,
+            method: "online_pix",
+            paid_at: now,
+            confirmation: "gateway",
+          });
+          i.balance_cents = 0;
+        }
+        json = { id: invoiceId, message: "Provedor consultado." };
+      } else if (
+        url.pathname.endsWith("/credit_snapshot") ||
+        url.pathname.endsWith("/credit_search")
+      ) {
+        if (url.pathname.endsWith("/credit_search"))
+          searches.push(body.p_query);
         if (denied) {
           status = 403;
           json = {
@@ -168,12 +254,22 @@ async function run() {
             can_record: owner,
             venue_id: venue,
             tab_id: tab,
-            balance_cents: 1200,
+            balance_cents: shared
+              ? parts.reduce((s, p) => s + p.remaining_cents, 0)
+              : 1200,
             gross_cents: 1200,
             paid_cents: 0,
             can_bill: true,
             payment_started: false,
-            billed,
+            billed: shared ? null : billed,
+            ...(shared
+              ? {
+                  parts,
+                  split_ready: true,
+                  has_transfers: parts.some((p) => p.invoice_id),
+                  transferred_cents: parts.some((p) => p.invoice_id) ? 600 : 0,
+                }
+              : {}),
             accounts: [acct],
           };
         else if (body.p_mode === "directory")
@@ -201,6 +297,17 @@ async function run() {
                   },
                 ]
               : [],
+            ...(advanced
+              ? {
+                  sources,
+                  preferences: [preference],
+                  summary: {
+                    count: 1,
+                    pending_cents: invoices[0]?.balance_cents ?? 0,
+                    overdue_cents: 0,
+                  },
+                }
+              : {}),
           };
       } else if (url.pathname.endsWith("/credit_action")) {
         actions.push(body);
@@ -228,6 +335,7 @@ async function run() {
               player_id: pid,
               customer_name: acct.name,
               cut_date: "2026-10-15",
+              due_date: "2026-10-20",
               total_cents: 1200,
               balance_cents: 1200,
               status: "open",
@@ -248,7 +356,31 @@ async function run() {
             paid_at: now,
             confirmation: "counter",
           });
-        } else if (body.p_action === "post_rental") {
+        } else if (body.p_action === "reverse_payment") {
+          const p = invoices[0].payments.find((p) => p.id === d.paymentId);
+          p.reversal = { reason: d.reason, created_at: now };
+          invoices[0].balance_cents += p.amount_cents;
+        } else if (
+          body.p_action === "post_class" ||
+          body.p_action === "post_game"
+        ) {
+          const rows =
+            body.p_action === "post_class" ? sources.classes : sources.games;
+          invoices[0].balance_cents += rows[0].amount_cents;
+          rows.splice(0, 1);
+        } else if (body.p_action === "reminder_preferences") {
+          Object.assign(preference, {
+            in_app: d.inApp,
+            email: d.email,
+            whatsapp: d.whatsapp,
+          });
+        } else if (body.p_action === "post_part") {
+          const p = parts.find((p) => p.id === d.participantId);
+          p.remaining_cents = 0;
+          p.invoice_id = invoiceId;
+        } else if (body.p_action === "pay_part")
+          parts.find((p) => p.id === d.participantId).remaining_cents = 0;
+        else if (body.p_action === "post_rental") {
           rentalRow.status = "billed";
           acct.balance_cents += rentalRow.amount_cents;
           invoices[0].balance_cents += rentalRow.amount_cents;
@@ -292,6 +424,7 @@ async function run() {
     await page.getByText("Crédito autorizado.", { exact: true }).waitFor();
     assert.equal(actions[0].p_data.cutDay, 10);
     assert.equal(actions[0].p_data.limitCents, 30000);
+    assert.equal(actions[0].p_data.dueDays, 5);
     assert.match(actions[0].p_data.requestId, /^[0-9a-f-]{36}$/);
     await fits();
     await shot("dono-clientes-e-faturas-mobile");
@@ -339,6 +472,36 @@ async function run() {
     assert.equal(invoices[0].balance_cents, 700);
     await fits();
     await shot("dono-recebimento-parcial-fatura");
+    await require("./invoice-v2-ui.cjs")({
+      page,
+      base,
+      venue,
+      tab,
+      input,
+      button,
+      fits,
+      shot,
+      actions,
+      invoices,
+      searches,
+      parts,
+      sources,
+      preference,
+      setAdvanced: () => {
+        advanced = true;
+        invoices[0].online = { available: true, held: false, intents: [] };
+      },
+      setShared: () => {
+        shared = true;
+      },
+      setOwner: (v) => {
+        owner = v;
+      },
+    });
+    // Restore baseline state after the seven-feature scenario.
+    invoices[0].balance_cents = 700;
+    invoices[0].online = { available: false, held: false, intents: [] };
+    advanced = false;
     owner = false;
     await page.goto(base + "/faturas");
     await page.getByText("Minhas faturas", { exact: true }).waitFor();

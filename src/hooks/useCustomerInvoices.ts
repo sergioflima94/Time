@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { creditSnapshot } from "@/lib/customerInvoices";
+import { creditSnapshot, creditSearch } from "@/lib/customerInvoices";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
-import type { CreditSnapshot } from "@/types/customerInvoices";
+import type { CreditSnapshot, CreditQuery } from "@/types/customerInvoices";
 export function useCustomerInvoices(
   venue: string | null = null,
   tab: string | null = null,
   mode = "statement",
+  query?: CreditQuery,
 ) {
   const actor = useAuthStore((s) => s.authUserId),
     ready = useAuthStore((s) => s.authReady),
-    scope = `${actor}:${venue}:${tab}:${mode}`;
+    queryKey = JSON.stringify(query ?? {}),
+    scope = `${actor}:${venue}:${tab}:${mode}:${queryKey}`;
   const [raw, setRaw] = useState<CreditSnapshot>({}),
     [forScope, setScope] = useState(""),
     [error, setError] = useState(""),
@@ -22,7 +24,9 @@ export function useCustomerInvoices(
     const n = ++epoch.current;
     setBusy(true);
     try {
-      const data = await creditSnapshot(venue, tab, mode);
+      const data = await (mode === "search"
+        ? creditSearch(venue, JSON.parse(queryKey))
+        : creditSnapshot(venue, tab, mode));
       if (n === epoch.current && scope === current.current) {
         setRaw(data);
         setScope(scope);
@@ -37,7 +41,7 @@ export function useCustomerInvoices(
     } finally {
       if (n === epoch.current) setBusy(false);
     }
-  }, [scope, venue, tab, mode]);
+  }, [scope, venue, tab, mode, queryKey]);
   useEffect(() => {
     if (ready && actor) void refresh();
     return () => {

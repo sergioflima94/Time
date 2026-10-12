@@ -14,7 +14,7 @@
 
 export type UUID = string;
 
-export type PlayerPosition = 'goalkeeper' | 'line';
+export type PlayerPosition = "goalkeeper" | "line";
 
 export interface Player {
   id: UUID;
@@ -88,7 +88,7 @@ export interface PlayerOverall {
   ratingsCount: number;
 }
 
-export type PeladaRole = 'admin' | 'member';
+export type PeladaRole = "admin" | "member";
 
 export interface Pelada {
   id: UUID;
@@ -97,7 +97,7 @@ export interface Pelada {
   /** Esporte da pelada (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto), cor de destaque e se o sorteio usa goleiro. */
   sportId: string;
   /** Só relevante quando sportId === 'futebol' — variante do campo. */
-  footballVariant: 'society' | 'futsal' | 'campo';
+  footballVariant: "society" | "futsal" | "campo";
   defaultMaxPlayers: number;
   defaultMatchMinutes: number;
   /** Código curto pra convidar gente nova pra pelada (link/compartilhamento). */
@@ -144,7 +144,7 @@ export interface Field {
   createdBy: UUID;
 }
 
-export type FieldBookingRecurrence = 'single' | 'weekly';
+export type FieldBookingRecurrence = "single" | "weekly";
 
 /**
  * Reserva de um campo do estabelecimento, cadastrada pelo próprio dono — pra um time
@@ -186,7 +186,7 @@ export interface FieldAvailability {
   active: boolean;
 }
 
-export type EstablishmentPayoutMethod = 'pix' | 'in_person';
+export type EstablishmentPayoutMethod = "pix" | "in_person";
 
 /**
  * Dono de campo/quadra — um papel independente de pelada. Cadastra o estabelecimento
@@ -204,7 +204,7 @@ export interface Establishment {
   /** Consentimento explícito para receber solicitações transacionais. */
   whatsappOptIn: boolean;
   /** Ordem de envio: Evolution Go e, se falhar, Meta Cloud API. */
-  messagingProvider?: 'automatic' | 'evolution_go' | 'meta_cloud';
+  messagingProvider?: "automatic" | "evolution_go" | "meta_cloud";
   /** Política comercial aplicada ao aceite de uma reserva automática. */
   reservationDepositPercent?: number;
   cancellationRefundHours?: number;
@@ -218,7 +218,7 @@ export interface Establishment {
 // Operação do estabelecimento — lanchonete, comandas, caixa e aulas.
 // =========================================================================
 
-export type EstablishmentRole = 'manager' | 'cashier' | 'kitchen' | 'coach';
+export type EstablishmentRole = "manager" | "cashier" | "kitchen" | "coach";
 
 export interface EstablishmentStaff {
   id: UUID;
@@ -237,7 +237,7 @@ export interface ProductCategory {
   active: boolean;
 }
 
-export type PreparationStation = 'kitchen' | 'bar' | 'counter';
+export type PreparationStation = "kitchen" | "bar" | "counter";
 
 export interface Product {
   id: UUID;
@@ -251,7 +251,13 @@ export interface Product {
   stockQuantity: number | null;
 }
 
-export type ServiceTabStatus = 'open' | 'awaiting_payment' | 'partially_paid' | 'paid' | 'closed' | 'cancelled';
+export type ServiceTabStatus =
+  | "open"
+  | "awaiting_payment"
+  | "partially_paid"
+  | "paid"
+  | "closed"
+  | "cancelled";
 
 /** Comanda contínua: pode receber vários pedidos e pagamentos parciais. */
 export interface ServiceTab {
@@ -275,8 +281,10 @@ export interface TabParticipant {
   name: string;
 }
 
-export type OrderStatus = 'draft' | 'submitted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
-export type OrderItemStatus = 'submitted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  "draft" | "submitted" | "preparing" | "ready" | "delivered" | "cancelled";
+export type OrderItemStatus =
+  "submitted" | "preparing" | "ready" | "delivered" | "cancelled";
 
 export interface ServiceOrder {
   id: UUID;
@@ -309,8 +317,10 @@ export interface OrderItemShare {
   amountCents: number;
 }
 
-export type PaymentGatewayProvider = 'manual_pix' | 'sicoob' | 'inter' | 'mercado_pago' | 'picpay';
-export type GatewayConnectionStatus = 'not_connected' | 'pending' | 'connected' | 'error';
+export type PaymentGatewayProvider =
+  "manual_pix" | "sicoob" | "inter" | "mercado_pago" | "picpay";
+export type GatewayConnectionStatus =
+  "not_connected" | "pending" | "connected" | "error";
 
 /** Configuração pública da conexão. Tokens e certificados ficam apenas no Supabase Vault/backend. */
 export interface PaymentGatewayConnection {
@@ -327,7 +337,8 @@ export interface PaymentGatewayConnection {
   updatedAt: string;
 }
 
-export type PaymentIntentStatus = 'pending' | 'paid' | 'expired' | 'cancelled' | 'failed';
+export type PaymentIntentStatus =
+  "pending" | "paid" | "expired" | "cancelled" | "failed";
 
 /** Cobrança criada no gateway. Pode reunir partes de várias pessoas pagas pelo mesmo pagador. */
 export interface SalePaymentIntent {
@@ -367,7 +378,7 @@ export interface SalePaymentAllocation {
   amountCents: number;
 }
 
-export type CashShiftStatus = 'open' | 'closed';
+export type CashShiftStatus = "open" | "closed";
 
 export interface CashShift {
   id: UUID;
@@ -382,8 +393,8 @@ export interface CashShift {
   closedAt: string | null;
 }
 
-export type ClassFormat = 'group' | 'private';
-export type ClassBillingType = 'drop_in' | 'package' | 'monthly';
+export type ClassFormat = "group" | "private";
+export type ClassBillingType = "drop_in" | "package" | "monthly";
 
 export interface Coach {
   id: UUID;
@@ -411,7 +422,8 @@ export interface ClassProgram {
   createdAt: string;
 }
 
-export type ClassSessionStatus = 'scheduled' | 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+export type ClassSessionStatus =
+  "scheduled" | "open" | "full" | "in_progress" | "completed" | "cancelled";
 
 export interface ClassSession {
   id: UUID;
@@ -422,8 +434,9 @@ export interface ClassSession {
   cancellationReason: string | null;
 }
 
-export type EnrollmentStatus = 'confirmed' | 'waitlisted' | 'cancelled';
-export type EnrollmentPaymentStatus = 'pending' | 'paid' | 'waived' | 'refunded';
+export type EnrollmentStatus = "confirmed" | "waitlisted" | "cancelled";
+export type EnrollmentPaymentStatus =
+  "pending" | "paid" | "waived" | "refunded";
 
 export interface ClassEnrollment {
   id: UUID;
@@ -439,7 +452,7 @@ export interface ClassEnrollment {
   paidAt: string | null;
 }
 
-export type ClassAttendanceStatus = 'present' | 'absent' | 'excused';
+export type ClassAttendanceStatus = "present" | "absent" | "excused";
 
 export interface ClassAttendance {
   id: UUID;
@@ -459,7 +472,7 @@ export interface MakeupCredit {
   usedAt: string | null;
 }
 
-export type RecurrenceType = 'single' | 'weekly' | 'biweekly';
+export type RecurrenceType = "single" | "weekly" | "biweekly";
 
 /** Configuração de agenda: gera Games automaticamente conforme a recorrência. */
 export interface Schedule {
@@ -496,7 +509,7 @@ export interface Schedule {
   createdBy: UUID;
 }
 
-export type FieldPreferenceSource = 'team' | 'sponsored';
+export type FieldPreferenceSource = "team" | "sponsored";
 
 /** Ordem de tentativa dos campos para uma agenda específica. */
 export interface ScheduleFieldPreference {
@@ -522,7 +535,8 @@ export interface FieldPromotion {
   campaignBudget?: number | null;
 }
 
-export type BookingDepositStatus = 'pending' | 'paid' | 'refunded' | 'retained' | 'cancelled';
+export type BookingDepositStatus =
+  "pending" | "paid" | "refunded" | "retained" | "cancelled";
 
 /** Sinal de reserva. O dinheiro vai direto ao gateway conectado pelo estabelecimento. */
 export interface BookingDeposit {
@@ -543,12 +557,12 @@ export interface BookingDeposit {
 }
 
 export type BookingRequestStatus =
-  | 'awaiting_owner'
-  | 'accepted'
-  | 'declined'
-  | 'expired'
-  | 'conflict'
-  | 'cancelled';
+  | "awaiting_owner"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "conflict"
+  | "cancelled";
 
 /** Uma tentativa de reservar um campo para um jogo. */
 export interface GameBookingRequest {
@@ -572,7 +586,7 @@ export interface GameBookingRequest {
   failureReason: string | null;
 }
 
-export type TeamPollStatus = 'open' | 'closed' | 'cancelled';
+export type TeamPollStatus = "open" | "closed" | "cancelled";
 
 /** Enquete criada quando o horário original não está disponível. */
 export interface TeamAvailabilityPoll {
@@ -606,8 +620,13 @@ export interface TeamAvailabilityPollVote {
   createdAt: string;
 }
 
-export type WhatsAppDeliveryKind = 'field_request' | 'game_confirmed' | 'booking_declined' | 'poll_invite' | 'poll_reminder';
-export type WhatsAppDeliveryStatus = 'queued' | 'sent' | 'skipped' | 'failed';
+export type WhatsAppDeliveryKind =
+  | "field_request"
+  | "game_confirmed"
+  | "booking_declined"
+  | "poll_invite"
+  | "poll_reminder";
+export type WhatsAppDeliveryStatus = "queued" | "sent" | "skipped" | "failed";
 
 /** Espelho de auditoria das mensagens; o segredo do provedor nunca fica aqui. */
 export interface WhatsAppDelivery {
@@ -622,17 +641,20 @@ export interface WhatsAppDelivery {
   providerMessageId: string | null;
   createdAt: string;
   sentAt: string | null;
-  provider?: 'evolution_go' | 'meta_cloud' | 'in_app';
-  fallbackFromProvider?: 'evolution_go' | 'meta_cloud' | null;
+  provider?: "evolution_go" | "meta_cloud" | "in_app";
+  fallbackFromProvider?: "evolution_go" | "meta_cloud" | null;
 }
 
 // =========================================================================
 // Vaquinhas do time — independentes do rateio da quadra.
 // =========================================================================
 
-export type FundraisingCategory = 'equipment' | 'event' | 'travel' | 'uniform' | 'prize' | 'other';
-export type FundraisingStatus = 'draft' | 'active' | 'funded' | 'closed' | 'cancelled';
-export type FundraisingContributionStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+export type FundraisingCategory =
+  "equipment" | "event" | "travel" | "uniform" | "prize" | "other";
+export type FundraisingStatus =
+  "draft" | "active" | "funded" | "closed" | "cancelled";
+export type FundraisingContributionStatus =
+  "pending" | "paid" | "refunded" | "failed";
 
 export interface FundraisingCampaign {
   id: UUID;
@@ -683,14 +705,14 @@ export interface FundraisingExpense {
 }
 
 export type GameStatus =
-  | 'open' // chamada aberta, aguardando confirmações
-  | 'full' // vagas esgotadas
-  | 'teams_drawn' // times já sorteados
-  | 'in_progress' // cronômetro rodando
-  | 'finished'
-  | 'cancelled';
+  | "open" // chamada aberta, aguardando confirmações
+  | "full" // vagas esgotadas
+  | "teams_drawn" // times já sorteados
+  | "in_progress" // cronômetro rodando
+  | "finished"
+  | "cancelled";
 
-export type DrawMethod = 'arrival' | 'random' | 'rating';
+export type DrawMethod = "arrival" | "random" | "rating";
 
 /**
  * Como a fila de rodízio funciona depois do sorteio:
@@ -699,7 +721,7 @@ export type DrawMethod = 'arrival' | 'random' | 'rating';
  *   avulsos, e cada novo desafiante é puxado dali por prioridade individual
  *   (ver "Troca de jogador em campo" / rodízio individual no README).
  */
-export type RotationMode = 'teams' | 'players';
+export type RotationMode = "teams" | "players";
 
 export interface Game {
   id: UUID;
@@ -737,7 +759,8 @@ export interface WaitingPlayer {
   isGoalkeeper: boolean;
 }
 
-export type AttendanceStatus = 'confirmed' | 'declined' | 'waitlist' | 'pending';
+export type AttendanceStatus =
+  "confirmed" | "declined" | "waitlist" | "pending";
 
 export interface Attendance {
   id: UUID;
@@ -767,7 +790,7 @@ export interface TeamPlayer {
   isGoalkeeper: boolean;
 }
 
-export type PlayerFatigueStatus = 'resting' | 'done_for_today';
+export type PlayerFatigueStatus = "resting" | "done_for_today";
 
 /**
  * Jogador tirado de campo por cansaço durante o jogo (não é falta nem punição).
@@ -795,7 +818,12 @@ export interface MatchTurn {
   endedAt: string | null;
   durationSeconds: number;
   /** Histórico por rodada; null/ausente = rodada antiga sem captura confiável. */
-  rosterSnapshot?: Array<{ teamId: UUID; playerId: UUID; joinedAt: string; leftAt: string | null }> | null;
+  rosterSnapshot?: Array<{
+    teamId: UUID;
+    playerId: UUID;
+    joinedAt: string;
+    leftAt: string | null;
+  }> | null;
   /** null enquanto a rodada está rolando; também null (com endedAt preenchido) em caso de empate. */
   winnerTeamId: UUID | null;
 }
@@ -823,7 +851,7 @@ export interface Rating {
   createdAt: string;
 }
 
-export type FriendshipStatus = 'pending' | 'accepted' | 'declined';
+export type FriendshipStatus = "pending" | "accepted" | "declined";
 
 /** Pedido/relação de amizade entre dois jogadores, independente de pelada. */
 export interface Friendship {
@@ -852,7 +880,7 @@ export interface ActivityComment {
   createdAt: string;
 }
 
-export type PunishmentType = 'no_show' | 'late_cancel';
+export type PunishmentType = "no_show" | "late_cancel";
 
 export interface Punishment {
   id: UUID;
@@ -876,8 +904,9 @@ export interface PlayerPunishmentSummary {
   history: Punishment[];
 }
 
-export type PaymentStatus = 'pending' | 'paid' | 'waived';
-export type PaymentMethod = 'pix' | 'cash' | 'card' | 'contactless';
+export type PaymentStatus =
+  "pending" | "paid" | "waived" | "invoiced" | "invoice_paid";
+export type PaymentMethod = "pix" | "cash" | "card" | "contactless";
 
 /** Rateio ("vaquinha") do custo da quadra: 1 registro por jogador confirmado em um Game com fieldCost definido. */
 export interface Payment {
@@ -891,7 +920,7 @@ export interface Payment {
   paidByPlayerId: UUID | null;
 }
 
-export type FreeAgentInviteStatus = 'pending' | 'accepted' | 'declined';
+export type FreeAgentInviteStatus = "pending" | "accepted" | "declined";
 
 /**
  * Convite pra um "jogador livre" (opt-in, de fora da pelada) participar de um jogo
@@ -914,8 +943,8 @@ export interface FreeAgentInvite {
 // e times avulsos numa competição só. Ver src/lib/championship.ts.
 // =========================================================================
 
-export type ChampionshipFormat = 'round_robin' | 'knockout';
-export type ChampionshipStatus = 'registration' | 'in_progress' | 'finished';
+export type ChampionshipFormat = "round_robin" | "knockout";
+export type ChampionshipStatus = "registration" | "in_progress" | "finished";
 
 export interface Championship {
   id: UUID;
@@ -941,7 +970,7 @@ export interface Championship {
   createdAt: string;
 }
 
-export type BanterBadgeType = 'drama_king' | 'human_var' | 'hot_blooded';
+export type BanterBadgeType = "drama_king" | "human_var" | "hot_blooded";
 
 /**
  * Voto bem-humorado pós-jogo. O autor existe para impedir duplicidade e abuso,
@@ -983,9 +1012,12 @@ export interface ChampionshipBudget {
   updatedAt: string;
 }
 
-export type ChampionshipBudgetInput = Omit<ChampionshipBudget, 'id' | 'championshipId' | 'updatedAt'>;
+export type ChampionshipBudgetInput = Omit<
+  ChampionshipBudget,
+  "id" | "championshipId" | "updatedAt"
+>;
 
-export type ChampionshipTeamStatus = 'pending' | 'confirmed';
+export type ChampionshipTeamStatus = "pending" | "confirmed";
 
 /** Um time inscrito no campeonato — vindo de uma pelada existente, ou avulso (só pro campeonato). */
 export interface ChampionshipTeam {
@@ -1008,7 +1040,7 @@ export interface ChampionshipTeamPlayer {
   isGoalkeeper: boolean;
 }
 
-export type ChampionshipMatchStatus = 'scheduled' | 'in_progress' | 'finished';
+export type ChampionshipMatchStatus = "scheduled" | "in_progress" | "finished";
 
 /** Uma partida do campeonato — rodada (pontos corridos) ou fase (mata-mata). */
 export interface ChampionshipMatch {
@@ -1044,7 +1076,7 @@ export interface ChampionshipGoal {
   scoredAt: string;
 }
 
-export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+export type ChallengeStatus = "pending" | "accepted" | "declined" | "cancelled";
 
 /**
  * Convite de uma pelada pra outra jogarem uma partida avulsa — sem campeonato nem
@@ -1070,7 +1102,7 @@ export interface TeamChallenge {
   respondedAt: string | null;
 }
 
-export type FriendlyMatchStatus = 'scheduled' | 'in_progress' | 'finished';
+export type FriendlyMatchStatus = "scheduled" | "in_progress" | "finished";
 
 /**
  * Partida avulsa entre duas peladas inteiras (não só times formados dentro de uma
@@ -1103,7 +1135,7 @@ export interface FriendlyMatchGoal {
   scoredAt: string;
 }
 
-export type PlayerDuelStatus = 'pending' | 'accepted' | 'declined';
+export type PlayerDuelStatus = "pending" | "accepted" | "declined";
 
 /**
  * Desafio direto entre dois jogadores (independente de pelada/time) — registra um

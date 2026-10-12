@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { router } from "expo-router";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Screen } from "./ui/Screen";
 import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
@@ -9,10 +9,26 @@ import { AdaptiveSelect } from "./ui/AdaptiveSelect";
 import { colors } from "@/constants/theme";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCustomerInvoices } from "@/hooks/useCustomerInvoices";
-import { creditAction } from "@/lib/customerInvoices";
+import { creditAction, creditExport } from "@/lib/customerInvoices";
 import { moneyCents, parsePrice } from "@/lib/venueOperations";
 import { createUuid } from "@/lib/uuid";
-import type { CreditInvoice, CreditRental } from "@/types/customerInvoices";
+import type {
+  CreditInvoice,
+  CreditRental,
+  CreditQuery,
+} from "@/types/customerInvoices";
+import { Consent, Receipt } from "./InvoiceControls";
+import {
+  InvoiceCorrection,
+  InvoiceCheckout,
+  InvoiceSources,
+  InvoiceReminderPreferences,
+} from "./InvoiceAdvanced";
+import {
+  invoiceCsv,
+  shareInvoiceCsv,
+  shareReceipt,
+} from "@/lib/invoiceExports";
 type Run = (
   action: string,
   data: Record<string, unknown>,
@@ -29,10 +45,17 @@ export function CustomerInvoicesScreen({
   return <Content key={`${actor}:${venue}`} venue={venue} />;
 }
 function Content({ venue }: { venue: string | null }) {
-  const feed = useCustomerInvoices(venue),
+  const [query, setQuery] = useState<CreditQuery>({}),
+    [trail, setTrail] = useState<CreditQuery[]>([]),
+    [search, setSearch] = useState(""),
+    [status, setStatus] = useState("all"),
+    [from, setFrom] = useState(""),
+    [to, setTo] = useState("");
+  const feed = useCustomerInvoices(venue, null, "search", query),
     d = feed.data;
   const [email, setEmail] = useState(""),
     [cut, setCut] = useState("10"),
+    [dueDays, setDueDays] = useState("5"),
     [limit, setLimit] = useState("300"),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -78,7 +101,8 @@ function Content({ venue }: { venue: string | null }) {
       </Text>
       <Text style={s.meta}>
         Conta por estabelecimento. Você escolhe em cada consumo se paga na hora
-        ou deixa para o corte. Sem cobrança automática nem juros nesta versão.
+        ou deixa para o vencimento. Pix online depende de gateway configurado.
+        Não há débito automático nem juros.
       </Text>
       <Button
         small
@@ -95,13 +119,86 @@ function Content({ venue }: { venue: string | null }) {
       {!feed.ready && !feed.error && (
         <Text style={s.meta}>Consultando acesso e saldos...</Text>
       )}
+      <Card style={s.card}>
+        <Text style={s.heading}>Pesquisar e filtrar faturas</Text>
+        <TextField
+          label="Cliente ou estabelecimento"
+          value={search}
+          onChangeText={setSearch}
+        />
+        <AdaptiveSelect
+          label="Situação"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: "all", label: "Todas" },
+            { value: "open", label: "Em aberto" },
+            { value: "overdue", label: "Vencidas" },
+            { value: "paid", label: "Quitadas" },
+          ]}
+        />
+        <TextField
+          label="Vencimento de (AAAA-MM-DD)"
+          value={from}
+          onChangeText={setFrom}
+        />
+        <TextField
+          label="Vencimento até (AAAA-MM-DD)"
+          value={to}
+          onChangeText={setTo}
+        />
+        <Button
+          small
+          label="Aplicar filtros"
+          onPress={() => {
+            if ([from, to].some((v) => v && !/^\d{4}-\d{2}-\d{2}$/.test(v))) {
+              setMessage("Use datas no formato AAAA-MM-DD.");
+              return;
+            }
+            setTrail([]);
+            setQuery({ search: search.trim(), status, from, to });
+          }}
+        />
+        <Button
+          small
+          variant="outline"
+          label="Exportar extrato CSV do filtro"
+          disabled={busy || !feed.ready}
+          onPress={() => {
+            if (lock.current) return;
+            lock.current = true;
+            setBusy(true);
+            void creditExport(venue, query)
+              .then(async (r) => {
+                await shareInvoiceCsv(invoiceCsv(r.invoices));
+                setMessage(
+                  r.truncated
+                    ? "Arquivo limitado a 1.000 faturas. Restrinja o período para completar."
+                    : "Extrato privado exportado. Inclui todas as páginas do filtro.",
+                );
+              })
+              .catch((e) => setMessage((e as Error).message))
+              .finally(() => {
+                lock.current = false;
+                setBusy(false);
+              });
+          }}
+        />
+        {d.summary && (
+          <Text style={s.meta}>
+            Filtro: {d.summary.count} faturas · em aberto{" "}
+            {moneyCents(d.summary.pending_cents)} · vencido{" "}
+            {moneyCents(d.summary.overdue_cents)}
+          </Text>
+        )}
+      </Card>
       {feed.ready && (
         <>
           <Card style={s.card}>
             <Text style={s.heading}>Total em aberto {moneyCents(total)}</Text>
             <Text style={s.meta}>
               Faturado não significa recebido. Pagamentos só baixam após
-              conferência do caixa.
+              conferência do caixa ou confirmação verificada no gateway.
             </Text>
           </Card>
           {d.owner && (
@@ -110,7 +207,8 @@ function Content({ venue }: { venue: string | null }) {
               <Text style={s.meta}>
                 Use o e-mail da conta confirmada do cliente. Pré-cadastro não
                 recebe crédito. Para reativar, informe o mesmo e-mail e salve. O
-                corte é também a data de pagamento.
+                vencimento é definido em dias após o corte. Mudanças não alteram
+                faturas já emitidas.
               </Text>
               <TextField
                 label="E-mail da conta confirmada"
@@ -131,14 +229,29 @@ function Content({ venue }: { venue: string | null }) {
                 onChangeText={setLimit}
                 keyboardType="decimal-pad"
               />
+              <TextField
+                label="Dias para pagar após o corte (0 a 45)"
+                value={dueDays}
+                onChangeText={setDueDays}
+                keyboardType="number-pad"
+              />
               <Button
                 label="Liberar crédito"
                 loading={busy}
                 onPress={() => {
                   try {
                     const c = Number(cut),
-                      l = parsePrice(limit);
-                    if (!Number.isInteger(c) || c < 1 || c > 31 || !l)
+                      l = parsePrice(limit),
+                      days = Number(dueDays);
+                    if (
+                      !Number.isInteger(c) ||
+                      c < 1 ||
+                      c > 31 ||
+                      !l ||
+                      !Number.isInteger(days) ||
+                      days < 0 ||
+                      days > 45
+                    )
                       throw new Error("Informe corte e limite válidos.");
                     void run(
                       "account_save",
@@ -147,6 +260,7 @@ function Content({ venue }: { venue: string | null }) {
                         email: email.trim(),
                         cutDay: c,
                         limitCents: l,
+                        dueDays: days,
                       },
                       "Crédito autorizado.",
                     );
@@ -162,7 +276,8 @@ function Content({ venue }: { venue: string | null }) {
               <Text style={s.heading}>{venue ? a.name : a.venue_name}</Text>
               <Text style={s.text}>
                 {a.enabled ? "Crédito liberado" : "Crédito suspenso"} · corte
-                dia {a.cut_day}
+                dia {a.cut_day} · pagar em até {a.due_days ?? 0} dias após o
+                corte
               </Text>
               <Text style={s.meta}>
                 Em aberto {moneyCents(a.balance_cents)} · limite{" "}
@@ -257,6 +372,12 @@ function Content({ venue }: { venue: string | null }) {
               />
             </Card>
           )}
+          <InvoiceReminderPreferences
+            preferences={d.preferences ?? []}
+            busy={busy}
+            run={run}
+          />
+          <InvoiceSources sources={d.sources} busy={busy} run={run} />
           {!!d.rentals?.length && (
             <Text style={s.heading}>Locações combinadas</Text>
           )}
@@ -274,7 +395,7 @@ function Content({ venue }: { venue: string | null }) {
               run={run}
             />
           ))}
-          <Text style={s.heading}>Faturas · últimas 100</Text>
+          <Text style={s.heading}>Faturas do filtro</Text>
           {!d.invoices?.length && (
             <Text style={s.meta}>
               Nenhum lançamento em fatura. Consumos pagos na hora continuam nas
@@ -286,10 +407,69 @@ function Content({ venue }: { venue: string | null }) {
               key={i.id}
               invoice={i}
               canRecord={!!d.can_record}
+              owner={!!d.owner}
               busy={busy}
               run={run}
+              refresh={feed.refresh}
             />
           ))}
+          <View style={s.row}>
+            {!!trail.length && (
+              <Button
+                small
+                variant="outline"
+                label="Página anterior"
+                onPress={() => {
+                  const previous = trail[trail.length - 1];
+                  setTrail(trail.slice(0, -1));
+                  setQuery(previous);
+                }}
+              />
+            )}
+            {d.has_more && d.next_cursor && (
+              <Button
+                small
+                variant="outline"
+                label="Próxima página"
+                onPress={() => {
+                  setTrail([...trail, query]);
+                  setQuery({ ...query, ...d.next_cursor });
+                }}
+              />
+            )}
+          </View>
+          {!!d.reminders?.length && (
+            <Card style={s.card}>
+              <Text style={s.heading}>Histórico de lembretes</Text>
+              {d.reminders.map((r) => (
+                <Text key={r.id} style={s.meta}>
+                  {r.channel === "app"
+                    ? "Aviso no app"
+                    : r.channel === "email"
+                      ? "E-mail"
+                      : "WhatsApp"}{" "}
+                  ·{" "}
+                  {r.stage === "overdue"
+                    ? "atraso"
+                    : r.stage === "due"
+                      ? "vence hoje"
+                      : "antes de vencer"}{" "}
+                  ·{" "}
+                  {(
+                    {
+                      queued: "aguarda configuração/envio",
+                      sending: "em envio",
+                      available: "disponível no app",
+                      accepted: "aceito pelo provedor (entrega não comprovada)",
+                      failed: "falhou",
+                      uncertain: "envio inconclusivo; sem repetição automática",
+                      cancelled: "cancelado",
+                    } as Record<string, string>
+                  )[r.status] ?? r.status}
+                </Text>
+              ))}
+            </Card>
+          )}
         </>
       )}
     </Screen>
@@ -298,13 +478,17 @@ function Content({ venue }: { venue: string | null }) {
 function Invoice({
   invoice: i,
   canRecord,
+  owner,
   busy,
   run,
+  refresh,
 }: {
   invoice: CreditInvoice;
   canRecord: boolean;
+  owner: boolean;
   busy: boolean;
   run: Run;
+  refresh: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -326,8 +510,15 @@ function Invoice({
       </Text>
       <Text style={s.heading}>Saldo {moneyCents(i.balance_cents)}</Text>
       <Text style={s.meta}>
+        Vencimento {dateLabel(i.due_date ?? i.cut_date)}
+      </Text>
+      <Text style={s.meta}>
         Lançamentos {moneyCents(i.total_cents)} · recebido{" "}
-        {moneyCents(i.total_cents - i.balance_cents)}
+        {moneyCents(
+          i.received_cents ??
+            i.total_cents - i.balance_cents - (i.credits_cents ?? 0),
+        )}{" "}
+        · abatimentos {moneyCents(i.credits_cents ?? 0)}
       </Text>
       <Button
         small
@@ -351,17 +542,40 @@ function Invoice({
             </View>
           ))}
           {i.payments.map((p) => (
-            <Text key={p.id} style={s.meta}>
-              Recebido {moneyCents(p.amount_cents)} ·{" "}
-              {p.method === "cash" ? "dinheiro" : "Pix conferido manualmente"} ·{" "}
-              {new Date(p.paid_at).toLocaleString("pt-BR")}
-              {p.reference ? ` · ref. ${p.reference}` : ""}
+            <View key={p.id} style={s.line}>
+              <Text style={s.meta}>
+                Recebido {moneyCents(p.amount_cents)} ·{" "}
+                {p.method === "cash"
+                  ? "dinheiro"
+                  : p.method === "online_pix"
+                    ? "Pix confirmado no provedor"
+                    : "Pix conferido manualmente"}{" "}
+                · {new Date(p.paid_at).toLocaleString("pt-BR")}
+                {p.reference ? ` · ref. ${p.reference}` : ""}
+              </Text>
+              {p.reversal && (
+                <Text style={s.message}>
+                  Estornado: {p.reversal.reason} ·{" "}
+                  {new Date(p.reversal.created_at).toLocaleString("pt-BR")}
+                </Text>
+              )}
+              <Button
+                small
+                variant="ghost"
+                label="Compartilhar recibo"
+                onPress={() => void shareReceipt(i, p).catch(() => {})}
+              />
+            </View>
+          ))}
+          {(i.notes ?? []).map((n) => (
+            <Text key={n.id} style={s.meta}>
+              Abatimento {moneyCents(n.amount_cents)} · {n.reason}
             </Text>
           ))}
         </>
       )}
       {i.balance_cents > 0 &&
-        (canRecord ? (
+        (canRecord && !i.online?.held ? (
           <Receipt
             balance={i.balance_cents}
             busy={busy}
@@ -375,10 +589,14 @@ function Invoice({
           />
         ) : (
           <Text style={s.meta}>
-            Pode antecipar ou pagar no corte. Procure o caixa para pagar e
-            conferir o recebimento. Não há baixa automática por Pix aqui.
+            Pode antecipar ou pagar no vencimento.{" "}
+            {i.online?.held
+              ? "Há cobrança Pix em preparação ou reconciliação; consulte antes de outra baixa."
+              : "O caixa também pode receber presencialmente."}
           </Text>
         ))}
+      <InvoiceCheckout invoice={i} owner={owner} refresh={refresh} run={run} />
+      {owner && <InvoiceCorrection invoice={i} busy={busy} run={run} />}
     </Card>
   );
 }
@@ -479,113 +697,6 @@ function Rental({
         </>
       )}
     </Card>
-  );
-}
-function Receipt({
-  balance,
-  full = false,
-  busy,
-  onSave,
-}: {
-  balance: number;
-  full?: boolean;
-  busy: boolean;
-  onSave: (data: Record<string, unknown>) => Promise<boolean>;
-}) {
-  const [amount, setAmount] = useState(""),
-    [method, setMethod] = useState("cash"),
-    [reference, setReference] = useState(""),
-    [confirmed, setConfirmed] = useState(false),
-    [error, setError] = useState("");
-  async function save() {
-    try {
-      const cents = full ? balance : parsePrice(amount);
-      if (!cents || cents > balance)
-        throw new Error("Informe um valor maior que zero e até o saldo.");
-      if (method === "manual_pix" && reference.trim().length < 4)
-        throw new Error("Informe a referência bancária do Pix conferido.");
-      setError("");
-      if (
-        await onSave({
-          amountCents: cents,
-          method,
-          reference: reference.trim(),
-          confirmed,
-        })
-      ) {
-        setAmount("");
-        setConfirmed(false);
-        setReference("");
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  return (
-    <View style={s.line}>
-      <Text style={s.heading}>
-        {full ? "Receber agora" : "Registrar recebimento da fatura"}
-      </Text>
-      {!full && (
-        <TextField
-          label="Valor recebido (R$) · aceita parcial"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-        />
-      )}
-      <AdaptiveSelect
-        label="Recebido por"
-        value={method}
-        onChange={setMethod}
-        options={[
-          { value: "cash", label: "Dinheiro" },
-          { value: "manual_pix", label: "Pix conferido no banco" },
-        ]}
-      />
-      {method === "manual_pix" && (
-        <TextField
-          label="Referência bancária (mínimo 4 caracteres)"
-          value={reference}
-          onChangeText={setReference}
-        />
-      )}
-      <Consent
-        value={confirmed}
-        onChange={setConfirmed}
-        label="Conferi o dinheiro ou o crédito no banco"
-      />
-      <Text style={s.meta}>
-        Confirmação presencial pelo caixa, não por gateway. Não registre
-        comprovante sem conferir o recebimento.
-      </Text>
-      {!!error && <Text style={s.message}>{error}</Text>}
-      <Button
-        label="Confirmar recebimento"
-        disabled={busy || !confirmed}
-        onPress={() => void save()}
-      />
-    </View>
-  );
-}
-export function Consent({
-  value,
-  onChange,
-  label,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <View style={s.row}>
-      <Text style={[s.text, { flex: 1 }]}>{label}</Text>
-      <Switch
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={onChange}
-      />
-    </View>
   );
 }
 const s = StyleSheet.create({
