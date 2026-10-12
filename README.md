@@ -1809,13 +1809,15 @@ cliente nunca marca uma cobrança real como paga.
 1. Conclua o cadastro no [console do AdMob](https://apps.admob.com/), incluindo
    termos, país e verificações solicitadas pelo Google. Em **12/10/2026**, a conta
    definida para as lojas ainda exibia **Sua conta não foi aprovada**. O e-mail de
-   28/08/2026 recusa a inscrição sem detalhar a causa; não foi reenviada uma falsa
-   declaração de correção. O AdSense do mesmo editor `pub-2922080857800459` estava
+   28/08/2026 recusa a inscrição sem detalhar a causa; a inscrição AdMob ainda
+   não foi reenviada. O AdSense do mesmo editor `pub-2922080857800459` estava
    inativo; foi iniciado o fluxo de reativação e adicionado `marcoujogou.com.br`
-   com autorização. O Google reconhece os dados de pagamento já fornecidos,
-   mas o site ainda exige verificação e pedido de análise. Metatag, `ads.txt` e
-   `app-ads.txt` foram preparados no repositório `marcoujogou-site`; precisam ser
-   publicados na HostGator antes de confirmar sua instalação no Google.
+   com autorização. O Google reconhece os dados de pagamento já fornecidos.
+   Metatag, `ads.txt` e `app-ads.txt` do repositório `marcoujogou-site` foram
+   publicados pelo titular e conferidos no domínio com HTTP 200/editor correto.
+   O Google confirmou a propriedade por Metatag e recebeu o pedido de revisão:
+   **Preparando / Revisão solicitada**, não aprovado. Após essa etapa, o AdMob
+   foi consultado novamente e continua não aprovado; não foi possível criar IDs.
    Não foram criados App IDs/Banner IDs reais nem ativados anúncios no site.
    Reativar AdSense não garante aprovação do AdMob; o código preparado não
    significa conta aprovada ou anúncios monetizando.
