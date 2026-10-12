@@ -49,7 +49,7 @@ export function VenueKitchen({ venue }: { venue: string | null }) {
         onPress={() => void feed.refresh()}
       />
       {!!(message || feed.error) && (
-        <Text style={{ color: colors.warning }}>{message || feed.error}</Text>
+        <Text style={{ color: colors.warning }}>{feed.error || message}</Text>
       )}
       {(feed.data.kitchen ?? []).map((i) => (
         <Card key={i.id} style={{ gap: 10 }}>

@@ -146,7 +146,7 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
         onPress={() => void feed.refresh()}
       />
       {!!(message || feed.error) && (
-        <Text style={s.message}>{message || feed.error}</Text>
+        <Text style={s.message}>{feed.error || message}</Text>
       )}
       {openedId && d.capabilities?.includes("pdv") && (
         <Button

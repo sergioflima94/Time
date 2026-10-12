@@ -54,7 +54,7 @@ export function VenueCash({ venue }: { venue: string | null }) {
         de recebimento. Locações não são estimadas como dinheiro em caixa.
       </Text>
       {!!(message || feed.error) && (
-        <Text style={{ color: colors.warning }}>{message || feed.error}</Text>
+        <Text style={{ color: colors.warning }}>{feed.error || message}</Text>
       )}
       <Button
         small
