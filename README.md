@@ -1582,7 +1582,111 @@ https://docs.expo.dev/versions/v57.0.0/sdk/notifications/
 
 ## Monetização e pagamentos
 
-Assinatura e rateio da quadra ainda usam o fluxo demonstrativo. A operação de consumo
+### Licenças digitais e recebimentos dos estabelecimentos
+
+Modelo aprovado em 12/10/2026: download gratuito; assinatura de recursos digitais
+separada de reservas/consumo. `src/lib/billingPolicy.ts` fixa os destinos:
+
+- Premium comprado dentro do Android/iOS: Google Play/App Store, via
+  `react-native-purchases` (RevenueCat). Compra e restauração nunca liberam acesso
+  apenas pelo retorno do SDK: o Supabase consulta o provedor com chave secreta.
+- Quadra, aula presencial, alimentos/comandas, produtos físicos e fatura do
+  estabelecimento: gateway do estabelecimento (Pix/cartão), sem compras digitais
+  das lojas. Não há comissão automática do aplicativo adicionada neste trabalho.
+  Gateway pode cobrar tarifas próprias; “sem comissão da loja” não significa Pix
+  necessariamente gratuito.
+- Licenças negociadas de time/estabelecimento: contratos e checkout web existentes.
+  No nativo, acesso já contratado e licenças concedidas continuam disponíveis, mas
+  não há link/botão para pagar software externamente. B2B não é isenção automática;
+  revisar enquadramento da distribuição antes de publicar. Novas compras nativas
+  desses dois perfis ainda não foram implementadas.
+
+O módulo de assinatura não escreve em contas a receber dos campos, comandas,
+pagamentos de faturas, carteira ou repasses. Não inventa receita com um aceite ou
+um teste. Preço do checkout nativo vem do produto da loja, não do preço de referência
+editável no catálogo da plataforma. Benefícios por licença gratuita e proprietário
+continuam independentes da assinatura; não cancelam cobrança existente.
+
+#### Configuração antes de vender Premium
+
+1. Cadastrar o app `com.pelada.app` nas lojas e criar uma assinatura mensal em cada
+   uma, com preços/benefícios e políticas de cancelamento claros. Produtos exigem
+   configuração nas lojas; não são criados pelo aplicativo.
+2. Criar um projeto RevenueCat, conectar Google Play e App Store, importar os
+   produtos e associá-los ao entitlement `premium`. Criar a offering `premium`
+   com pacote mensal (`P1M`). Configurar comportamento de restauração para manter
+   compras no App User ID original (**Keep with original App User ID**).
+   Family Sharing e compras anônimas não são suportados por este contrato.
+3. Em `.env`/EAS, colocar somente as chaves **públicas**
+   `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` (`goog_…`) e
+   `EXPO_PUBLIC_REVENUECAT_IOS_KEY` (`appl_…`), opcionalmente
+   `EXPO_PUBLIC_REVENUECAT_OFFERING=premium`. Um novo build nativo é obrigatório;
+   APK 1.0.5 anterior não contém o SDK. Expo Go não executa compras reais e fica
+   explicitamente bloqueado, mesmo que o SDK ofereça respostas de preview.
+4. Nos secrets das Edge Functions (nunca no cliente), configurar
+   `REVENUECAT_SECRET_KEY` (REST API v1), `REVENUECAT_PREMIUM_PLAN_ID`
+   (UUID do plano Jogador Premium do catálogo),
+   `REVENUECAT_PREMIUM_PRODUCTS` (IDs exatos do REST, separados por vírgula),
+   `REVENUECAT_ENTITLEMENT=premium`, `REVENUECAT_WEBHOOK_AUTH` (valor completo do
+   Authorization definido no painel) e `REVENUECAT_WEBHOOK_SIGNING_SECRET`.
+5. Cadastrar webhook HTTPS `/functions/v1/native-subscription-webhook`, habilitando
+   Authorization e HMAC no painel. Assinatura do corpo bruto e janela de 5 minutos
+   são verificadas antes de processar. Eventos repetidos/fora de ordem consultam
+   o estado atual pela REST API; `checked_at` impede regressão de resposta concorrente.
+6. Homologar compra, restauração **na mesma conta MarcouJogou**, renovação,
+   cancelamento, período de graça, expiração, reembolso e troca de usuário em
+   builds de teste das lojas. Sandbox está rejeitado por padrão; usar
+   `NATIVE_BILLING_ALLOW_SANDBOX=true` apenas em projeto/backend de homologação,
+   nunca para ativar benefícios de teste no banco de produção.
+7. Depois de validar credenciais/configuração, habilitar `NATIVE_BILLING_ENABLED=true`.
+   Sem configuração, compra permanece indisponível, não “ativada” localmente.
+   Conferir os termos em `/termos`, privacidade e descrição das ofertas antes da
+   publicação; textos não substituem revisão jurídica/comercial.
+
+O App User ID é o UUID do Supabase Auth; não telefone/e-mail e não ID de dispositivo.
+O servidor aceita somente o usuário autenticado, ignora IDs/recibos/preço enviados
+pelo cliente, aplica allowlist de produtos/lojas, período e ambiente e grava em
+`native_app_subscriptions` por RPC exclusiva de service role. A consulta autenticada
+tem limite de 12 chamadas/minuto. Reembolso/expiração removem apenas acesso pago
+pela loja; concessões administrativas não são revogadas. Cancelamento mantém o
+período válido sem renovação. Gerenciamento abre a **loja de origem**, mesmo em
+outro sistema operacional. Excluir conta no app não cancela a assinatura da loja.
+
+A verificação pré-compra bloqueia acesso já ativo e checkout web pendente; checkout
+web também recusa assinatura nativa ativa. Não é garantia transacional contra duas
+compras simultâneas em lojas diferentes: conferir estado antes de repetir pagamento
+e reconciliar cobranças concorrentes pelo suporte. Os preços e condições negociados
+pela plataforma web não são automaticamente ofertas/descontos da loja.
+
+RevenueCat é uma camada técnica, não o destinatário dos pagamentos dos campos.
+Há custo adicional conforme o plano do fornecedor: a tabela consultada em
+12/10/2026 prevê gratuidade até US$ 2.500 de receita mensal rastreada, depois 1%.
+As comissões das lojas continuam separadas. Conferir
+[preços RevenueCat](https://www.revenuecat.com/pricing),
+[integração Expo](https://www.revenuecat.com/docs/getting-started/installation/expo),
+[política Google Play](https://support.google.com/googleplay/android-developer/answer/9858738)
+e [regras Apple](https://developer.apple.com/app-store/review/guidelines/#business)
+antes de abrir vendas em cada região. Não habilitamos programas de cobrança
+alternativa nem promovemos pagamento externo no nativo.
+
+Testes sem dinheiro/contas reais: `node scripts/test-native-billing.cjs`,
+`node scripts/test-native-billing-client.cjs` e
+`node scripts/test-native-billing-sql.cjs`. A migração
+`20261012047000_native_subscriptions.sql` acompanha `supabase/schema.sql`.
+Deploy: `supabase db push --linked`, `supabase functions deploy sync-native-subscription`,
+`supabase functions deploy native-subscription-webhook` e
+`supabase functions deploy create-commercial-checkout`. Compra real em aparelho
+e aprovação das lojas são etapas externas ainda pendentes, não cobertas pelos
+testes sintéticos.
+
+Verificação adicional: migrações completas e regressões SQL passaram. O arquivo
+legado `supabase/schema.sql` mantém os novos contratos, mas não deve substituir
+`supabase db push`: sua execução isolada revelou uma referência antiga a
+`community_chat_blocks` sem criação anterior. Essa inconsistência preexistente
+não afeta o deploy por migrações. O audit npm também reporta alertas na árvore
+Expo/tooling; não foi aplicado `audit fix --force` nem downgrade de SDK neste trabalho.
+
+Assinatura digital e pagamentos ao estabelecimento são fluxos separados. A operação de consumo
 do estabelecimento já possui o contrato completo de gateway, Edge Functions e webhook;
 sem credenciais configuradas, continua em modo demonstração para não movimentar dinheiro.
 
@@ -1590,10 +1694,10 @@ sem credenciais configuradas, continua em modo demonstração para não moviment
   Perfil): é mensal de verdade — `player.premiumUntil` guarda até quando o período
   pago vale (`src/lib/premium.ts`); sem renovar, `isPremiumActive()` passa a retornar
   `false` e o jogador perde os benefícios (sem anúncios, fundo de foto exclusivo na
-  carta). O checkout é simulado, mas a intenção
-  é que a assinatura seja **gerenciada pela App Store / Google Play** (cobrança,
-  renovação e cancelamento ficam por conta delas, não do nosso app) — por isso o botão
-  "Gerenciar assinatura" já abre a tela nativa de assinaturas de cada loja.
+  carta). A integração nativa usa Google Play/App Store via RevenueCat, com compra,
+  restauração e confirmação server-side no Supabase. Sem configuração/homologação,
+  não abre compras reais; a simulação continua exclusiva do modo demonstração.
+  Veja **Licenças digitais e recebimentos dos estabelecimentos** abaixo.
 - **Anúncios** (`src/components/AdBanner.tsx`): banner do **AdMob real**
   (`react-native-google-mobile-ads`, via `src/lib/ads.ts`) para quem não é Premium
   nem já pagou o rateio de algum jogo (`src/hooks/useIsAdFree.ts`), em Agenda e
@@ -1610,7 +1714,7 @@ sem credenciais configuradas, continua em modo demonstração para não moviment
 
 | Recurso | O que trocar | Sugestão de provedor |
 |---|---|---|
-| Assinatura Premium | `PremiumSection.handleConfirm` → chamar a compra nativa real (IAP) e só marcar `premiumUntil` a partir do webhook/callback do provedor confirmando a assinatura (não do clique no botão) | [RevenueCat](https://www.revenuecat.com/) por cima de IAP da App Store/Google Play — é quem sincroniza `premiumUntil`/auto-renovação de verdade |
+| Assinatura Premium | `NativeSubscriptionControls` → SDK da loja → `sync-native-subscription` + webhook autenticado → consulta REST no RevenueCat → RPC restrita no Supabase; requer configuração e homologação antes de vender | Google Play/App Store via RevenueCat; valores digitais separados dos gateways do estabelecimento |
 | Rateio da quadra (Pix/cartão) | `PaymentSplitSection` → em vez de `setPaymentStatus` direto, abrir um checkout (Pix Copia-e-Cola, link de pagamento) e só marcar `paid` via webhook confirmando o pagamento | [Mercado Pago](https://www.mercadopago.com.br/developers) ou [Stripe](https://stripe.com/br) (ambos têm Pix) |
 | Anúncios | Já integrado — só falta configurar sua conta AdMob (veja abaixo) | [react-native-google-mobile-ads](https://docs.page/invertase/react-native-google-mobile-ads) (AdMob) — requer EAS Build/dev client, não funciona no Expo Go |
 

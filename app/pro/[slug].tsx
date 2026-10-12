@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -23,6 +23,7 @@ import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
 import { useCommercialAccess } from '@/hooks/useCommercialAccess';
 import { CommercialOffers } from '@/components/CommercialOffers';
+import { NativeSubscriptionControls } from '@/components/NativeSubscriptionControls';
 import { useAppStore } from '@/store/useAppStore';
 import { useProStore } from '@/store/useProStore';
 import type { CommercialAudience, ModerationReason } from '@/types/pro';
@@ -101,10 +102,14 @@ function Plans() {
     {audience !== 'player' && <AdaptiveSelect title="Escolher time ou estabelecimento da assinatura" value={subscriberId} onChange={setSelected} options={options.map(o=>({value:o.id,label:o.name}))} />}
     {!subscriberId && <Text style={styles.caption}>Você precisa administrar um time ou ser dono de um estabelecimento para escolher esta oferta.</Text>}
     <CommercialOffers audience={audience} targetId={subscriberId} />
+    <Info icon="card" text="A licença remunera o MarcouJogou. Reservas, aulas presenciais, lanchonete e produtos são pagos separadamente ao estabelecimento, pelo gateway dele." />
+    {!isMockMode && Platform.OS !== 'web' && audience === 'player' && !access.owner && (!access.license || access.license.paid) && <Card style={styles.plan}><Text style={styles.cardTitle}>Premium pela loja</Text><NativeSubscriptionControls paymentSource={access.license?.paymentSource} /></Card>}
+    {!isMockMode && Platform.OS !== 'web' && audience !== 'player' && <Info icon="business" text="Licenças de time e estabelecimento já contratadas aparecem nesta conta. Novas compras digitais desses perfis ainda não estão disponíveis neste aplicativo; não há checkout externo aqui." />}
     {plans.filter(p => p.audience === audience && p.active).map(plan => {
       const exempt = !!subscriberId && (access.owner || access.license?.planId===plan.id&&!access.license.paid);
       const active = exempt || !!(access.license?.paid&&access.license.planId===plan.id) || subscriptions.some(s => s.planId === plan.id && s.subscriberId === subscriberId && ['trial','active'].includes(s.status) && Date.parse(s.currentPeriodEnd) > Date.now());
-      return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{exempt ? 'Sem mensalidade' : currency(plan.monthlyPrice)}{!exempt && <Text style={styles.caption}> / mês</Text>}</Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={exempt ? access.owner?'Liberado para o proprietário':'Liberado por licença' : active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && !exempt && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
+      const storePrice = !isMockMode && Platform.OS !== 'web' && audience === 'player' && !exempt;
+      return <Card key={plan.id} style={styles.plan}><Text style={styles.planName}>{plan.name}</Text><Text style={styles.planPrice}>{exempt ? 'Sem mensalidade' : storePrice ? 'Preço na loja' : currency(plan.monthlyPrice)}{!exempt && !storePrice && <Text style={styles.caption}> / mês</Text>}</Text>{plan.benefits.map(benefit => <View key={benefit} style={styles.benefit}><Ionicons name="checkmark-circle" size={17} color={colors.primary} /><Text style={styles.benefitText}>{benefit}</Text></View>)}<Button label={exempt ? access.owner?'Liberado para o proprietário':'Liberado por licença' : active ? 'Plano válido para este perfil' : isMockMode ? `Simular teste de ${trialDays} dias` : 'Assinatura em preparação'} disabled={active || !subscriberId || !isMockMode} onPress={() => subscriberId && !exempt && subscribe(plan.id,subscriberId,trialDays)} /></Card>;
     })}<Info icon="card" text="Em demonstração não há cobrança. A ativação real exige callback da loja ou webhook validado, e ficará disponível após homologação comercial." /></>;
 }
 

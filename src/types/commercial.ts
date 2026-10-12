@@ -12,6 +12,8 @@ export interface CommercialAgreement {
 export interface LicenseAccess {
   /** Período comercial liquidado pelo provedor; não é uma licença gratuita. */
   paid?: boolean;
+  paymentSource?: 'web' | 'app_store' | 'play_store';
+  autoRenew?: boolean;
   id: string; audience: CommercialAudience; targetId: string; planId: string; expiresAt: string | null;
 }
 export interface CommercialAccessSnapshot {

@@ -11,7 +11,11 @@ serve(async req=>{
     const auth=req.headers.get('Authorization');if(!auth)return json({error:'Entre no app'},401);
     const url=Deno.env.get('SUPABASE_URL')!;const user=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:auth}}});
     const service=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);const {data:session}=await user.auth.getUser();if(!session.user)return json({error:'Sessão inválida'},401);
-    const {agreementId,termsVersion}=await req.json();
+    const {agreementId,termsVersion,channel}=await req.json();
+    // Policy scope is digital web licenses, never venue goods/services. This is
+    // not an attestation of the device; native UI must not expose this checkout.
+    const legacyWeb=channel===undefined&&req.headers.get('Origin')===new URL(base).origin;
+    if(channel!=='web'&&!legacyWeb)return json({error:'Este checkout atende apenas a contratação digital pela web.'},400);
     const {data:order,error}=await user.rpc('prepare_commercial_checkout',{p_agreement:agreementId,p_terms:termsVersion});if(error)return json({error:error.message},400);
     if(order.checkout_url&&Date.parse(order.expires_at)>Date.now())return json({url:order.checkout_url,orderId:order.id});
     const {data:claimed,error:claimError}=await service.rpc('claim_commercial_preference',{p_order:order.id});

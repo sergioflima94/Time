@@ -48,6 +48,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="auth/callback" />
+            <Stack.Screen name="termos" />
             <Stack.Screen name="amigo/[token]" />
             <Stack.Protected guard={isLoggedIn}>
               <Stack.Screen name="(tabs)" />

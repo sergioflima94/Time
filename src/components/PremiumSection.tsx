@@ -11,6 +11,8 @@ import { useProStore } from '@/store/useProStore';
 import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
 import { useCommercialAccess } from '@/hooks/useCommercialAccess';
 import { useAppStore } from '@/store/useAppStore';
+import { NativeSubscriptionControls } from './NativeSubscriptionControls';
+import { subscriptionManagementUrl } from '@/lib/billingPolicy';
 
 const BENEFITS = [
   'Sem anúncios em nenhuma tela',
@@ -57,8 +59,9 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
   }
 
   async function handleManageSubscription() {
-    if (MANAGE_SUBSCRIPTION_URL) {
-      Linking.openURL(MANAGE_SUBSCRIPTION_URL).catch(() => {});
+    const url = subscriptionManagementUrl(license?.paymentSource) ?? MANAGE_SUBSCRIPTION_URL;
+    if (url) {
+      Linking.openURL(url).catch(() => {});
     }
     if (isMockMode) onCancelAutoRenew();
   }
@@ -71,11 +74,18 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
       </View>
       <Text style={styles.subText}>Premium sem anúncios e benefícios Pro liberados, sem assinatura ou cobrança mensal, enquanto seu papel de proprietário estiver ativo.</Text>
       <Text style={styles.subText}>Consumo, reservas e serviços externos continuam sendo pagos normalmente.</Text>
+      {active && <Button small variant="outline" label="Gerenciar assinatura existente" onPress={() => void handleManageSubscription()} />}
     </Card>;
   }
 
   if (license) {
-    if(license.paid)return <Card style={[styles.card,styles.cardActive]}><Text style={styles.titleActive}>Premium · período pago confirmado</Text><Text style={styles.subText}>Válido até {new Date(license.expiresAt!).toLocaleDateString('pt-BR')}. Sem renovação automática neste contrato mensal. A renovação é feita após o encerramento, pelo checkout comercial.</Text>{active&&<Text style={styles.subText}>Há também uma assinatura anterior; este contrato não cancela a renovação dela.</Text>}</Card>;
+    if (license.paid) {
+      const native = license.paymentSource === 'app_store' || license.paymentSource === 'play_store';
+      return <Card style={[styles.card,styles.cardActive]}><Text style={styles.titleActive}>{native ? 'Premium confirmado pela loja' : 'Premium · período pago confirmado'}</Text>
+        <Text style={styles.subText}>Válido até {new Date(license.expiresAt!).toLocaleDateString('pt-BR')}. {native ? `${license.autoRenew ? 'Renovação automática' : 'Sem renovação automática'} pela loja de origem.` : 'Sem renovação automática neste contrato mensal.'}</Text>
+        {native ? <><Button small variant="outline" label="Gerenciar assinatura na loja de origem" onPress={() => void handleManageSubscription()} />{Platform.OS !== 'web' && <NativeSubscriptionControls paymentSource={license.paymentSource} />}</> : <Text style={styles.subText}>Consulte as mensalidades do contrato em Planos comerciais. Reservas e consumo não fazem parte desta licença.</Text>}
+      </Card>;
+    }
     return <Card style={[styles.card,styles.cardActive]}>
       <Text style={styles.titleActive}>Premium por licença concedida</Text>
       <Text style={styles.subText}>{license.expiresAt?`Benefícios gratuitos até ${new Date(license.expiresAt).toLocaleDateString('pt-BR')}.`:'Benefícios gratuitos sem prazo definido, enquanto a licença estiver ativa.'}</Text>
@@ -102,6 +112,7 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
         <Pressable onPress={handleManageSubscription}>
           <Text style={styles.manageLink}>Gerenciar assinatura (App Store / Google Play)</Text>
         </Pressable>
+        {!isMockMode && Platform.OS !== 'web' && <NativeSubscriptionControls />}
       </Card>
     );
   }
@@ -127,7 +138,7 @@ export function PremiumSection({ premiumSince, premiumUntil, autoRenew, onSubscr
         </View>
       ))}
 
-      {!checkoutOpen ? (
+      {!isMockMode && Platform.OS !== 'web' ? <NativeSubscriptionControls /> : !checkoutOpen ? (
         <Button
           label={!isMockMode ? 'Assinatura em preparação' : `Simular Premium — ${price ?? 'Oferta indisponível'}/mês`}
           disabled={!isMockMode || !offer}

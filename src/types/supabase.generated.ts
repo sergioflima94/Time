@@ -3771,6 +3771,78 @@ export type Database = {
           },
         ]
       }
+      native_app_subscriptions: {
+        Row: {
+          active: boolean
+          auth_user_id: string
+          auto_renew: boolean
+          checked_at: string
+          expires_at: string | null
+          plan_id: string
+          player_id: string
+          product_id: string | null
+          since_at: string | null
+          source: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id: string
+          auto_renew?: boolean
+          checked_at: string
+          expires_at?: string | null
+          plan_id: string
+          player_id: string
+          product_id?: string | null
+          since_at?: string | null
+          source?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string
+          auto_renew?: boolean
+          checked_at?: string
+          expires_at?: string | null
+          plan_id?: string
+          player_id?: string
+          product_id?: string | null
+          since_at?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "native_app_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "native_app_subscriptions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      native_billing_requests: {
+        Row: {
+          attempts: number
+          auth_user_id: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          auth_user_id: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          auth_user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       multi_sport_scoreboards: {
         Row: {
           away_name: string
@@ -8805,6 +8877,22 @@ export type Database = {
         Args: { p_establishment_id: string }
         Returns: boolean
       }
+      apply_native_subscription: {
+        Args: {
+          p_active: boolean
+          p_auto_renew: boolean
+          p_checked_at: string
+          p_expires: string
+          p_plan: string
+          p_product: string
+          p_since: string
+          p_source: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      claim_native_sync: { Args: { p_user: string }; Returns: boolean }
+      native_subscription_status: { Args: never; Returns: Json }
       claim_commercial_preference: {
         Args: { p_order: string }
         Returns: boolean

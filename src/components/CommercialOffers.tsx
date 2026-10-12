@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { colors, spacing } from '@/constants/theme';
@@ -11,6 +11,7 @@ import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
 import { useProStore } from '@/store/useProStore';
 import type { CommercialAudience } from '@/types/pro';
 import { CommercialCheckout } from '@/components/CommercialCheckout';
+import { isMockMode } from '@/lib/supabase';
 
 export function CommercialOffers({ audience, targetId }: { audience: CommercialAudience; targetId?: string }) {
   const { agreements }=useCommercialAccess(audience,targetId);
@@ -26,7 +27,10 @@ export function CommercialOffers({ audience, targetId }: { audience: CommercialA
     } catch(e) {setNotice(e instanceof Error?e.message:'Não foi possível responder.');}
     finally {setBusy(null);}
   }
-  return <>{!!notice && <Text accessibilityLiveRegion="polite" style={styles.copy}>{notice}</Text>}{agreements.map(a=><Card key={a.id} style={styles.card}>
+  // A negotiated digital offer is not an IAP discount or a B2B exemption.
+  // Native displays grants/access but does not promote the external sales flow.
+  const visible = agreements.filter(a => Platform.OS === 'web' || isMockMode || a.kind === 'license');
+  return <>{!!notice && <Text accessibilityLiveRegion="polite" style={styles.copy}>{notice}</Text>}{visible.map(a=><Card key={a.id} style={styles.card}>
     <Text style={styles.title}>{plans.find(p=>p.id===a.planId)?.name ?? 'Condição comercial'} · {agreementLabel(a)}</Text>
     <Text style={styles.copy}>{a.kind==='license'?'Benefícios gratuitos, sem assinatura paga.':`${formatBRL(a.agreedMonthlyPrice)}/mês por ${a.durationMonths} mensalidades · preço de referência ${formatBRL(a.listMonthlyPrice)}${a.discountPercent!==null?` · desconto ${a.discountPercent}%`:''}`}</Text>
     <Text style={styles.copy}>{a.expiresAt?`${a.kind==='license'?'Licença até':'Responder até'} ${new Date(a.expiresAt).toLocaleDateString('pt-BR')}`:'Licença sem prazo definido; pode ser revogada pelo proprietário.'}</Text>

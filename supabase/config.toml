@@ -478,3 +478,10 @@ verify_jwt = false
 
 [functions.evolution-api-webhook]
 verify_jwt = false
+
+# Sessão conferida no handler; webhook exige Authorization + HMAC.
+[functions.sync-native-subscription]
+verify_jwt = false
+
+[functions.native-subscription-webhook]
+verify_jwt = false
