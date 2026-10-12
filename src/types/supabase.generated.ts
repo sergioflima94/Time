@@ -6802,6 +6802,342 @@ export type Database = {
           },
         ]
       }
+      venue_credit_accounts: {
+        Row: {
+          created_at: string
+          created_by: string
+          cut_day: number
+          enabled: boolean
+          establishment_id: string
+          id: string
+          limit_cents: number
+          player_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          cut_day: number
+          enabled?: boolean
+          establishment_id: string
+          id?: string
+          limit_cents: number
+          player_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          cut_day?: number
+          enabled?: boolean
+          establishment_id?: string
+          id?: string
+          limit_cents?: number
+          player_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_accounts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_accounts_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_accounts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_allocations: {
+        Row: {
+          amount_cents: number
+          line_id: string
+          payment_id: string
+        }
+        Insert: {
+          amount_cents: number
+          line_id: string
+          payment_id: string
+        }
+        Update: {
+          amount_cents?: number
+          line_id?: string
+          payment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_allocations_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_invoices: {
+        Row: {
+          account_id: string
+          created_at: string
+          cut_date: string
+          id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          cut_date: string
+          id?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          cut_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_invoices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_lines: {
+        Row: {
+          acceptance: string
+          accepted_by: string
+          amount_cents: number
+          description: string
+          id: string
+          invoice_id: string
+          kind: string
+          posted_at: string
+          rental_id: string | null
+          tab_id: string | null
+        }
+        Insert: {
+          acceptance: string
+          accepted_by: string
+          amount_cents: number
+          description: string
+          id?: string
+          invoice_id: string
+          kind: string
+          posted_at?: string
+          rental_id?: string | null
+          tab_id?: string | null
+        }
+        Update: {
+          acceptance?: string
+          accepted_by?: string
+          amount_cents?: number
+          description?: string
+          id?: string
+          invoice_id?: string
+          kind?: string
+          posted_at?: string
+          rental_id?: string | null
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_lines_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_lines_rental_id_fkey"
+            columns: ["rental_id"]
+            isOneToOne: true
+            referencedRelation: "venue_credit_rentals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_lines_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: true
+            referencedRelation: "service_tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_payments: {
+        Row: {
+          amount_cents: number
+          id: string
+          invoice_id: string | null
+          method: string
+          paid_at: string
+          received_by: string
+          reference: string | null
+          rental_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          id?: string
+          invoice_id?: string | null
+          method: string
+          paid_at?: string
+          received_by: string
+          reference?: string | null
+          rental_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          id?: string
+          invoice_id?: string | null
+          method?: string
+          paid_at?: string
+          received_by?: string
+          reference?: string | null
+          rental_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_payments_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_payments_rental_id_fkey"
+            columns: ["rental_id"]
+            isOneToOne: true
+            referencedRelation: "venue_credit_rentals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_rentals: {
+        Row: {
+          account_id: string
+          amount_cents: number
+          booking_id: string | null
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          service_date: string
+          status: string
+        }
+        Insert: {
+          account_id: string
+          amount_cents: number
+          booking_id?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          service_date: string
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          amount_cents?: number
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          service_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_rentals_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "venue_credit_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_rentals_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "field_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_credit_rentals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_credit_requests: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          id: string
+          request_data: Json
+          result: Json
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          id: string
+          request_data: Json
+          result: Json
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          id?: string
+          request_data?: Json
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_credit_requests_actor_fkey"
+            columns: ["actor"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_incidents: {
         Row: {
           created_at: string
@@ -7689,6 +8025,19 @@ export type Database = {
         Args: { r: Database["public"]["Tables"]["community_rooms"]["Row"] }
         Returns: Json
       }
+      credit_account_balance: { Args: { a: string }; Returns: number }
+      credit_action: { Args: { p_action: string; p_data: Json }; Returns: Json }
+      credit_balance: { Args: { i: string }; Returns: number }
+      credit_cut_date: {
+        Args: { day_of_month: number; on_date: string }
+        Returns: string
+      }
+      credit_invoice_json: { Args: { p_invoice: string }; Returns: Json }
+      credit_snapshot: {
+        Args: { p_mode?: string; p_tab?: string; p_venue?: string }
+        Returns: Json
+      }
+      credit_tab_read: { Args: { t: string }; Returns: boolean }
       directory_registered: { Args: { p_field: string }; Returns: boolean }
       friend_discovery: {
         Args: { p_action: string; p_data?: Json }

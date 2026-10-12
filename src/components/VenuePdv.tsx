@@ -14,6 +14,8 @@ import { Button } from "./ui/Button";
 import { TextField } from "./ui/TextField";
 import { AdaptiveSelect } from "./ui/AdaptiveSelect";
 import { useVenueOperations } from "@/hooks/useVenueOperations";
+import { useCustomerInvoices } from "@/hooks/useCustomerInvoices";
+import { creditAction } from "@/lib/customerInvoices";
 import { useAuthStore } from "@/store/useAuthStore";
 import { sendVenueInvite, venueAction } from "@/lib/venueOperations";
 import { createUuid } from "@/lib/uuid";
@@ -32,6 +34,7 @@ export function VenuePdv({ venue }: { venue: string | null }) {
 }
 function VenuePdvContent({ venue }: { venue: string | null }) {
   const feed = useVenueOperations(venue),
+    credit = useCustomerInvoices(venue, null, 'directory'),
     d = feed.data,
     { width } = useWindowDimensions();
   const tabs = useAppStore(
@@ -43,6 +46,7 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
     items = useAppStore((s) => s.serviceOrderItems),
     payments = useAppStore((s) => s.salePayments);
   const [team, setTeam] = useState(""),
+    [creditCustomer, setCreditCustomer] = useState(""),
     [player, setPlayer] = useState(""),
     [name, setName] = useState(""),
     [email, setEmail] = useState(""),
@@ -62,11 +66,12 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
     setBusy(true);
     setMessage("");
     try {
-      const r = await venueAction<{
+      type OpenResult = {
         tab: Record<string, unknown>;
         participant: Record<string, unknown>;
         inviteId: string | null;
-      }>("tab_open", {
+      };
+      const r = creditCustomer ? await creditAction<OpenResult>('open_tab', { accountId: creditCustomer, table }, nonce.current) : await venueAction<OpenResult>("tab_open", {
         venueId: venue,
         requestId: nonce.current,
         playerId: player || null,
@@ -167,6 +172,7 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
               onPress={() => {
                 setTeam("");
                 setPlayer("");
+                setCreditCustomer("");
               }}
             />
             {(d.teams ?? []).map((t) => (
@@ -178,6 +184,7 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
                 onPress={() => {
                   setTeam(t.id);
                   setPlayer("");
+                  setCreditCustomer("");
                 }}
               />
             ))}
@@ -186,10 +193,12 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
                 Sem times na agenda de hoje. Use cliente avulso.
               </Text>
             )}
+            {!!credit.data.customers?.length && <AdaptiveSelect label="Clientes com conta autorizada" value={creditCustomer} onChange={v=>{setCreditCustomer(v);setTeam('');setPlayer('');nonce.current=createUuid();}} options={credit.data.customers.map(c=>({value:c.id,label:c.name}))}/>}
+            {!!credit.error && <Text style={s.meta}>Clientes autorizados indisponíveis. Atualize para consultar.</Text>}
           </Card>
           <Card style={[s.card, { flex: 1 }]}>
             <Text style={s.heading}>Abrir comanda</Text>
-            {selected ? (
+            {creditCustomer ? <Text style={s.meta}>Cliente autorizado: {credit.data.customers?.find(c=>c.id===creditCustomer)?.name}. Abrir comanda não gera dívida: o cliente escolhe pagar agora ou faturar ao fechar.</Text> : selected ? (
               <AdaptiveSelect
                 label={`Jogador de ${selected.name}`}
                 value={player}
@@ -252,7 +261,7 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
               label="Abrir comanda"
               loading={busy}
               disabled={
-                selected
+                creditCustomer ? !credit.data.customers?.some(c=>c.id===creditCustomer) : selected
                   ? !player
                   : !name.trim() || (!email.trim() && !phone.trim())
               }

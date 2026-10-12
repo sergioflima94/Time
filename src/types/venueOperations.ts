@@ -68,6 +68,8 @@ export interface VenueSnapshot {
   kitchen_orders?: number;
   food_received_cents?: number;
   classes_cash_cents?: number;
+  invoice_pending_cents?: number;
+  credit_received_cents?: number;
   shifts?: {
     id: string;
     status: string;

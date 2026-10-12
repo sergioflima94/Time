@@ -2015,6 +2015,59 @@ Referências oficiais usadas na integração: [Pix/Orders do Mercado Pago](https
 Para aproximação, consulte também [Tap to Pay no iPhone — provedores no Brasil](https://developer.apple.com/tap-to-pay/regions/)
 e [Point Tap do Mercado Pago](https://www.mercadopago.com.br/developers/pt/support/23846).
 
+## Clientes autorizados com fatura aberta
+
+O dono acessa **Estabelecimento → Clientes e faturas**, informa o e-mail de uma conta
+confirmada, libera o crédito e define **dia de corte (1–31)** e **limite total em aberto**.
+Dia 29/30/31 é ajustado ao último dia de meses mais curtos. Corte e vencimento usam
+o fuso de Brasília; lançamentos no próprio dia do corte ainda pertencem ao ciclo.
+Não há juros, débito automático ou alteração retroativa da data de faturas existentes.
+Para mudar o corte é necessário quitar o saldo; o limite não pode ficar abaixo da dívida.
+Suspender crédito impede novos lançamentos, mas conserva extratos e recebimentos.
+
+- **PDV:** clientes autorizados aparecem separados dos times em atendimento. Abrir
+  sua comanda não gera dívida nem obriga a comprar a prazo.
+- **Consumo:** ao fechar, o cliente escolhe pagar na hora (fluxo existente Pix/cartão/
+  dinheiro) ou **Deixar na fatura**, com aceite explícito. Nesta versão, assume **todo
+  o saldo restante da comanda**, inclusive itens compartilhados; não é transferência
+  de partes individuais. Pagamentos manuais anteriores são descontados. Cada visita
+  abre uma nova comanda; todas podem acumular no mesmo ciclo.
+- **Locações:** em Clientes e faturas, dono ou funcionário com **caixa + reservas**
+  informa um preço combinado para uma reserva existente e uma ocorrência específica.
+  O cliente aceita faturar ou paga presencialmente; a reserva semanal não é faturada
+  inteira nem automaticamente. Recusar o preço **não cancela a reserva**. Reservas
+  vinculadas a um jogo do mesmo campo/time/dia usam o rateio existente, sem duplicar
+  a locação inteira. O valor fica congelado; a reserva não muda após aceite financeiro.
+- **Cliente:** **Home → Minhas faturas** mostra estabelecimentos, limites, extratos,
+  datas de corte, saldos e locações aguardando escolha. O cliente não pode marcar sua
+  própria dívida como paga. Pré-cadastro de balcão não dá crédito nem transfere dívida.
+- **Recebimento:** dono/caixa autorizado registra dinheiro ou **Pix conferido no banco**,
+  informa referência bancária no Pix e confirma a conferência. Faturas aceitam recebimentos
+  parciais ou antecipados; a locação paga na hora exige o valor integral. Esta baixa é
+  presencial/manual, **não é conciliação automática de gateway**. Pagamento online de
+  faturas, estorno de seus recebimentos e renegociação não estão implementados.
+- **Financeiro:** emissão de fatura fica em contas a receber, não no faturamento recebido.
+  Caixa e Operação ao vivo separam saldo pendente dos recebimentos efetivos. Dinheiro
+  recebido de faturas/locações entra uma vez na conferência do turno; Pix manual não entra
+  no dinheiro da gaveta. Extratos guardam o registro e a origem do aceite.
+- **Segurança:** acesso e transações validados no servidor; cliente vê só suas contas,
+  caixa/relatórios veem apenas o estabelecimento autorizado. Somente dono libera crédito.
+  A dívida depende de limite disponível e ausência de fatura vencida; pagar na hora continua
+  possível. Nonce idempotente evita duplicar operações. Comanda faturada fecha para consumo,
+  não cria `sale_payments` e bloqueia novas cobranças e alterações financeiras. **Qualquer
+  intenção de pagamento já criada**, mesmo cancelada/expirada, impede migrar essa comanda
+  para fatura, evitando cobrança tardia simultânea. Estorno real de um pagamento anterior
+  exige revisão do dono: gera aviso, não dívida nova automática.
+
+Backend: migrations `20261012020000_customer_invoices.sql` e
+`20261012021000_customer_invoice_operations.sql` e
+`20261012022000_customer_invoice_tab_totals.sql` e
+`20261012023000_customer_invoice_allocation_guard.sql`; RPCs `credit_snapshot` e `credit_action`.
+Não importar tabelas de crédito para a sincronização otimista. Dados privados são consultados
+novamente ao mudar conta/estabelecimento e removidos da tela após erro de autorização.
+Verificação isolada: `node scripts/test-customer-invoices-sql.cjs` e
+`scripts/test-customer-invoices-ui.cjs` (backend interceptado, sem dívida/pagamento real).
+
 ## Multi-esporte
 
 O app não é só de futebol — cada pelada, campeonato e jogador tem um esporte associado,

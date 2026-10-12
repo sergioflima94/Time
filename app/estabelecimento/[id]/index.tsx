@@ -129,6 +129,7 @@ export default function EstablishmentDashboardScreen() {
         <NavCard icon="stats-chart" label="Financeiro" sub={formatBRL(summary.total)} onPress={() => router.push(`/estabelecimento/${establishment.id}/financeiro`)} />
         <NavCard icon="link" label="Página pública" sub="Marcar jogo sem conta" onPress={() => router.push(`/estabelecimento/${establishment.id}/publico`)} />
         <NavCard icon="receipt" label="Comandas" sub={`${serviceTabs.filter((tab) => !['closed', 'cancelled'].includes(tab.status)).length} abertas`} onPress={() => router.push({ pathname: '/operacao/comandas', params: { establishmentId: establishment.id } })} />
+        <NavCard icon="document-text" label="Clientes e faturas" sub="Autorizar crédito, corte e recebimentos" onPress={() => router.push({ pathname: '/operacao/faturas', params: { establishmentId: establishment.id } })} />
         <NavCard icon="restaurant" label="Cozinha e bar" sub="Fila de produção" onPress={() => router.push({ pathname: '/operacao/cozinha', params: { establishmentId: establishment.id } })} />
         <NavCard icon="fast-food" label="Cardápio" sub="Produtos e estoque" onPress={() => router.push({ pathname: '/operacao/cardapio', params: { establishmentId: establishment.id } })} />
         <NavCard icon="school" label="Aulas" sub={`${classPrograms.length} programas`} onPress={() => router.push({ pathname: '/operacao/aulas', params: { establishmentId: establishment.id } })} />

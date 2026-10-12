@@ -12,12 +12,16 @@ import { computeEstablishmentFinancials, type FinancialEntry } from '@/lib/estab
 import { formatGameDateShort } from '@/lib/format';
 import { formatBRL } from '@/lib/payments';
 import { useAppStore } from '@/store/useAppStore';
+import { useVenueOperations } from '@/hooks/useVenueOperations';
+import { moneyCents } from '@/lib/venueOperations';
+import { Button } from '@/components/ui/Button';
 
 type Period = 'all' | 'month';
 
 export default function EstablishmentFinanceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const establishmentId = id!;
+  const operation = useVenueOperations(id ?? null);
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === establishmentId));
   const fields = useAppStore((s) => s.fields);
@@ -82,9 +86,10 @@ export default function EstablishmentFinanceScreen() {
       />
 
       <Card style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total recebido</Text>
+        <Text style={styles.totalLabel}>Recebido em rateios e campeonatos</Text>
         <Text style={styles.totalValue}>{formatBRL(filteredTotal)}</Text>
       </Card>
+      {operation.data.invoice_pending_cents !== undefined && <Card style={styles.section}><Text style={styles.sectionTitle}>Contas de clientes · separado do rateio</Text><Text style={styles.fieldName}>Faturas a receber {moneyCents(operation.data.invoice_pending_cents)}</Text><Text style={styles.hint}>Recebido hoje em faturas e locações {moneyCents(operation.data.credit_received_cents??0)} · conferido pelo caixa. Não inclui valores apenas lançados na fatura.</Text><Button small label="Extrato de clientes e faturas" onPress={()=>router.push({pathname:'/operacao/faturas',params:{establishmentId}})}/></Card>}
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>

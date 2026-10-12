@@ -16,6 +16,8 @@ import { formatMoney, orderStatusLabel, tabStatusLabel, tabTotals } from '@/lib/
 import { getGateway, outstandingByParticipant, paymentMethodLabel } from '@/lib/paymentGateways';
 import { HistoryEntryLink } from '@/components/HistoryEntryLink';
 import { useTabReadAccess } from '@/hooks/useTabReadAccess';
+import { useCustomerInvoices } from '@/hooks/useCustomerInvoices';
+import { TabInvoiceOption } from '@/components/TabInvoiceOption';
 import { isMockMode } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 import type { PaymentMethod } from '@/types';
@@ -23,6 +25,7 @@ import type { PaymentMethod } from '@/types';
 export default function TabDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const readAccess = useTabReadAccess(id);
+  const invoiceFeed = useCustomerInvoices(null, id, 'tab');
   const tab = useAppStore((s) => s.serviceTabs.find((row) => row.id === id));
   const participants = useAppStore(useShallow((s) => s.tabParticipants.filter((row) => row.tabId === id)));
   const orders = useAppStore(useShallow((s) => s.serviceOrders.filter((row) => row.tabId === id)));
@@ -56,7 +59,10 @@ export default function TabDetailScreen() {
   const [currentIntentId, setCurrentIntentId] = useState<string | null>(null);
   const [contactlessStage, setContactlessStage] = useState<'idle' | 'starting' | 'presented' | 'cancelled'>('idle');
 
-  const totals = tab ? tabTotals(tab.id, allOrders, allItems, payments) : { gross: 0, paid: 0, balance: 0 };
+  const cachedTotals = tab ? tabTotals(tab.id, allOrders, allItems, payments) : { gross: 0, paid: 0, balance: 0 };
+  const rawTotals = invoiceFeed.data.gross_cents !== undefined ? { gross: invoiceFeed.data.gross_cents / 100, paid: (invoiceFeed.data.paid_cents ?? 0) / 100, balance: (invoiceFeed.data.balance_cents ?? 0) / 100 } : cachedTotals;
+  const billed = !!invoiceFeed.data.billed;
+  const totals = billed ? { ...rawTotals, balance: 0 } : rawTotals;
   const orderIds = useMemo(() => new Set(orders.map((order) => order.id)), [orders]);
   const items = useMemo(() => allItems.filter((item) => orderIds.has(item.orderId)), [allItems, orderIds]);
   const outstanding = useMemo(
@@ -66,7 +72,7 @@ export default function TabDetailScreen() {
   const gateway = getGateway(gatewayConnection?.provider ?? 'manual_pix');
   const contactless = contactlessReadiness(gatewayConnection);
   const currentIntent = paymentIntents.find((row) => row.id === currentIntentId) ?? null;
-  const canOrder = tab?.status === 'open';
+  const canOrder = tab?.status === 'open' && !billed && (isMockMode || invoiceFeed.ready);
 
   if (!readAccess.allowed) return <Screen><Button small variant="ghost" label="Voltar" onPress={()=>router.back()} /><Text style={styles.empty}>{readAccess.loading?'Verificando acesso à comanda...':'Comanda indisponível ou sem permissão. Atualize seu acesso.'}</Text><Button label="Verificar novamente" onPress={()=>void readAccess.refresh()}/></Screen>;
   if (!tab) return <Screen><Text style={styles.empty}>Comanda não encontrada.</Text></Screen>;
@@ -155,15 +161,16 @@ export default function TabDetailScreen() {
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
         <View style={{ flex: 1 }}><Text style={styles.title}>{tab.label}</Text><Text style={styles.meta}>{tab.customerName} · {tab.tableLabel || 'sem referência'}</Text></View>
-        <Badge label={tabStatusLabel(tab.status)} color={tab.status === 'paid' || tab.status === 'closed' ? colors.success : colors.warning} />
+        <Badge label={billed ? 'NA FATURA' : tabStatusLabel(tab.status)} color={tab.status === 'paid' || tab.status === 'closed' ? colors.success : colors.warning} />
       </View>
 
       <View style={styles.totals}>
         <Total label="Consumo" value={totals.gross} />
         <Total label="Pago" value={totals.paid} />
-        <Total label="Saldo" value={totals.balance} highlight />
+        <Total label={billed ? 'A cobrar aqui' : 'Saldo'} value={totals.balance} highlight />
       </View>
       <HistoryEntryLink kind="tab" contextId={tab.id} label="Histórico desta comanda" />
+      {!isMockMode && <TabInvoiceOption key={`${invoiceFeed.data.me}:${tabId}`} feed={invoiceFeed} tabId={tabId} hasIntent={invoiceFeed.data.payment_started || paymentIntents.length > 0} />}
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Pessoas na comanda</Text>
@@ -203,11 +210,11 @@ export default function TabDetailScreen() {
                 <View key={item.id} style={styles.itemBlock}>
                   <View style={styles.itemRow}>
                     <Text style={[styles.itemText, item.status === 'cancelled' && styles.cancelled]}>{item.quantity}× {product?.name ?? 'Produto'} · {formatMoney(item.quantity * item.unitPrice)}</Text>
-                    {item.status !== 'cancelled' && <Button label="Rachar" small variant="ghost" onPress={() => startSplit(item.id)} />}
-                    {item.status !== 'cancelled' && item.status !== 'delivered' && <Pressable onPress={() => Alert.alert('Cancelar item?', 'O histórico continuará visível.', [{ text: 'Voltar' }, { text: 'Cancelar item', style: 'destructive', onPress: () => setOrderItemStatus(item.id, 'cancelled', 'Cancelado pelo gerente') }])}><Ionicons name="close-circle-outline" size={19} color={colors.danger} /></Pressable>}
+                    {!billed && (isMockMode || invoiceFeed.ready) && item.status !== 'cancelled' && <Button label="Rachar" small variant="ghost" onPress={() => startSplit(item.id)} />}
+                    {!billed && (isMockMode || invoiceFeed.ready) && item.status !== 'cancelled' && item.status !== 'delivered' && <Pressable onPress={() => Alert.alert('Cancelar item?', 'O histórico continuará visível.', [{ text: 'Voltar' }, { text: 'Cancelar item', style: 'destructive', onPress: () => setOrderItemStatus(item.id, 'cancelled', 'Cancelado pelo gerente') }])}><Ionicons name="close-circle-outline" size={19} color={colors.danger} /></Pressable>}
                   </View>
                   {shares.length > 0 && <Text style={styles.shareSummary}>{shares.map((share) => `${participants.find((row) => row.id === share.participantId)?.name ?? 'Pessoa'} ${formatMoney(share.amountCents / 100)}`).join(' · ')}</Text>}
-                  {splitItemId === item.id && (
+                  {!billed && splitItemId === item.id && (
                     <View style={styles.splitBox}>
                       <Text style={styles.hint}>Quem consumiu? O valor será dividido igualmente.</Text>
                       <View style={styles.chips}>
@@ -223,7 +230,7 @@ export default function TabDetailScreen() {
         ))}
       </Card>
 
-      {!['closed', 'cancelled'].includes(tab.status) && (
+      {!billed && (isMockMode || invoiceFeed.ready) && !['closed', 'cancelled'].includes(tab.status) && (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Fechar e receber</Text>
           {tab.status === 'open' && <Button label="Encerrar consumo e cobrar" variant="secondary" onPress={() => setServiceTabStatus(tab.id, 'awaiting_payment')} />}

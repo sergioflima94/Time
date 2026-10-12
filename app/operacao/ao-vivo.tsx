@@ -149,6 +149,7 @@ export default function Live() {
           </Text>
         </Card>
       )}
+      {d.invoice_pending_cents !== undefined && <Card style={s.card}><Text style={s.heading}>Faturas a receber {moneyCents(d.invoice_pending_cents)}</Text><Text style={s.meta}>Recebido hoje em contas de clientes e locações {moneyCents(d.credit_received_cents??0)} · conferência do caixa, separado da emissão de faturas.</Text><Button small label="Clientes e faturas" onPress={()=>router.push({pathname:'/operacao/faturas',params:{establishmentId}})}/></Card>}
       {d.food_received_cents !== undefined && (
         <Card style={s.card}>
           <Text style={s.heading}>Recebimentos registrados hoje</Text>

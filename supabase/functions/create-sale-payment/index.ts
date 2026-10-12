@@ -32,6 +32,9 @@ serve(async (req) => {
     const serviceClient = createClient(url, serviceKey);
     const { data: userData } = await userClient.auth.getUser();
     if (!userData.user) return jsonResponse({ error: 'Sessão inválida' }, 401);
+    // The service key must not authorize an arbitrary signed-in caller's intent.
+    const { data: visibleIntent, error: visibilityError } = await userClient.from('sale_payment_intents').select('id').eq('id', intentId).maybeSingle();
+    if (visibilityError || !visibleIntent) return jsonResponse({ error: 'Cobrança indisponível para esta conta' }, 403);
 
     const { data: intent, error: intentError } = await serviceClient
       .from('sale_payment_intents')

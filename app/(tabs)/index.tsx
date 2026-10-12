@@ -159,6 +159,7 @@ export default function AgendaScreen() {
           <QuickAction icon="football-outline" label="Encontrar um jogo" onPress={() => router.push('/descobrir')} />
           <QuickAction icon="time-outline" label="Horários e desafios" onPress={() => router.push('/bora')} />
           <QuickAction icon="school-outline" label="Aulas esportivas" onPress={() => router.push('/aulas')} />
+          <QuickAction icon="document-text-outline" label="Minhas faturas" onPress={() => router.push('/faturas')} />
           <QuickAction icon="business-outline" label="Meu acesso nos campos" onPress={() => router.push('/operacao')} />
           <QuickAction icon="bag-outline" label="Loja esportiva" onPress={() => router.push('/loja')} />
         </View>
