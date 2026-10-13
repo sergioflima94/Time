@@ -33,6 +33,14 @@ não substitui essa autenticação Apple nem a associação ao Apple Developer P
 
 Os AABs códigos 7 e 8 compilaram, mas são substituídos pelo código 9: permissões
 desnecessárias removidas e cache/fila offline isolados por conta. Não enviar 7/8.
+Código 9 concluído no EAS: build `3207d2e8-a08a-4537-9344-909946776d54`,
+fonte `ef95c3776359532a1e7c1c4779ada056a81ee6e8`, distribuição STORE. A assinatura
+do AAB foi verificada e o manifesto não contém `RECORD_AUDIO`, `AD_ID`,
+`SYSTEM_ALERT_WINDOW` ou `MobileAdsInitProvider`. SHA-256:
+`4B63173F64242D407DDD6A89F1F9EB1680AB1E8627D5CCF5A1BDD68CBC0DDEF1`.
+O arquivo está no diretório ignorado `.test-runtime/store-release`; não versionar
+artefatos binários de release ou credenciais. Isso não comprova execução nativa,
+aprovação ou publicação: a validação funcional feita aqui é da interface web.
 Google Play ainda não está publicado e os
 questionários/arquivos/revisão precisam ser concluídos. O objetivo é faixa
 **Produção**, não teste interno/fechado. Criação do rascunho e build concluído não
@@ -60,6 +68,9 @@ separadamente, verificadas no servidor e auditadas. Só valem para os três
 cadastros de revisão; não são compras, recibos simulados, testes gratuitos ou
 papéis administrativos. Mantenha a conta utilizável em futuras revisões e
 revogue as licenças apenas quando encerrar esse acesso deliberadamente.
+O login real, link direto do time, arena própria, licença gratuita no perfil e
+saída também passaram em `scripts/verify-store-review-ui.cjs`, com todas as
+gravações de domínio, mensagens e pagamentos bloqueados durante a verificação.
 `scripts/provision-store-review.cjs --grant-licenses` não é migration nem roda no app; só provisiona
 esse ambiente expressamente autorizado e não troca a senha de conta existente.
 
