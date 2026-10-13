@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { isMockMode, supabase } from '@/lib/supabase';
+import { isMockMode, supabase, sessionBoundClient } from '@/lib/supabase';
+import { cacheAccount, cacheEpoch, ownsQueuedJob } from '@/lib/accountCache';
 import {
   TABLE_SPECS,
   type StoreName,
@@ -30,6 +31,7 @@ type AnyState = Record<string, any>;
 type MutationKind = 'upsert' | 'update' | 'delete' | 'rpc';
 
 interface MutationJob {
+  authUserId?: string;
   id: string;
   kind: MutationKind;
   table?: string;
@@ -58,6 +60,8 @@ export function applyFriendCache(patch: Partial<Pick<ReturnType<typeof useAppSto
   try { useAppStore.setState(patch); } finally { applyingRemote = previous; }
 }
 let activeStop: (() => void) | null = null;
+let syncRun = 0;
+let offlineChain = Promise.resolve();
 let writeChain = Promise.resolve();
 let pendingWrites = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,34 +125,44 @@ async function readOfflineQueue(): Promise<MutationJob[]> {
 
 async function writeOfflineQueue(queue: MutationJob[]) {
   await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-  setSyncState({ pendingCount: queue.length });
+  setSyncState({ pendingCount: queue.filter(job => ownsQueuedJob(job)).length });
 }
 
 async function enqueueOffline(job: MutationJob) {
-  const queue = await readOfflineQueue();
+  await mutateOfflineQueue(queue => {
   const duplicateIndex = queue.findIndex((item) =>
-    item.kind === job.kind
+    item.authUserId === job.authUserId && item.kind === job.kind
     && item.table === job.table
-    && JSON.stringify(item.match) === JSON.stringify(job.match)
+    && JSON.stringify(item.match ?? (item.onConflict ? item.onConflict.split(',').map(key => item.row?.[key]) : item.row?.id ?? item.id)) === JSON.stringify(job.match ?? (job.onConflict ? job.onConflict.split(',').map(key => job.row?.[key]) : job.row?.id ?? job.id))
     && item.functionName === job.functionName,
   );
   if (duplicateIndex >= 0 && job.kind !== 'rpc') queue[duplicateIndex] = job;
   else queue.push(job);
-  await writeOfflineQueue(queue);
+  return queue;
+  });
+}
+async function mutateOfflineQueue(change: (queue: MutationJob[]) => MutationJob[]) {
+  const operation = offlineChain.then(async () => { await writeOfflineQueue(change(await readOfflineQueue())); });
+  offlineChain = operation.catch(() => {});
+  await operation;
 }
 
 async function executeJob(job: MutationJob) {
   if (!client) throw new Error('Supabase não configurado.');
+  if (!ownsQueuedJob(job)) throw new Error('A ação pendente pertence a outra conta ou não tem origem identificada.');
+  const { data, error } = await client.auth.getSession();
+  if (error || data.session?.user.id !== job.authUserId || !ownsQueuedJob(job)) throw new Error('A conta mudou. A ação foi preservada para o titular original.');
+  const bound = sessionBoundClient(data.session.access_token) as any;
 
   let result: { error: any } | null = null;
   if (job.kind === 'rpc') {
-    result = await client.rpc(job.functionName, job.args);
+    result = await bound.rpc(job.functionName, job.args);
   } else if (job.kind === 'delete') {
-    result = await client.from(job.table).delete().match(job.match);
+    result = await bound.from(job.table).delete().match(job.match);
   } else if (job.kind === 'update') {
-    result = await client.from(job.table).update(job.row).match(job.match);
+    result = await bound.from(job.table).update(job.row).match(job.match);
   } else {
-    result = await client.from(job.table).upsert(job.row, {
+    result = await bound.from(job.table).upsert(job.row, {
       onConflict: job.onConflict,
     });
   }
@@ -159,6 +173,7 @@ async function executeJob(job: MutationJob) {
 function newJob(input: Omit<MutationJob, 'id' | 'createdAt'>): MutationJob {
   return {
     ...input,
+    authUserId: cacheAccount() ?? undefined,
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     createdAt: new Date().toISOString(),
   };
@@ -171,14 +186,14 @@ function scheduleJob(job: MutationJob) {
     .then(async () => {
       try {
         await executeJob(job);
-        setSyncState({
+        if (ownsQueuedJob(job)) setSyncState({
           status: 'synced',
           error: null,
           lastSyncedAt: new Date().toISOString(),
         });
       } catch (error) {
         await enqueueOffline(job);
-        setSyncState({
+        if (ownsQueuedJob(job)) setSyncState({
           status: 'offline',
           error: errorMessage(error),
         });
@@ -189,19 +204,25 @@ function scheduleJob(job: MutationJob) {
 }
 
 async function flushOfflineQueue() {
+  const actor = cacheAccount(), epoch = cacheEpoch();
+  await offlineChain;
   const queue = await readOfflineQueue();
   if (!queue.length) return;
 
-  const remaining: MutationJob[] = [];
+  const completed = new Set<string>();
   for (const job of queue) {
+    if (cacheEpoch() !== epoch || cacheAccount() !== actor) break;
+    if (!ownsQueuedJob(job, actor)) continue;
     try {
       await executeJob(job);
+      completed.add(job.id);
     } catch {
-      remaining.push(job);
+      // Keep failed, foreign and unidentified legacy work without reassigning it.
     }
   }
-  await writeOfflineQueue(remaining);
-  if (remaining.length) {
+  await mutateOfflineQueue(latest => latest.filter(job => !completed.has(job.id)));
+  const remaining = await readOfflineQueue();
+  if (remaining.some(job => ownsQueuedJob(job))) {
     setSyncState({ status: 'offline', error: 'Há alterações aguardando conexão.' });
   }
 }
@@ -400,10 +421,10 @@ function syncPushRegistration(previous: AnyState, next: AnyState) {
   }));
 }
 
-function subscribeStore(name: StoreName): () => void {
+function subscribeStore(name: StoreName, actor: string): () => void {
   const api = storeApi(name);
   return api.subscribe((nextValue, previousValue) => {
-    if (applyingRemote) return;
+    if (applyingRemote || cacheAccount() !== actor) return;
     const next = nextValue as unknown as AnyState;
     const previous = previousValue as unknown as AnyState;
     const root = rootStateFor(name);
@@ -539,7 +560,8 @@ function queueRowsToObject(rows: Record<string, any>[]) {
     }, {});
 }
 
-async function hydrateAll(authUserId: string) {
+async function hydrateAll(authUserId: string, run: number) {
+  const epoch = cacheEpoch();
   const profile = await resolveCurrentPlayer(authUserId);
   const auxiliaryTables = [
     'scoreboard_segments',
@@ -567,6 +589,8 @@ async function hydrateAll(authUserId: string) {
     if (result.status === 'fulfilled') auxiliary[result.value[0]] = result.value[1];
     else errors.push(`${auxiliaryTables[index]}: ${errorMessage(result.reason)}`);
   });
+  if (cacheAccount() !== authUserId || cacheEpoch() !== epoch || syncRun !== run) return;
+  for (const key of ['app','growth','pro'] as const) stateByStore[key].cacheAuthUserId = authUserId;
   attachSpecialChildren(stateByStore, auxiliary);
 
   const preferences = auxiliary.player_preferences?.find((row) => row.player_id === profile.id);
@@ -611,6 +635,7 @@ function realtimeParent(table: string): string {
 }
 
 async function refreshFromRealtime(authUserId: string, changedTables: string[]) {
+  const epoch = cacheEpoch(), run = syncRun;
   try {
     await writeChain;
     const tables = [...new Set(changedTables.map(realtimeParent))];
@@ -680,6 +705,7 @@ async function refreshFromRealtime(authUserId: string, changedTables: string[]) 
       patches[spec.store][spec.stateKey] = values;
     }
 
+    if (cacheAccount() !== authUserId || cacheEpoch() !== epoch || syncRun !== run) return;
     applyingRemote = true;
     try {
       if (Object.keys(patches.app).length) useAppStore.setState(patches.app);
@@ -693,7 +719,7 @@ async function refreshFromRealtime(authUserId: string, changedTables: string[]) 
       lastSyncedAt: new Date().toISOString(),
     });
   } catch (error) {
-    setSyncState({ status: 'offline', error: errorMessage(error) });
+    if (cacheAccount() === authUserId && cacheEpoch() === epoch && syncRun === run) setSyncState({ status: 'offline', error: errorMessage(error) });
   }
 }
 
@@ -709,6 +735,8 @@ function scheduleRefresh(authUserId: string, table: string) {
 }
 
 export async function startSupabaseSync({ authUserId }: StartOptions): Promise<() => void> {
+  const epoch = cacheEpoch(), run = ++syncRun;
+  const current = () => cacheAccount() === authUserId && cacheEpoch() === epoch && syncRun === run;
   activeStop?.();
   activeStop = null;
 
@@ -724,13 +752,16 @@ export async function startSupabaseSync({ authUserId }: StartOptions): Promise<(
       useGrowthStore.persist.rehydrate(),
       useProStore.persist.rehydrate(),
     ]);
+    if (!current()) return () => {};
     await flushOfflineQueue();
-    await hydrateAll(authUserId);
+    if (!current()) return () => {};
+    await hydrateAll(authUserId, run);
+    if (!current()) return () => {};
 
     const unsubscribers = [
-      subscribeStore('app'),
-      subscribeStore('growth'),
-      subscribeStore('pro'),
+      subscribeStore('app', authUserId),
+      subscribeStore('growth', authUserId),
+      subscribeStore('pro', authUserId),
     ];
 
     const channel = client
@@ -740,6 +771,7 @@ export async function startSupabaseSync({ authUserId }: StartOptions): Promise<(
         { event: '*', schema: 'public' },
         (payload: { table?: string }) => {
           const table = payload.table;
+          if (!current()) return;
           if (table && (TABLE_SPECS.some((spec) => spec.table === table) || CHILD_TABLES.has(table))) {
             scheduleRefresh(authUserId, table);
           }
@@ -764,7 +796,7 @@ export async function startSupabaseSync({ authUserId }: StartOptions): Promise<(
     activeStop = stop;
     return stop;
   } catch (error) {
-    setSyncState({
+    if (current()) setSyncState({
       status: 'offline',
       error: errorMessage(error),
     });
@@ -773,6 +805,7 @@ export async function startSupabaseSync({ authUserId }: StartOptions): Promise<(
 }
 
 export function stopSupabaseSync() {
+  syncRun++;
   activeStop?.();
   activeStop = null;
 }

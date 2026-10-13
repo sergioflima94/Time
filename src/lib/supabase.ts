@@ -36,3 +36,12 @@ export const supabase = isMockMode
             detectSessionInUrl: false,
           },
     });
+
+/** Pin queued writes to the verified session that owns them, not a later login. */
+export function sessionBoundClient(accessToken: string) {
+  if (isMockMode) throw new Error('Supabase não configurado.');
+  return createClient<Database>(supabaseUrl!, supabasePublicKey!, {
+    // No additional Auth instance or persisted session is created for a write.
+    accessToken: async () => accessToken,
+  });
+}

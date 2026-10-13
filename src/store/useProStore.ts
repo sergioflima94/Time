@@ -20,6 +20,7 @@ import type {
 import { createUuid } from '@/lib/uuid';
 import { useAppStore } from '@/store/useAppStore';
 import { isMockMode } from '@/lib/supabase';
+import { emptyAccountState, mergeAccountCache, registerAccountCacheReset } from '@/lib/accountCache';
 
 const now = () => new Date().toISOString();
 const uid = createUuid;
@@ -31,6 +32,7 @@ const PLANS: CommercialPlan[] = [
 ];
 
 interface ProState {
+  cacheAuthUserId: string | null;
   checkInPasses: CheckInPass[];
   reliabilityEvents: ReliabilityEvent[];
   seasons: SportSeason[];
@@ -63,7 +65,8 @@ function audit(actorPlayerId: string | null, entityType: AuditEvent['entityType'
 
 export const useProStore = create<ProState>()(
   persist(
-    (set, get) => ({
+    (set, get) => emptyAccountState<ProState>({
+      cacheAuthUserId: null,
       checkInPasses: [],
       reliabilityEvents: [
         { id: 'rel1', entityType: 'player', entityId: 'p1', gameId: 'g0', kind: 'fair_play', points: 6, note: 'Ajudou a organizar o último jogo', createdAt: now() },
@@ -155,7 +158,11 @@ export const useProStore = create<ProState>()(
       },
       enqueueSync: (aggregate, aggregateId, operation, payload) => set((state) => ({ syncQueue: [...state.syncQueue, { id: uid(), aggregate, aggregateId, operation, payload, status: 'pending', attempts: 0, lastError: null, createdAt: now(), syncedAt: null }] })),
       updateSyncMutation: (id, patch) => set((state) => ({ syncQueue: state.syncQueue.map((row) => row.id === id ? { ...row, ...patch } : row) })),
-    }),
-    { name: 'pelada-pro-storage', storage: createJSONStorage(() => AsyncStorage) },
+    }, isMockMode),
+    { name: 'pelada-pro-storage', storage: createJSONStorage(() => AsyncStorage), skipHydration: !isMockMode,
+      merge: (saved, current) => mergeAccountCache(saved, current, isMockMode) },
   ),
 );
+if (!isMockMode) registerAccountCacheReset(() => {
+  if (useProStore.getState().cacheAuthUserId) useProStore.setState(emptyAccountState(useProStore.getState(), false));
+});

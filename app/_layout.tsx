@@ -13,9 +13,11 @@ import { startDemoHistory } from '@/lib/history';
 import { usePlatformStore } from '@/store/usePlatformStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { FriendInviteNavigation } from '@/components/FriendInviteNavigation';
+import { AccountDataGate } from '@/components/AccountDataGate';
 
 export default function RootLayout() {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
+  const authReady = useAuthStore(s => s.authReady);
   useEffect(() => isLoggedIn ? startDemoHistory() : undefined, [isLoggedIn]);
   useNotificationNavigation();
   useAuthSession();
@@ -43,12 +45,12 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
         <SafeAreaProvider>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack screenLayout={({ children }) => <AccountDataGate>{children}</AccountDataGate>} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="auth/callback" />
             <Stack.Screen name="termos" />
             <Stack.Screen name="amigo/[token]" />
-            <Stack.Protected guard={isLoggedIn}>
+            <Stack.Protected guard={!authReady || isLoggedIn}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="conversas" />
               <Stack.Screen name="historico" />

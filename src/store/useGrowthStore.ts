@@ -7,6 +7,7 @@ import { createUuid } from '@/lib/uuid';
 import { getSport } from '@/constants/sports';
 import { buildSportScoreboard } from '@/lib/sportScoreboard';
 import { isMockMode } from '@/lib/supabase';
+import { emptyAccountState, mergeAccountCache, registerAccountCacheReset } from '@/lib/accountCache';
 import { useAppStore } from '@/store/useAppStore';
 import type {
   ChatChannel,
@@ -29,6 +30,7 @@ const nowIso = () => new Date().toISOString();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 interface GrowthState {
+  cacheAuthUserId: string | null;
   scoreboards: MultiSportScoreboard[];
   chatChannels: ChatChannel[];
   chatMessages: ChatMessage[];
@@ -60,7 +62,8 @@ interface GrowthState {
 
 export const useGrowthStore = create<GrowthState>()(
   persist(
-    (set, get) => ({
+    (set, get) => emptyAccountState<GrowthState>({
+      cacheAuthUserId: null,
       scoreboards: [
         {
           id: 'score-volei', sportId: 'volei', title: 'Vôlei da Empresa', homeName: 'Time Azul', awayName: 'Time Laranja',
@@ -233,7 +236,11 @@ export const useGrowthStore = create<GrowthState>()(
         return completed;
       },
       setPushRegistration: (notificationOptIn, pushToken) => set({ notificationOptIn, pushToken }),
-    }),
-    { name: 'pelada-growth-storage', storage: createJSONStorage(() => AsyncStorage) },
+    }, isMockMode),
+    { name: 'pelada-growth-storage', storage: createJSONStorage(() => AsyncStorage), skipHydration: !isMockMode,
+      merge: (saved, current) => mergeAccountCache(saved, current, isMockMode) },
   ),
 );
+if (!isMockMode) registerAccountCacheReset(() => {
+  if (useGrowthStore.getState().cacheAuthUserId) useGrowthStore.setState(emptyAccountState(useGrowthStore.getState(), false));
+});

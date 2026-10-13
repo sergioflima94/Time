@@ -69,6 +69,7 @@ import { createBookingCode, findAlternativeSlots, nextBookingCandidate, normaliz
 import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
 import { addPremiumPeriod } from '@/lib/premium';
 import { isMockMode } from '@/lib/supabase';
+import { emptyAccountState, mergeAccountCache, registerAccountCacheReset } from '@/lib/accountCache';
 import { getSport, sportRules } from '@/constants/sports';
 import { demoPixCode, outstandingByParticipant, splitAmountCents } from '@/lib/paymentGateways';
 import { buildPunishment } from '@/lib/punishment';
@@ -190,6 +191,7 @@ function makeGuestPlayer(name: string): Player {
 const nowIso = () => new Date().toISOString();
 
 interface AppState {
+  cacheAuthUserId: string | null;
   currentPlayerId: string;
   /** Pelada (grupo) que está sendo exibida agora — o jogador pode fazer parte de mais de uma. */
   currentPeladaId: string;
@@ -536,7 +538,8 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set, get) => emptyAccountState<AppState>({
+      cacheAuthUserId: null,
       currentPlayerId: CURRENT_PLAYER_ID,
       currentPeladaId: MOCK_PELADA.id,
       players: MOCK_PLAYERS,
@@ -2708,11 +2711,14 @@ export const useAppStore = create<AppState>()(
           return { payments: [...untouched, ...updated] };
         });
       },
-    }),
+    }, isMockMode),
     {
       name: 'pelada-app-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      skipHydration: !isMockMode,
+      merge: (saved, current) => mergeAccountCache(saved, current, isMockMode),
       partialize: (state) => ({
+        cacheAuthUserId: state.cacheAuthUserId,
         players: state.players,
         peladas: state.peladas,
         memberships: state.memberships,
@@ -2785,3 +2791,6 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+if (!isMockMode) registerAccountCacheReset(() => {
+  if (useAppStore.getState().cacheAuthUserId) useAppStore.setState(emptyAccountState(useAppStore.getState(), false));
+});

@@ -18,6 +18,7 @@ const tables={
 const user={id:actor,aud:'authenticated',role:'authenticated',email:'store-preview@test.invalid',app_metadata:{},user_metadata:{name:own.name},identities:[],created_at:at};
 const token=`${Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')}.${Buffer.from(JSON.stringify({sub:actor,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.fixture-signature`;
 const session={access_token:token,refresh_token:'fixture-only',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user};
+let serverTables=tables,serverOwn=own,serverUser=user,serverSession=session;
 const directory=d.MOCK_FIELDS.slice(0,2).map((f,i)=>({id:'directory-'+i,fieldId:f.id,name:f.name,address:f.address,sportId:f.sportId,sportIds:[f.sportId],phone:null,whatsapp:false,registered:true,online:false,active:true,latitude:null,longitude:null,distanceKm:null,reviewAverage:null,reviewCount:0,revision:1,updatedAt:at}));
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
@@ -37,15 +38,16 @@ async function run(){let browser,page;try{
  await design.locator('img').evaluate(img=>img.decode());await design.screenshot({path:path.join(out,'google-feature-1024x500.png')});await design.close();
  const ctx=await browser.newContext({viewport:{width:360,height:640},deviceScaleFactor:3});
  await ctx.routeWebSocket('**/*',ws=>ws.close());
- let receipt=null,requests=0;
+ let receipt=null,requests=0,unexpectedWrites=0;
  await ctx.route('**/*',route=>{
    const url=new URL(route.request().url());if(url.hostname==='127.0.0.1')return route.continue();
    if(!url.hostname.endsWith('.supabase.co'))return route.abort();
    const table=url.pathname.split('/').pop(),body=route.request().postData()?route.request().postDataJSON():{};
-   let value=tables[table]??[];
-   if(table==='token')value=session;
-   else if(table==='user')value=user;
-   else if(table==='players'&&url.searchParams.has('auth_user_id'))value=snake(own);
+   if(url.pathname.startsWith('/rest/v1/')&&!url.pathname.includes('/rpc/')&&route.request().method()!=='GET'&&route.request().method()!=='OPTIONS')unexpectedWrites++;
+   let value=serverTables[table]??[];
+   if(table==='token')value=serverSession;
+   else if(table==='user')value=serverUser;
+   else if(table==='players'&&url.searchParams.has('auth_user_id'))value=snake(serverOwn);
    else if(table==='platform_configuration')value={settings:{discoveryEnabled:true,referralsEnabled:true,sponsoredEnabled:false,bookingCommissionPercent:0,whatsappMonthlyAllowance:100,trialDays:14}};
    else if(table==='commercial_access_snapshot')value={role:null,licenses:[],agreements:[]};
    else if(table==='growth_snapshot')value={venues:[],buddies:[],slots:[],windows:[],requests:[]};
@@ -81,8 +83,32 @@ async function run(){let browser,page;try{
  await page.getByRole('button',{name:'Atualizar solicitação',exact:true}).click();assert.equal(requests,1);
  await page.getByRole('button',{name:'Cancelar solicitação de exclusão',exact:true}).click();
  await page.getByText(/Solicitação cancelada/).waitFor();assert.equal(receipt.status,'cancelled');
+ // Exercise the real persisted stores and login/logout UI across two identities.
+ await page.getByRole('button',{name:'Sair',exact:true}).click();
+ await page.getByPlaceholder('voce@email.com').waitFor();
+ const storageState=()=>page.evaluate(()=>Object.fromEntries(['pelada-app-storage','pelada-growth-storage','pelada-pro-storage'].map(k=>[k,JSON.parse(localStorage.getItem(k)||'{}').state])));
+ const cleared=await storageState();
+ for(const state of Object.values(cleared)) { assert.equal(state.cacheAuthUserId,null); for(const value of Object.values(state))if(Array.isArray(value))assert.equal(value.length,0); }
+ const actorB='00000000-0000-4000-8000-000000000002';
+ serverOwn={...own,id:'player-b',name:'Revisor Isolado',nickname:'Revisor',authUserId:actorB};
+ serverUser={...user,id:actorB,email:'review-b@test.invalid',user_metadata:{name:serverOwn.name}};
+ const tokenB=`${Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')}.${Buffer.from(JSON.stringify({sub:actorB,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.fixture-signature`;
+ serverSession={...session,user:serverUser,access_token:tokenB,refresh_token:'fixture-b-only'};
+ serverTables={players:[snake(serverOwn)],peladas:[snake({...d.MOCK_PELADAS[0],id:'team-b',name:'Time Isolado B',createdBy:serverOwn.id})],pelada_memberships:[{pelada_id:'team-b',player_id:serverOwn.id,role:'member',active:true,joined_at:at}]};
+ await page.getByPlaceholder('voce@email.com').fill(serverUser.email);
+ await page.getByPlaceholder('••••••••').fill('fixture-b-password-never-real');
+ await page.getByRole('button',{name:'Entrar',exact:true}).click();
+ await page.getByText('Time Isolado B',{exact:true}).waitFor();
+ assert(!(await page.locator('body').innerText()).includes('Lucas'));assert(!(await page.locator('body').innerText()).includes('Resenha FC'));
+ for(const state of Object.values(await storageState()))assert.equal(state.cacheAuthUserId,actorB);
+ await page.goto(`http://127.0.0.1:${port}/time/team-b`,{waitUntil:'networkidle'});
+ await page.getByText('⚽ Time Isolado B',{exact:true}).waitFor();
+ await page.goto(`http://127.0.0.1:${port}/time/pel1`,{waitUntil:'networkidle'});
+ await page.getByText('Time não encontrado.',{exact:true}).waitFor();
+ assert(!(await page.locator('body').innerText()).includes('Resenha FC'));
+ assert.equal(unexpectedWrites,0,'Reset/hydration must not generate REST mutations or cross-account deletes');
  assert.deepEqual(errors,[]);
  for(const f of ['google-icon-512.png','google-feature-1024x500.png',...routes.map(r=>r[1])]){const b=fs.readFileSync(path.join(out,f));assert(b.length<8*1024*1024);console.log(f,b.readUInt32BE(16)+'x'+b.readUInt32BE(20));}
- console.log('PASS: real responsive UI with synthetic data, no external traffic, and deletion request/cancel fixture flow. These are web-rendered UI captures, not proof of native runtime testing.');
+ console.log('PASS: real responsive UI, cold deep links, deletion request/cancel, logout/cache clearing, second-account isolation/reload and no reset writes. No external traffic. Web captures are not proof of native runtime testing.');
 }catch(e){if(page){console.log('Fixture UI:',page.url(),(await page.locator('body').innerText()).slice(0,2500));console.log(await page.evaluate(()=>({keys:Object.keys(localStorage),auth:localStorage.getItem('pelada-auth-storage'),html:document.body.innerHTML.slice(0,1800)})));await page.screenshot({path:path.resolve('.test-runtime/store-release/capture-failure.png')});}throw e;}finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}}
 run().catch(e=>{console.error(e);process.exitCode=1;});

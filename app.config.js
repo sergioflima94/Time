@@ -27,12 +27,12 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.marcoujogou.app',
-      buildNumber: '8',
+      buildNumber: '9',
       // HTTPS is provided by the OS; the app implements no custom encryption.
       infoPlist: { ITSAppUsesNonExemptEncryption: false },
     },
     android: {
-      versionCode: 8,
+      versionCode: 9,
       adaptiveIcon: {
         backgroundColor: '#F5F2EA',
         foregroundImage: './assets/branding/marcoujogou-adaptive.png',

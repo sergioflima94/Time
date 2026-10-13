@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { authErrorMessage, confirmationTokenHash } from '@/lib/authCallback';
 import { getAuthRedirectUrl } from '@/lib/authRedirect';
 import { isMockMode, supabase, supabaseProjectUrl } from '@/lib/supabase';
+import { bindCacheAccount } from '@/lib/accountCache';
 
 interface AuthState {
   isLoggedIn: boolean;
@@ -145,3 +146,7 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+// Registered before UI subscriptions: clear old-account caches synchronously.
+useAuthStore.subscribe(state => {
+  if (!isMockMode && state.authReady) bindCacheAccount(state.isLoggedIn ? state.authUserId : null);
+});

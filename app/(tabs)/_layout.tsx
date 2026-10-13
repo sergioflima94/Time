@@ -3,10 +3,13 @@ import { Tabs } from 'expo-router';
 
 import { AmigosTabIcon } from '@/components/AmigosTabIcon';
 import { colors } from '@/constants/theme';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function TabsLayout() {
+  const actor = useAuthStore(s => s.authUserId);
   return (
     <Tabs
+      key={actor ?? 'demo'}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primaryDark,

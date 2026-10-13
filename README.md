@@ -31,8 +31,9 @@ chave/senha no Git. iOS: a sessão Apple salva expirou; o EAS pede nova autentic
 antes de criar certificado/perfil para o novo bundle. Uma conta Expo autenticada
 não substitui essa autenticação Apple nem a associação ao Apple Developer Program.
 
-O AAB inicial código 7 compilou, mas é substituído pelo código 8 para remover as
-permissões desnecessárias; não enviar o 7. Google Play ainda é um rascunho e os
+Os AABs códigos 7 e 8 compilaram, mas são substituídos pelo código 9: permissões
+desnecessárias removidas e cache/fila offline isolados por conta. Não enviar 7/8.
+Google Play ainda não está publicado e os
 questionários/arquivos/revisão precisam ser concluídos. O objetivo é faixa
 **Produção**, não teste interno/fechado. Criação do rascunho e build concluído não
 significam submissão, aprovação ou publicação. EAS Submit iOS envia ao TestFlight;
@@ -42,6 +43,28 @@ Textos e imagens de loja: `assets/store`. As capturas são da interface Expo web
 com respostas de servidor sintéticas, não prints de um simulador nativo nem de
 clientes reais. `scripts/capture-store-assets.cjs` reproduz a captura sem tráfego
 externo; elas não substituem testes de execução do AAB em Android/iOS.
+
+A ficha pt-BR, logo, recurso gráfico e quatro capturas já foram salvos no Google
+Play como **prontos para revisão**, não publicados. A arte da marca foi rotulada
+conforme sua origem; as capturas mostram a interface real com dados sintéticos.
+
+Conta restrita de revisão criada mediante autorização: sem papel administrativo
+da plataforma, sem acesso aos jogos/financeiro de outros times, com time próprio,
+arena e três modalidades fictícios. Nenhum campo de revisão está publicado no
+diretório; não há integração de cobrança ou envio externo. Acesso por senha com
+e-mail confirmado foi verificado no Supabase. Credenciais ficam apenas no arquivo
+ignorado `.test-runtime/store-release/review-account.json`, a ser usado nos
+formulários privados de revisão das lojas, nunca no Git ou na descrição pública.
+`scripts/provision-store-review.cjs` não é migration nem roda no app; só provisiona
+esse ambiente expressamente autorizado e não troca a senha de conta existente.
+
+Caches locais identificam a conta autenticada. Sair limpa os dados em memória;
+ações offline são preservadas exclusivamente para a conta original, e ações
+legadas sem identidade ficam em quarentena, sem reenvio automático. Gravações
+usam o token da sessão validada, e respostas atrasadas de outra sessão são
+ignoradas. Testes unitários e de navegador cobrem duas contas, saída, recarga,
+links diretos e ausência de exclusões geradas pela limpeza do cache. RLS continua
+sendo a autoridade de acesso; identificação do cache não concede permissão.
 
 No Perfil, a solicitação de exclusão é iniciada no próprio app e gera protocolo
 privado no Supabase. A equipe acompanha em **Admin da plataforma → Exclusão de
