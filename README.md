@@ -31,9 +31,10 @@ chave/senha no Git. iOS: a sessão Apple salva expirou; o EAS pede nova autentic
 antes de criar certificado/perfil para o novo bundle. Uma conta Expo autenticada
 não substitui essa autenticação Apple nem a associação ao Apple Developer Program.
 
-Os AABs códigos 7 e 8 compilaram, mas são substituídos pelo código 9: permissões
-desnecessárias removidas e cache/fila offline isolados por conta. Não enviar 7/8.
-Código 9 concluído no EAS: build `3207d2e8-a08a-4537-9344-909946776d54`,
+Os AABs códigos 7, 8 e 9 são substituídos pelo código 10: permissões
+desnecessárias removidas, cache/fila offline isolados por conta, projeção pública
+de jogadores e aceite de regras antes de usar a comunidade. Não enviar 7/8/9.
+Registro do código 9 (substituído) concluído no EAS: build `3207d2e8-a08a-4537-9344-909946776d54`,
 fonte `ef95c3776359532a1e7c1c4779ada056a81ee6e8`, distribuição STORE. A assinatura
 do AAB foi verificada e o manifesto não contém `RECORD_AUDIO`, `AD_ID`,
 `SYSTEM_ALERT_WINDOW` ou `MobileAdsInitProvider`. SHA-256:
@@ -71,6 +72,10 @@ revogue as licenças apenas quando encerrar esse acesso deliberadamente.
 O login real, link direto do time, arena própria, licença gratuita no perfil e
 saída também passaram em `scripts/verify-store-review-ui.cjs`, com todas as
 gravações de domínio, mensagens e pagamentos bloqueados durante a verificação.
+Com o aceite de regras, a verificação real agora para na tela de consentimento,
+confere o texto público e testa sair sem aceitar; não aceita contrato em nome de
+uma pessoa. A navegação posterior e o aceite isolado por conta são testados com
+respostas sintéticas em `scripts/capture-store-assets.cjs`.
 `scripts/provision-store-review.cjs --grant-licenses` não é migration nem roda no app; só provisiona
 esse ambiente expressamente autorizado e não troca a senha de conta existente.
 
@@ -81,6 +86,22 @@ usam o token da sessão validada, e respostas atrasadas de outra sessão são
 ignoradas. Testes unitários e de navegador cobrem duas contas, saída, recarga,
 links diretos e ausência de exclusões geradas pela limpeza do cache. RLS continua
 sendo a autoridade de acesso; identificação do cache não concede permissão.
+
+A migration `20261012050000` limita a consulta direta de `players` à própria
+conta. Cards/elencos usam `player_profiles_snapshot`, com lista explícita de
+campos: telefone e ID Auth de outra pessoa ficam nulos; localização de terceiros
+só aparece para jogador livre opt-in, arredondada, nunca nas coordenadas originais.
+Conta suspensa/anon não consulta essa projeção. Helpers/RPCs do servidor continuam
+validando permissões para a operação e descoberta por contato. Builds/web antigos
+que ainda consultam a tabela completa verão apenas o próprio perfil; atualize os
+clientes para usar a projeção. Não voltar à política pública de leitura integral.
+
+O cadastro exige aceite dos termos. No primeiro acesso autenticado em cada
+dispositivo/conta, as regras da comunidade são apresentadas antes de fotos,
+comentários, avaliações e mensagens. O aceite local identifica versão e conta,
+nunca concede privilégios. Termos, privacidade, pedido de exclusão e sair sem
+aceitar continuam acessíveis. O administrador deve operar as denúncias e o
+atendimento de exclusão; interface e testes não substituem essa operação humana.
 
 No Perfil, a solicitação de exclusão é iniciada no próprio app e gera protocolo
 privado no Supabase. A equipe acompanha em **Admin da plataforma → Exclusão de

@@ -33,6 +33,7 @@ export default function CadastroScreen() {
   const [favoriteSports, setFavoriteSports] = useState<string[]>(['futebol']);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handlePickPhoto() {
     setPickingPhoto(true);
@@ -52,6 +53,7 @@ export default function CadastroScreen() {
   }
 
   async function handleSubmit() {
+    if (!acceptedTerms) return;
     const ok = await register(isMockMode ? email || 'demo@pelada.app' : email, isMockMode ? password || 'demonstracao' : password, {
       name: name.trim() || 'Novo Jogador', phone: phone.trim() || null, preferredPosition: position, favoriteSports,
     });
@@ -136,7 +138,9 @@ export default function CadastroScreen() {
 
       {authError && <Text style={{ color: colors.danger, marginTop: spacing.sm }}>{authError}</Text>}
       <PrivacyLinks />
-      <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
+      <Button small label="Ler termos de uso" variant="ghost" onPress={() => router.push('/termos')} />
+      <Pressable accessibilityRole="checkbox" accessibilityLabel="Aceito os termos de uso" accessibilityState={{ checked: acceptedTerms }} onPress={() => setAcceptedTerms(v => !v)} style={{ marginTop: spacing.md }}><Text style={{ color: colors.text, lineHeight: 22 }}>{acceptedTerms ? '☑' : '☐'} Li e aceito os termos de uso e as regras da comunidade.</Text></Pressable>
+      <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!acceptedTerms || !name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
     </ScrollView>
   );

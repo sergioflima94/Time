@@ -45,7 +45,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
         <SafeAreaProvider>
           <StatusBar style="dark" />
-          <Stack screenLayout={({ children }) => <AccountDataGate>{children}</AccountDataGate>} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack screenLayout={({ children, route }) => <AccountDataGate legalPage={route.name === 'termos' || route.name === 'auth/callback'}>{children}</AccountDataGate>} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="auth/callback" />
             <Stack.Screen name="termos" />

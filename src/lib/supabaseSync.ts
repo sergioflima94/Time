@@ -451,6 +451,12 @@ function subscribeStore(name: StoreName, actor: string): () => void {
 }
 
 async function fetchRows(table: string): Promise<Record<string, any>[]> {
+  if (table === 'players') {
+    const { data, error } = await client.rpc('player_profiles_snapshot');
+    if (error) throw error;
+    if (!Array.isArray(data)) throw new Error('Resposta de perfis inválida.');
+    return data;
+  }
   const { data, error } = await client.from(table).select('*');
   if (error) throw error;
   return data ?? [];

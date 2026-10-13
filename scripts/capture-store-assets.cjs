@@ -48,6 +48,7 @@ async function run(){let browser,page;try{
    if(table==='token')value=serverSession;
    else if(table==='user')value=serverUser;
    else if(table==='players'&&url.searchParams.has('auth_user_id'))value=snake(serverOwn);
+   else if(table==='player_profiles_snapshot')value=serverTables.players;
    else if(table==='platform_configuration')value={settings:{discoveryEnabled:true,referralsEnabled:true,sponsoredEnabled:false,bookingCommissionPercent:0,whatsappMonthlyAllowance:100,trialDays:14}};
    else if(table==='commercial_access_snapshot')value={role:null,licenses:[],agreements:[]};
    else if(table==='growth_snapshot')value={venues:[],buddies:[],slots:[],windows:[],requests:[]};
@@ -65,6 +66,11 @@ async function run(){let browser,page;try{
  await page.getByPlaceholder('voce@email.com').fill(user.email);
  await page.getByPlaceholder('••••••••').fill('fixture-password-never-real');
  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+ await page.getByText('Antes de participar',{exact:true}).waitFor();
+ assert(!(await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).isEnabled()));
+ await page.getByRole('button',{name:'Ler termos de uso',exact:true}).click();
+ await page.getByText('Termos de uso · MarcouJogou',{exact:true}).waitFor();await page.getByRole('button',{name:'Voltar',exact:true}).click();
+ await page.getByRole('checkbox',{name:'Aceito os termos e as regras da comunidade',exact:true}).click();await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).click();
  await page.getByText('Seus times',{exact:true}).waitFor();
  const routes=[['/','01-home-phone.png','Seus times'],['/times','02-times-phone.png','Times'],['/time/pel1','03-time-phone.png','⚽ Resenha FC'],['/campos','04-campos-phone.png','Campos perto de você']];
  for(const [route,file,label] of routes){
@@ -98,6 +104,9 @@ async function run(){let browser,page;try{
  await page.getByPlaceholder('voce@email.com').fill(serverUser.email);
  await page.getByPlaceholder('••••••••').fill('fixture-b-password-never-real');
  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+ await page.getByText('Antes de participar',{exact:true}).waitFor();
+ assert(!(await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).isEnabled()),'Another account must not inherit terms acceptance');
+ await page.getByRole('checkbox',{name:'Aceito os termos e as regras da comunidade',exact:true}).click();await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).click();
  await page.getByText('Time Isolado B',{exact:true}).waitFor();
  assert(!(await page.locator('body').innerText()).includes('Lucas'));assert(!(await page.locator('body').innerText()).includes('Resenha FC'));
  for(const state of Object.values(await storageState()))assert.equal(state.cacheAuthUserId,actorB);

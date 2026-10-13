@@ -9249,6 +9249,7 @@ export type Database = {
           vote_count: number
         }[]
       }
+      player_profiles_snapshot: { Args: never; Returns: Json }
       prepare_commercial_checkout: {
         Args: { p_agreement: string; p_terms: string }
         Returns: Json

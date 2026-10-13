@@ -108,6 +108,7 @@ async function run() {
       else if (url.pathname.endsWith("/user")) json = user;
       else if (url.pathname.endsWith("/players"))
         json = url.searchParams.has("auth_user_id") ? player : [player];
+      else if (url.pathname.endsWith("/player_profiles_snapshot")) json = [player];
       else if (url.pathname.endsWith("/platform_configuration"))
         json = {
           settings: { discoveryEnabled: true, sponsoredEnabled: false },
@@ -282,6 +283,7 @@ async function run() {
     await page.getByPlaceholder("voce@email.com").fill(user.email);
     await page.getByPlaceholder("••••••••").fill("test-only");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await page.getByRole('checkbox',{name:'Aceito os termos e as regras da comunidade',exact:true}).click();await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).click();
     await page.waitForURL(base + "/");
     await page.goto(base + `/operacao/aulas?establishmentId=${venue}`);
     await page.getByText(cp.name, { exact: true }).waitFor();

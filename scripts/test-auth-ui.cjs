@@ -56,6 +56,8 @@ async function run() {
     await page.getByPlaceholder('Seu nome', { exact: true }).fill('Validação');
     await page.getByPlaceholder('voce@email.com', { exact: true }).fill('validation@example.invalid');
     await page.getByPlaceholder('Mínimo de 6 caracteres').fill('test-password');
+    assert(!(await page.getByRole('button',{name:'Criar conta',exact:true}).isEnabled()));
+    await page.getByRole('checkbox',{name:'Aceito os termos de uso',exact:true}).click();
     await page.getByRole('button', { name: 'Criar conta', exact: true }).click();
     await page.getByText('Confira seu e-mail', { exact: true }).waitFor();
     assert(page.url().endsWith('/confirmar-email'));

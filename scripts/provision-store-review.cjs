@@ -55,6 +55,8 @@ async function run(){
  stage='test-review-login-and-permissions';
  const reviewer=createClient(url,pub,options);const login=await reviewer.auth.signInWithPassword({email,password:account.password});assert(!login.error&&login.data.user?.id===account.authUserId);
  const access=await checked(reviewer.rpc('commercial_access_snapshot'));assert.equal(access.role,null);
+ const privateProfiles=await checked(reviewer.from('players').select('id,auth_user_id,phone'));assert(privateProfiles.every(p=>p.auth_user_id===account.authUserId));
+ const publicProfiles=await checked(reviewer.rpc('player_profiles_snapshot'));assert(Array.isArray(publicProfiles));assert(publicProfiles.filter(p=>p.id!==player.id).every(p=>p.phone===null&&p.auth_user_id===null));
  if(process.argv.includes('--grant-licenses'))assert(['player','team','establishment'].every(a=>access.licenses.some(l=>l.audience===a&&l.targetId==={player:player.id,team,establishment:venue}[a]&&!l.paid)));
  const forbidden=await reviewer.rpc('platform_console_snapshot',{p_query:''});assert(forbidden.error,'Platform console must be denied');
  const memberships=await checked(reviewer.from('pelada_memberships').select('pelada_id').eq('player_id',player.id));assert(memberships.every(m=>m.pelada_id===team));

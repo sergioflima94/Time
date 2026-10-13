@@ -8,7 +8,7 @@ async function run(){try{
  await new Promise(r=>server.listen(port,'127.0.0.1',r));browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
  const ctx=await browser.newContext({viewport:{width:390,height:844}}),errors=[];let blockedWrites=0;
  await ctx.routeWebSocket('**/*',ws=>ws.close());
- const readRpcs=new Set(['commercial_access_snapshot','growth_snapshot','account_deletion_self','venue_reviews_snapshot','platform_console_snapshot']);
+ const readRpcs=new Set(['commercial_access_snapshot','growth_snapshot','account_deletion_self','venue_reviews_snapshot','platform_console_snapshot','player_profiles_snapshot']);
  await ctx.route('**/*',route=>{
   const req=route.request(),u=new URL(req.url());if(u.hostname==='127.0.0.1')return route.continue();
   if(u.hostname!==`${account.project}.supabase.co`)return route.abort();
@@ -24,12 +24,13 @@ async function run(){try{
  });
  const page=await ctx.newPage();page.setDefaultTimeout(60000);page.on('pageerror',()=>errors.push('Runtime error'));
  stage='login';await page.goto(`http://127.0.0.1:${port}/login`);await page.getByPlaceholder('voce@email.com').fill(account.email);await page.getByPlaceholder('••••••••').fill(account.password);await page.getByRole('button',{name:'Entrar',exact:true}).click();
- await page.getByText('[REVISÃO] Time de Demonstração',{exact:true}).first().waitFor();
- stage='cold-team-link';await page.goto(`http://127.0.0.1:${port}/time/${account.teamId}`);await page.getByText('⚽ [REVISÃO] Time de Demonstração',{exact:true}).waitFor();
- stage='own-venue';await page.goto(`http://127.0.0.1:${port}/estabelecimento`);await page.getByText('[REVISÃO] Arena de Demonstração',{exact:true}).waitFor();
- stage='license-and-logout';await page.goto(`http://127.0.0.1:${port}/perfil`);await page.getByText('Premium por licença concedida',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Sair',exact:true}).click();await page.getByPlaceholder('voce@email.com').waitFor();
+ await page.getByText('Antes de participar',{exact:true}).waitFor();
+ assert(!(await page.getByRole('button',{name:'Aceitar e continuar',exact:true}).isEnabled()));
+ stage='public-terms';await page.getByRole('button',{name:'Ler termos de uso',exact:true}).click();await page.getByText('Regras da comunidade',{exact:true}).waitFor();
+ stage='cold-team-link-consent';await page.goto(`http://127.0.0.1:${port}/time/${account.teamId}`);await page.getByText('Antes de participar',{exact:true}).waitFor();
+ assert.equal(await page.getByText('⚽ [REVISÃO] Time de Demonstração',{exact:true}).count(),0);
+ stage='leave-without-accepting';await page.getByRole('button',{name:'Sair sem aceitar',exact:true}).click();await page.getByPlaceholder('voce@email.com').waitFor();
  assert.equal(blockedWrites,0);assert.deepEqual(errors,[]);
- console.log('PASS: real restricted reviewer password login, cold team link, own arena, free-license UI and logout. Backend writes/payment/message endpoints were blocked. No private output or customer screenshots.');
+ console.log('PASS: real restricted reviewer login, mandatory rules before social access/cold links, public terms and logout without accepting. No agreement accepted on behalf of a person, domain writes, payment/messages, private output or customer screenshots.');
 }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}}
 run().catch(e=>{console.error('Reviewer UI verification failed at '+stage+'; no private response, token or credentials printed.',{type:e.name,assertion:e.code,actualCount:typeof e.actual==='number'?e.actual:undefined,blockedRoutes:[...new Set(diagnostics)]});process.exitCode=1;});
