@@ -26,6 +26,11 @@
   },
   "submit": {
     "production": {},
-    "store": {}
+    "store": {
+      "ios": {
+        "ascAppId": "6822250993",
+        "appleId": "sergioferreiralima09@gmail.com"
+      }
+    }
   }
 }
