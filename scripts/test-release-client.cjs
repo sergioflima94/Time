@@ -1,0 +1,7 @@
+const fs=require('node:fs'),Module=require('node:module'),ts=require('typescript'),assert=require('node:assert/strict'),path=require('node:path');
+function load(file){const m=new Module(path.resolve(file));m._compile(ts.transpileModule(fs.readFileSync(m.id,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,m.id);return m.exports;}
+const hub=load('src/lib/playHub.ts');assert(hub.validPlayHubSnapshot(hub.emptyPlayHub()));
+for(const bad of [null,[],{},'invalid',{...hub.emptyPlayHub(),slots:null},{...hub.emptyPlayHub(),venues:undefined}])assert.equal(hub.validPlayHubSnapshot(bad),false);
+const original=Module._load;let cancelled=false,calls=0;
+Module._load=function(name,...rest){if(name==='expo-image-picker')return{launchImageLibraryAsync:async options=>{calls++;assert.deepEqual(options.mediaTypes,['images']);return cancelled?{canceled:true}:{canceled:false,assets:[{uri:'file:///fixture.jpg'}]};}};return original.call(this,name,...rest);};
+(async()=>{try{const photo=load('src/lib/photo.ts');assert.equal((await photo.pickPhotoAsset()).uri,'file:///fixture.jpg');cancelled=true;assert.equal(await photo.pickProfilePhoto(),null);assert.equal(calls,2);console.log('PASS: malformed growth response rejected before Home rendering; image-only system picker without broad gallery permission and safe cancellation.');}finally{Module._load=original;}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -4,11 +4,11 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const config = require('../app.config.js').expo;
 assert.equal(config.name, 'MarcouJogou');
-assert.equal(config.version, '1.0.4');
-assert.equal(config.android.versionCode, 5);
-// Upgrade/session/callback compatibility is deliberate, not old public branding.
-assert.equal(config.android.package, 'com.pelada.app');
-assert.equal(config.ios.bundleIdentifier, 'com.pelada.app');
+assert.equal(config.version, require('../package.json').version);
+assert(config.android.versionCode >= 8);
+// The legacy package is unavailable on Play; callbacks/project stay compatible.
+assert.equal(config.android.package, 'com.marcoujogou.app');
+assert.equal(config.ios.bundleIdentifier, 'com.marcoujogou.app');
 assert.equal(config.scheme, 'pelada');
 assert.equal(config.slug, 'pelada-app');
 assert.equal(config.extra.eas.projectId, 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea');

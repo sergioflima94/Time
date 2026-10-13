@@ -34,7 +34,9 @@ async function run() {
     await profile.goto(app+'/perfil',{waitUntil:'domcontentloaded',timeout:90000});
     await profile.getByText('Privacidade e conta',{exact:true}).waitFor({timeout:90000});
     await openLink(logged,profile,'Política de Privacidade','/politica-de-privacidade/','Política de Privacidade');
-    await openLink(logged,profile,'Solicitar exclusão da conta','/excluir-conta/','Excluir minha conta e meus dados');
+    await profile.getByRole('button',{name:'Solicitar exclusão da conta',exact:true}).click();
+    await profile.getByText('Digite EXCLUIR para confirmar a solicitação',{exact:true}).waitFor();
+    assert.equal(await profile.getByRole('button',{name:'Enviar pedido de exclusão',exact:true}).isDisabled(),true,'Demo must not submit a real deletion request');
     const out = path.resolve(__dirname,'../.test-runtime/public-site-shots'); fs.mkdirSync(out,{recursive:true});
     await profile.getByRole('button',{name:'Solicitar exclusão da conta',exact:true}).scrollIntoViewIfNeeded();
     await profile.screenshot({path:path.join(out,'perfil-privacidade-390.png')});
@@ -44,7 +46,7 @@ async function run() {
     await login.goto(app+'/cadastro',{waitUntil:'domcontentloaded',timeout:90000});
     await openLink(anonymous,login,'Política de Privacidade','/politica-de-privacidade/','Política de Privacidade');
     assert.deepEqual(errors,[]);
-    console.log('PASS: Perfil abre política e exclusão públicas; login/cadastro abrem política sem criar conta. Nenhum pedido real enviado.');
+    console.log('PASS: public privacy links and in-app deletion initiation; demo cannot submit a real deletion request. Login/cadastro open privacy without creating an account.');
   } finally {await browser.close();}
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

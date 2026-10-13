@@ -37,6 +37,8 @@ export function NativeSubscriptionControls({ paymentSource }: { paymentSource?: 
   }
   const copy = { color: colors.textMuted, fontSize: 12, lineHeight: 18 };
   const manage = subscriptionManagementUrl(status?.source ?? paymentSource);
+  // A free store release does not advertise an unfinished checkout.
+  if (!nativeBillingConfigured && !manage) return <Text style={copy}>Quadras, aulas presenciais, comandas e produtos são pagos separadamente ao estabelecimento. Não há ofertas de assinatura digital disponíveis nesta versão.</Text>;
   return <View style={{ gap: 10 }}>
     <Text style={copy}>Premium do aplicativo: {nativeStoreLabel}. Quadras, aulas presenciais, comandas e produtos são pagos separadamente ao estabelecimento.</Text>
     {!nativeBillingConfigured ? <Text style={copy}>Assinatura pela loja em preparação. Nenhuma compra está disponível nesta versão.</Text> : <>

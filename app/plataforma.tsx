@@ -17,11 +17,12 @@ import { CommercialLicensePanel } from '@/components/CommercialLicensePanel';
 import { AssistedVenuePanel } from '@/components/PlayHubPanels';
 import { FieldDirectoryEditor } from '@/components/FieldDirectoryEditor';
 import { PlatformWhatsAppPanel } from '@/components/PlatformWhatsAppPanel';
+import { AccountDeletionAdminPanel } from '@/components/AccountDeletionPanel';
 import { usePlatformAccessStore } from '@/store/usePlatformAccessStore';
 import type { CommercialPlan } from '@/types/pro';
 import { validatePlatformSettings, type PlatformAction, type PlatformSettings, type PlatformSnapshot } from '@/types/platform';
 
-const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Licenças e ofertas', 'Configurações', 'Integrações WhatsApp', 'Denúncias', 'Equipe admin', 'Auditoria'] as const;
+const TABS = ['Visão geral', 'Usuários', 'Times e campos', 'Esportes', 'Planos', 'Licenças e ofertas', 'Configurações', 'Integrações WhatsApp', 'Denúncias', 'Exclusão de contas', 'Equipe admin', 'Auditoria'] as const;
 type PendingAction = { action: PlatformAction; id: string | null; payload: Record<string, unknown>; description: string };
 
 export default function PlatformConsoleScreen() {
@@ -66,6 +67,7 @@ export default function PlatformConsoleScreen() {
       </Card>}
 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{TABS.filter(t => !['Equipe admin','Licenças e ofertas'].includes(t) || role === 'owner').filter(t => t !== 'Integrações WhatsApp' || role !== 'support').map(t => <Pressable key={t} onPress={() => { setTab(t); setPending(null); }} style={[styles.tab, tab === t && styles.activeTab]}><Text style={[styles.tabText, tab === t && { color: colors.primaryDark }]}>{t}</Text></Pressable>)}</ScrollView>
       {tab === 'Integrações WhatsApp' && role !== 'support' && <PlatformWhatsAppPanel />}
+      {tab === 'Exclusão de contas' && <AccountDeletionAdminPanel />}
       {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       {tab==='Denúncias'&&<Button small variant="outline" label="Moderar avaliações de campos e estabelecimentos" onPress={()=>router.push({pathname:'/avaliacoes',params:{moderation:'1'}})} />}
       {['Usuários','Times e campos','Equipe admin','Licenças e ofertas'].includes(tab) && <><TextField label="Buscar nome" value={query} onChangeText={setQuery} placeholder="Jogador, time ou estabelecimento" /><Button label="Buscar na plataforma" small variant="outline" onPress={() => void load(query)} loading={loading} /><Text style={styles.caption}>Até 100 resultados por categoria. Refine o nome para localizar contas mais antigas.</Text></>}
@@ -74,6 +76,7 @@ export default function PlatformConsoleScreen() {
         onRevoke={a=>setPending({action:'commercial_revoke',id:a.id,payload:{revision:a.revision},description:'Revogar esta licença/oferta sem apagar o histórico. Não cancela contratos pagos nem estorna pagamentos já existentes.'})} />}
       {pending && <Card style={{ borderColor: colors.warning }}><Text style={styles.sectionTitle}>Confirmar alteração</Text><Text style={styles.copy}>{pending.description}</Text><TextField label="Motivo (mínimo 8 caracteres)" value={reason} onChangeText={setReason} multiline placeholder="Explique a decisão para a auditoria" /><View style={styles.row}><Button label="Cancelar" variant="ghost" small onPress={() => setPending(null)} disabled={busy} /><Button label="Confirmar e registrar" small onPress={() => void confirm()} loading={busy} disabled={reason.trim().length < 8} /></View></Card>}
       {tab === 'Visão geral' && <>
+        <Card><Text style={styles.sectionTitle}>Privacidade: pedidos de exclusão</Text><AccountDeletionAdminPanel compact onOpen={() => setTab('Exclusão de contas')} /></Card>
         <View style={styles.metrics}>{Object.entries({ Jogadores: snapshot.metrics.players, Times: snapshot.metrics.teams, Estabelecimentos: snapshot.metrics.establishments, 'Jogos futuros': snapshot.metrics.upcomingGames, 'Denúncias abertas': snapshot.metrics.openReports, 'Assinaturas ativas': snapshot.metrics.activeSubscriptions }).map(([label, value]) => <View style={styles.metric} key={label}><Text style={styles.value}>{value}</Text><Text style={styles.caption}>{label}</Text></View>)}</View>
         <Card><Text style={styles.sectionTitle}>Prioridades de atendimento</Text><Text style={styles.copy}>{snapshot.metrics.openReports ? `${snapshot.metrics.openReports} denúncias precisam de análise.` : 'Nenhuma denúncia aguardando análise.'}</Text><Text style={styles.copy}>Planos e regras comerciais ficam em configuração; recebimentos do estabelecimento não são receita do aplicativo. Assinaturas em teste não entram no total de assinantes ativos.</Text><Button small label="Atualizar indicadores" variant="outline" loading={loading} onPress={() => void load()} /></Card>
       </>}

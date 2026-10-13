@@ -320,6 +320,47 @@ export type Database = {
           },
         ]
       }
+      account_deletion_requests: {
+        Row: {
+          auth_user_id: string | null
+          completed_at: string | null
+          expected_by: string
+          id: string
+          player_id: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          completed_at?: string | null
+          expected_by?: string
+          id?: string
+          player_id?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          completed_at?: string | null
+          expected_by?: string
+          id?: string
+          player_id?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_deletion_requests_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_comments: {
         Row: {
           activity_id: string
@@ -3771,78 +3812,6 @@ export type Database = {
           },
         ]
       }
-      native_app_subscriptions: {
-        Row: {
-          active: boolean
-          auth_user_id: string
-          auto_renew: boolean
-          checked_at: string
-          expires_at: string | null
-          plan_id: string
-          player_id: string
-          product_id: string | null
-          since_at: string | null
-          source: string | null
-        }
-        Insert: {
-          active?: boolean
-          auth_user_id: string
-          auto_renew?: boolean
-          checked_at: string
-          expires_at?: string | null
-          plan_id: string
-          player_id: string
-          product_id?: string | null
-          since_at?: string | null
-          source?: string | null
-        }
-        Update: {
-          active?: boolean
-          auth_user_id?: string
-          auto_renew?: boolean
-          checked_at?: string
-          expires_at?: string | null
-          plan_id?: string
-          player_id?: string
-          product_id?: string | null
-          since_at?: string | null
-          source?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "native_app_subscriptions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "commercial_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "native_app_subscriptions_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: true
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      native_billing_requests: {
-        Row: {
-          attempts: number
-          auth_user_id: string
-          window_start: string
-        }
-        Insert: {
-          attempts?: number
-          auth_user_id: string
-          window_start?: string
-        }
-        Update: {
-          attempts?: number
-          auth_user_id?: string
-          window_start?: string
-        }
-        Relationships: []
-      }
       multi_sport_scoreboards: {
         Row: {
           away_name: string
@@ -3914,6 +3883,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      native_app_subscriptions: {
+        Row: {
+          active: boolean
+          auth_user_id: string
+          auto_renew: boolean
+          checked_at: string
+          expires_at: string | null
+          plan_id: string
+          player_id: string
+          product_id: string | null
+          since_at: string | null
+          source: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id: string
+          auto_renew?: boolean
+          checked_at: string
+          expires_at?: string | null
+          plan_id: string
+          player_id: string
+          product_id?: string | null
+          since_at?: string | null
+          source?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string
+          auto_renew?: boolean
+          checked_at?: string
+          expires_at?: string | null
+          plan_id?: string
+          player_id?: string
+          product_id?: string | null
+          since_at?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "native_app_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "native_app_subscriptions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      native_billing_requests: {
+        Row: {
+          attempts: number
+          auth_user_id: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          auth_user_id: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          auth_user_id?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       onboarding_preferences: {
         Row: {
@@ -4569,6 +4610,27 @@ export type Database = {
           },
         ]
       }
+      platform_configuration: {
+        Row: {
+          id: boolean
+          revision: number
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          revision?: number
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          revision?: number
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_whatsapp_integrations: {
         Row: {
           enabled: boolean
@@ -4608,27 +4670,6 @@ export type Database = {
           tested_at?: string | null
           updated_at?: string
           url?: string
-        }
-        Relationships: []
-      }
-      platform_configuration: {
-        Row: {
-          id: boolean
-          revision: number
-          settings: Json
-          updated_at: string
-        }
-        Insert: {
-          id?: boolean
-          revision?: number
-          settings?: Json
-          updated_at?: string
-        }
-        Update: {
-          id?: boolean
-          revision?: number
-          settings?: Json
-          updated_at?: string
         }
         Relationships: []
       }
@@ -8878,6 +8919,11 @@ export type Database = {
         Returns: boolean
       }
       academy_snapshot: { Args: { p_venue?: string }; Returns: Json }
+      account_deletion_admin: {
+        Args: { p_action?: string; p_request?: string }
+        Returns: Json
+      }
+      account_deletion_self: { Args: { p_action?: string }; Returns: Json }
       activity_history_access: {
         Args: { e: Database["public"]["Tables"]["activity_history"]["Row"] }
         Returns: boolean
@@ -8911,14 +8957,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      can_operate_establishment: {
-        Args: { p_establishment_id: string }
-        Returns: boolean
-      }
-      can_receive_establishment_payment: {
-        Args: { p_establishment_id: string }
-        Returns: boolean
-      }
       apply_native_subscription: {
         Args: {
           p_active: boolean
@@ -8933,16 +8971,19 @@ export type Database = {
         }
         Returns: undefined
       }
-      claim_native_sync: { Args: { p_user: string }; Returns: boolean }
-      native_subscription_status: { Args: never; Returns: Json }
+      can_operate_establishment: {
+        Args: { p_establishment_id: string }
+        Returns: boolean
+      }
+      can_receive_establishment_payment: {
+        Args: { p_establishment_id: string }
+        Returns: boolean
+      }
       claim_commercial_preference: {
         Args: { p_order: string }
         Returns: boolean
       }
-      platform_whatsapp_service: {
-        Args: { p_action: string; p_data: Json }
-        Returns: Json
-      }
+      claim_native_sync: { Args: { p_user: string }; Returns: boolean }
       commercial_access_snapshot: { Args: never; Returns: Json }
       commercial_admin_data: { Args: never; Returns: Json }
       commercial_agreement_json: {
@@ -9179,6 +9220,7 @@ export type Database = {
         Returns: Json
       }
       manage_field_directory: { Args: never; Returns: Json }
+      native_subscription_status: { Args: never; Returns: Json }
       open_game_admin_data: { Args: { p_game_id: string }; Returns: Json }
       phone_ownership_service: {
         Args: { p_action: string; p_data: Json }
@@ -9196,6 +9238,10 @@ export type Database = {
         Returns: undefined
       }
       platform_console_snapshot: { Args: { p_query?: string }; Returns: Json }
+      platform_whatsapp_service: {
+        Args: { p_action: string; p_data: Json }
+        Returns: Json
+      }
       player_banter_summary: {
         Args: { p_target_player_id: string }
         Returns: {

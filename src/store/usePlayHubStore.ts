@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { findBookingConflicts, findClassBookingConflicts } from '@/lib/fieldBooking';
 import { fieldSportIds } from '@/lib/fieldSports';
 import { isMockMode, supabase } from '@/lib/supabase';
-import { emptyPlayHub, compatibleWindows, slotSports, validateSlot, validateWindow, type PlayHubSnapshot } from '@/lib/playHub';
+import { emptyPlayHub, validPlayHubSnapshot, compatibleWindows, slotSports, validateSlot, validateWindow, type PlayHubSnapshot } from '@/lib/playHub';
 import { useAppStore } from './useAppStore';
 import { useAuthStore } from './useAuthStore';
 import type { Json } from '@/types/supabase.generated';
@@ -37,7 +37,9 @@ export const usePlayHubStore = create<State>((set,get)=>({
           onboarding:prefs.get(me)??null};
       } else {
         if(!supabase)throw new Error('Backend indisponível.');
-        const {data:rows,error}=await supabase.rpc('growth_snapshot'); if(error)throw new Error(error.message); data=rows as unknown as PlayHubSnapshot;
+        const {data:rows,error}=await supabase.rpc('growth_snapshot'); if(error)throw new Error(error.message);
+        if (!validPlayHubSnapshot(rows)) throw new Error('Não foi possível carregar os horários. Atualize e tente novamente.');
+        data=rows;
       }
       if(session()===key&&epoch===loadEpoch)set({data,accessFor:key,loading:false});
     }catch(e){if(session()===key&&epoch===loadEpoch)set({data:emptyPlayHub(),accessFor:key,loading:false,error:e instanceof Error?e.message:'Falha ao carregar.'});}

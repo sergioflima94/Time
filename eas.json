@@ -15,10 +15,17 @@
     "production": {
       "environment": "production",
       "env": { "EXPO_PUBLIC_ADMOB_MODE": "production" },
-      "autoIncrement": true
+      "autoIncrement": false
+    },
+    "store": {
+      "extends": "production",
+      "environment": "production",
+      "env": { "EXPO_PUBLIC_ADMOB_MODE": "off" },
+      "android": { "buildType": "app-bundle" }
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "store": {}
   }
 }

@@ -7,9 +7,8 @@ export async function pickProfilePhoto(): Promise<string | null> {
 
 /** Keeps the browser File for uploads without fetching a local blob URL. */
 export async function pickPhotoAsset(): Promise<ImagePicker.ImagePickerAsset | null> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) return null;
-
+  // SDK 57's system picker grants access to the chosen image; do not request
+  // broad gallery access for an image-only selection (also preserves web gestures).
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: true,

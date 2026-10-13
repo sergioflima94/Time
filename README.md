@@ -1,5 +1,56 @@
 # MarcouJogou
 
+## Release para as lojas — 1.0.6
+
+O identificador reservado no Google Play é **`com.marcoujogou.app`** (app da conta
+SL Design, ID `4975901344339388011`). `com.pelada.app` já estava ocupado na loja;
+por isso o pacote Android e o bundle iOS agora usam a marca. Isso é um novo app
+em relação aos APKs antigos, não uma atualização instalável sobre eles. Scheme
+`pelada`, projeto EAS e Supabase foram preservados para manter os callbacks.
+
+O perfil **`store`** do `eas.json` gera distribuição de loja, AAB no Android e usa
+o ambiente EAS **production**, com as variáveis públicas do Supabase configuradas.
+Não gera Expo Go nem build de desenvolvimento. Anúncios ficam desligados enquanto
+o AdMob está recusado: o SDK nativo e seu plugin são excluídos, `AD_ID` é bloqueado.
+Microfone é bloqueado porque não há gravação de áudio; sobreposição sobre outros
+apps também é bloqueada no perfil de loja. O perfil `production` separado mantém
+a preparação para anúncios reais, com validação dos IDs.
+
+As versões são locais: atualize `version`, `android.versionCode` e, em novas
+versões iOS, `ios.buildNumber` antes de um novo envio. Incremento automático foi
+desligado porque EAS não o aplica ao `app.config.js` com versão local.
+
+```sh
+eas build --platform android --profile store
+eas credentials:configure-build --platform ios --profile store
+eas build --platform ios --profile store
+```
+
+Credencial Android: keystore remoto criado no EAS para o novo pacote. Não guardar
+chave/senha no Git. iOS: a sessão Apple salva expirou; o EAS pede nova autenticação
+antes de criar certificado/perfil para o novo bundle. Uma conta Expo autenticada
+não substitui essa autenticação Apple nem a associação ao Apple Developer Program.
+
+O AAB inicial código 7 compilou, mas é substituído pelo código 8 para remover as
+permissões desnecessárias; não enviar o 7. Google Play ainda é um rascunho e os
+questionários/arquivos/revisão precisam ser concluídos. O objetivo é faixa
+**Produção**, não teste interno/fechado. Criação do rascunho e build concluído não
+significam submissão, aprovação ou publicação. EAS Submit iOS envia ao TestFlight;
+o envio final para App Review é outra etapa no App Store Connect.
+
+Textos e imagens de loja: `assets/store`. As capturas são da interface Expo web
+com respostas de servidor sintéticas, não prints de um simulador nativo nem de
+clientes reais. `scripts/capture-store-assets.cjs` reproduz a captura sem tráfego
+externo; elas não substituem testes de execução do AAB em Android/iOS.
+
+No Perfil, a solicitação de exclusão é iniciada no próprio app e gera protocolo
+privado no Supabase. A equipe acompanha em **Admin da plataforma → Exclusão de
+contas**. O atendimento é manual, com previsão inicial de sete dias; não há
+apagamento ou confirmação por e-mail automáticos. Leia o procedimento em
+[Operação de exclusão de contas](docs/operacao-exclusao-contas.md) e mantenha esse
+atendimento operacional antes da publicação. Nenhuma conta real foi apagada
+ao implementar ou testar esse recurso.
+
 ## Operação do campo, professores e preços de aulas
 
 Na Home, **Meu acesso nos campos** abre os estabelecimentos em que a conta é dona
@@ -517,8 +568,9 @@ Premium, diretório, pagamentos e mensagens do backend usam a nova marca.
 O APK usa o ícone adaptativo com margem segura, a mesma máscara alpha para
 ícones temáticos e splash nativo com fundos claro/escuro via plugin Expo 57.
 
-Para preservar atualizações por cima do APK existente, autenticação e dados,
-os identificadores técnicos `com.pelada.app`, scheme `pelada`, slug EAS
+No rebranding dos APKs antigos, `com.pelada.app` foi preservado. Para a estreia
+nas lojas, o pacote mudou para `com.marcoujogou.app` porque o anterior estava
+ocupado no Google Play (veja Release 1.0.6). Scheme `pelada`, slug EAS
 `pelada-app`, projectId EAS e chaves de cache antigas **não foram renomeados**.
 Não são nomes mostrados ao usuário. Migrações já aplicadas e notas históricas
 não são reescritas; a nova migração troca a marca nas próximas reservas.
@@ -1690,7 +1742,7 @@ continuam independentes da assinatura; não cancelam cobrança existente.
 
 #### Configuração antes de vender Premium
 
-1. Cadastrar o app `com.pelada.app` nas lojas e criar uma assinatura mensal em cada
+1. Cadastrar o app `com.marcoujogou.app` nas lojas e criar uma assinatura mensal em cada
    uma, com preços/benefícios e políticas de cancelamento claros. Produtos exigem
    configuração nas lojas; não são criados pelo aplicativo.
 2. Criar um projeto RevenueCat, conectar Google Play e App Store, importar os
@@ -1821,7 +1873,7 @@ cliente nunca marca uma cobrança real como paga.
    Não foram criados App IDs/Banner IDs reais nem ativados anúncios no site.
    Reativar AdSense não garante aprovação do AdMob; o código preparado não
    significa conta aprovada ou anúncios monetizando.
-2. Cadastre **MarcouJogou** para Android e iOS (identificadores `com.pelada.app`).
+2. Cadastre **MarcouJogou** para Android e iOS (identificadores `com.marcoujogou.app`).
    Se ainda não estiverem nas lojas, marque como não publicados; depois vincule
    às fichas reais. Crie uma unidade **Banner** para cada plataforma. Não usamos
    intersticiais, anúncios de abertura nem recompensados neste fluxo.

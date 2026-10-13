@@ -21,6 +21,10 @@ export interface PlayHubSnapshot {
   onboarding: { persona: string; completed: boolean; suggestions_enabled: boolean } | null;
 }
 export const emptyPlayHub = (): PlayHubSnapshot => ({ venues: [], buddies: [], slots: [], windows: [], requests: [], onboarding: null });
+export function validPlayHubSnapshot(value: unknown): value is PlayHubSnapshot {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && ['venues','buddies','slots','windows','requests'].every(key => Array.isArray((value as Record<string, unknown>)[key])));
+}
 export function validateWindow(start:string,end:string,level:string,now=Date.now()){
   const a=Date.parse(start),b=Date.parse(end);
   if(!Number.isFinite(a)||!Number.isFinite(b)||a<=now||b<=a||b-a>8*3600000||!['all','beginner','intermediate','advanced'].includes(level))throw new Error('Janela inválida: data futura, até 8 horas e nível válido.');

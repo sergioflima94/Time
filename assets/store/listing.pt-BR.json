@@ -1,0 +1,14 @@
+{
+  "name": "MarcouJogou",
+  "shortDescription": "Organize seu time, encontre quadras e combine o próximo jogo.",
+  "fullDescription": "Menos conversa perdida. Mais jogo combinado.\n\nO MarcouJogou reúne jogadores, times e estabelecimentos esportivos num só lugar. Futebol, vôlei, basquete, handebol, futevôlei e os esportes disponíveis no catálogo da plataforma.\n\nSEUS TIMES, SUA AGENDA\nParticipe de vários times, confira os próximos jogos, confirme presença e acompanhe o elenco. Administradores organizam horários, enquetes e convites para combinar o melhor dia com a turma.\n\nENCONTRE ONDE JOGAR\nPesquise campos e quadras por esporte, região e proximidade. Veja informações de contato, avaliações e horários publicados pelos estabelecimentos participantes. Reservas dependem da disponibilidade e da confirmação do responsável; nem todo campo oferece agendamento online.\n\nO JOGO ORGANIZADO\nMonte os times, acompanhe placar e cronômetro e organize o rodízio dos jogadores. As regras de pontuação acompanham o esporte. Veja suas estatísticas e escolha se quer participar das avaliações entre jogadores.\n\nA TURMA CONTINUA CONECTADA\nEncontre amigos, converse com seu time e compartilhe momentos do esporte. Você controla o uso dos contatos e da localização e pode denunciar conteúdo ou bloquear pessoas.\n\nPARA QUEM CUIDA DO ESPAÇO\nGerencie os campos do seu estabelecimento, reservas, campeonatos, aulas e a operação da lanchonete. Equipes autorizadas acompanham comandas, pedidos e relatórios conforme suas permissões.\n\nPAGAMENTOS SEM CONFUSÃO\nAcompanhe rateios e despesas compartilhadas. Serviços presenciais e produtos são pagos separadamente ao estabelecimento ou vendedor, pelos meios que ele disponibilizar. A integração e a disponibilidade dos provedores podem variar.\n\nPRIVACIDADE E CONTROLE\nPermissões são solicitadas para recursos específicos. Consulte a política de privacidade e inicie uma solicitação de exclusão de conta pelo próprio app.\n\nMarcouJogou: seu time, seu lugar, seu próximo jogo.",
+  "supportEmail": "sergioferreiralima09@gmail.com",
+  "website": "https://marcoujogou.com.br",
+  "privacyPolicy": "https://marcoujogou.com.br/politica-de-privacidade/",
+  "accountDeletion": "https://marcoujogou.com.br/excluir-conta/",
+  "androidPackage": "com.marcoujogou.app",
+  "iosBundleIdentifier": "com.marcoujogou.app",
+  "appleSubtitle": "Seu time e seu próximo jogo",
+  "appleKeywords": "esporte,time,quadra,campo,agenda,reserva,futebol,vôlei,basquete,campeonato,aulas,amigos",
+  "releaseNotes": "Primeira versão de loja do MarcouJogou: times, agenda, descoberta de campos, organização de jogos e recursos para estabelecimentos."
+}

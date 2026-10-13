@@ -9,6 +9,7 @@ web-build/
 android/
 ios/
 screenshots/
+assets/store/
 supabase/
 config/mobile-auth/
 scripts/test-*.cjs

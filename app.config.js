@@ -3,6 +3,11 @@
 
 const { resolveAdmobConfig } = require('./scripts/admob-config.cjs');
 const admob = resolveAdmobConfig();
+const storeRelease = process.env.EAS_BUILD_PROFILE === 'store';
+if (storeRelease && (!process.env.EXPO_PUBLIC_SUPABASE_URL ||
+    !(process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY))) {
+  throw new Error('Build de loja bloqueado: configure as variáveis públicas do Supabase no ambiente production do EAS.');
+}
 
 module.exports = {
   expo: {
@@ -13,7 +18,7 @@ module.exports = {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
       admob,
     },
-    version: '1.0.5',
+    version: '1.0.6',
     orientation: 'portrait',
     icon: './assets/branding/marcoujogou-icon.png',
     scheme: 'pelada',
@@ -21,10 +26,13 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.pelada.app',
+      bundleIdentifier: 'com.marcoujogou.app',
+      buildNumber: '8',
+      // HTTPS is provided by the OS; the app implements no custom encryption.
+      infoPlist: { ITSAppUsesNonExemptEncryption: false },
     },
     android: {
-      versionCode: 6,
+      versionCode: 8,
       adaptiveIcon: {
         backgroundColor: '#F5F2EA',
         foregroundImage: './assets/branding/marcoujogou-adaptive.png',
@@ -32,8 +40,8 @@ module.exports = {
         monochromeImage: './assets/branding/marcoujogou-adaptive.png',
       },
       predictiveBackGestureEnabled: false,
-      package: 'com.pelada.app',
-      blockedPermissions: ['android.permission.WRITE_CONTACTS'],
+      package: 'com.marcoujogou.app',
+      blockedPermissions: ['android.permission.WRITE_CONTACTS', 'android.permission.RECORD_AUDIO', ...(storeRelease ? ['android.permission.SYSTEM_ALERT_WINDOW'] : []), ...(admob.mode === 'off' ? ['com.google.android.gms.permission.AD_ID'] : [])],
     },
     web: {
       favicon: './assets/branding/marcoujogou-icon.png',
@@ -72,6 +80,7 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission: 'Escolha fotos para seu perfil, times ou produtos da loja.',
+          microphonePermission: false,
         },
       ],
       [
@@ -81,7 +90,7 @@ module.exports = {
             'O app usa sua localização para buscar campos próximos quando você solicitar, e jogadores livres somente se você ativar essa opção.',
         },
       ],
-      [
+      ...(admob.mode === 'off' ? [] : [[
         'react-native-google-mobile-ads',
         {
           androidAppId: admob.androidAppId,
@@ -90,7 +99,7 @@ module.exports = {
           userTrackingUsageDescription:
             'Com sua permissão, o identificador do dispositivo pode ser usado pela publicidade no MarcouJogou.',
         },
-      ],
+      ]]),
     ],
     experiments: {
       typedRoutes: true,
