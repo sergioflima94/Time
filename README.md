@@ -47,8 +47,14 @@ As assinaturas foram verificadas e correspondem à chave EAS. A inspeção do
 manifesto do AAB não encontrou `RECORD_AUDIO`, `AD_ID`, `SYSTEM_ALERT_WINDOW`,
 `READ_MEDIA_IMAGES` ou `MobileAdsInitProvider`; não há keystore ou
 `credentials.json` no arquivo. Não versionar binários ou credenciais.
-Compilar e verificar assinaturas não comprova execução em aparelho: os testes
-funcionais realizados até aqui são da interface web e do backend.
+Compilar e verificar assinaturas não comprova todos os fluxos em aparelho.
+O APK 10 também foi instalado e iniciado em um emulador Android temporário,
+somente leitura: a tela de login renderizou, o processo permaneceu ativo e não
+houve erro ReactNativeJS/AndroidRuntime nessa abertura. Print em
+`.test-runtime/store-release/android-native-login.png`. Não houve login,
+aceite de contrato, cadastro, pagamento ou mensagem no teste nativo. Os testes
+completos de navegação até aqui são da interface web e do backend, não de um
+aparelho físico.
 
 Para repetir o build local, use o SDK Android/JDK compatível instalado e as
 variáveis públicas do Supabase. Configure `EXPO_PUBLIC_ADMOB_MODE=off`,
@@ -71,8 +77,16 @@ cd android
 O build inicial falhou por `OutOfMemoryError: Metaspace`; a repetição acima
 concluiu sem desativar o lint ou as verificações de assinatura.
 
-Google Play ainda **não está publicado nem enviado à revisão final**. A ficha,
-acesso privado, políticas e declarações estão salvos. A IARC calculou **Livre**
+Em 13/10/2026, o Google aceitou o AAB 10 e o envio de **10 mudanças** foi
+confirmado para **Produção → lançamento completo**, somente no Brasil.
+O Console mostra **Alterações em análise**, executando verificações automáticas
+antes do encaminhamento à revisão. Ainda **não está aprovado nem publicado**.
+Publicação gerenciada está desativada; o lançamento está configurado para seguir
+após aprovação, sem faixa de testes. O único aviso na validação do pacote foi a
+ausência de arquivo de desofuscação; R8/minificação não está habilitado neste
+build, e os símbolos nativos foram anexados automaticamente pelo Google.
+Comprovante em `.test-runtime/store-release/google-producao-envio-confirmado.jpg`.
+A ficha, acesso privado, políticas e declarações foram incluídos. A IARC calculou **Livre**
 no Brasil, com **Usuários interagem**; isso é diferente do público-alvo
 **18+** escolhido para o lançamento. Produção está segmentada somente para o
 Brasil. Segurança de dados cobre 19 tipos, incluindo consulta efêmera de contatos
@@ -80,8 +94,9 @@ selecionados, localização opcional, mensagens, consumo e faturas. Não há sel
 de auditoria independente, uso de ID publicitário ou publicidade neste release.
 Se anúncios, compras digitais ou outros tratamentos forem ativados depois,
 revise as declarações antes do próximo envio. O Console criou automaticamente
-uma chave de assinatura ao abrir o rascunho; a publicação com Play App Signing
-aguarda confirmação específica do proprietário. O objetivo é faixa
+uma chave de assinatura ao abrir o rascunho; o proprietário autorizou
+especificamente o **Play App Signing** para esse lançamento. Google mantém a
+chave de distribuição; EAS mantém a chave de upload. O objetivo é faixa
 **Produção**, não teste interno/fechado. Criação do rascunho e build concluído não
 significam submissão, aprovação ou publicação. EAS Submit iOS envia ao TestFlight;
 o envio final para App Review é outra etapa no App Store Connect.
