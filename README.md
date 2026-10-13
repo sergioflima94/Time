@@ -27,9 +27,50 @@ eas build --platform ios --profile store
 ```
 
 Credencial Android: keystore remoto criado no EAS para o novo pacote. Não guardar
-chave/senha no Git. iOS: a sessão Apple salva expirou; o EAS pede nova autenticação
-antes de criar certificado/perfil para o novo bundle. Uma conta Expo autenticada
-não substitui essa autenticação Apple nem a associação ao Apple Developer Program.
+chave/senha no Git. A autenticação Apple foi concluída pelo proprietário em
+13/10/2026. Para iOS foi reutilizada a chave App Store Connect existente e já
+armazenada no EAS, restrita à equipe pessoal correta, sem criar outra chave ou
+revogar certificados de outros apps. O certificado de distribuição existente
+foi reutilizado e um perfil App Store foi criado para `com.marcoujogou.app`.
+Uma conta Expo autenticada não substitui a associação ao Apple Developer Program.
+
+O app iOS **MarcouJogou**, ID Apple **`6822250993`**, foi criado em pt-BR, com
+acesso limitado no App Store Connect. Push Notifications foi habilitado no
+identificador pelo portal Apple; Broadcast Capability permaneceu desativado.
+A sincronização automática de capacidades do EAS falhou na API Apple e foi
+desabilitada somente depois de confirmar a configuração manual. Isso não
+desativa validação de assinatura. Na execução não interativa, a verificação
+remota do perfil recebeu HTTP 401 e o EAS usou validação local do perfil recém-criado.
+
+O build iOS de loja **1.0.6 (10)** concluiu com sucesso em 13/10/2026:
+[`ae354858-5a79-43ad-9a84-c0e18eae46f0`](https://expo.dev/accounts/sergiolima/projects/pelada-app/builds/ae354858-5a79-43ad-9a84-c0e18eae46f0),
+fonte `8300c18`. O envio automático EAS
+[`7b9d167c-833d-4407-9f76-eab41b67b6d4`](https://expo.dev/accounts/sergiolima/projects/pelada-app/submissions/7b9d167c-833d-4407-9f76-eab41b67b6d4)
+entregou o build 10, já selecionado na versão 1.0.6 do App Store Connect.
+O objetivo é publicação pública, não distribuição beta. O grupo interno
+“Team (Expo)” é uma etapa automática do transporte do binário, não aprovação
+da App Store; não foram convidados testadores externos.
+O preço de download é gratuito, disponibilidade somente no Brasil e lançamento
+automático após aprovação. Mac/Apple Vision Pro não foram incluídos. A faixa
+etária foi elevada para 18+ (equivalentes regionais), sem alegar que existe
+verificação de idade dentro do app. A ficha de privacidade publicada descreve
+21 tipos vinculados ao usuário, sem rastreamento publicitário; inclui gráfico
+social em Contatos e atividade esportiva em Condicionamento físico conforme
+as definições da Apple. Direitos de conteúdo e publicação da ficha foram
+autorizados explicitamente pelo proprietário. Contato e credenciais privados
+de revisão não são versionados. Build e upload concluídos não significam
+aprovação ou disponibilidade pública.
+
+**Envio público iOS confirmado em 13/10/2026, às 07:45 (Brasília):**
+[`b7a79504-b140-4fae-93c2-8a3ceaba28c7`](https://appstoreconnect.apple.com/apps/6822250993/distribution/reviewsubmissions/details/b7a79504-b140-4fae-93c2-8a3ceaba28c7),
+um item **1.0.6 (10)**, status **Aguardando revisão**. Não é só upload para
+TestFlight: a ação final **Enviar para revisão** foi aceita no App Store Connect.
+Ainda não está aprovado nem disponível para download público. Comprovante em
+`.test-runtime/store-release/apple-envio-revisao-confirmado.jpg`. Quatro capturas
+de iPhone (1206×2622) e quatro de iPad (2064×2752) foram associadas à versão;
+o painel também aceitou capturas de iPhone grande na Biblioteca de Ativos.
+Não alterar o binário, dados declarados ou licenças da conta de revisão enquanto
+a análise estiver pendente sem avaliar se será necessário um novo envio.
 
 Os AABs códigos 7, 8 e 9 são substituídos pelo código 10: permissões
 desnecessárias removidas, cache/fila offline isolados por conta, projeção pública
@@ -110,6 +151,12 @@ Textos e imagens de loja: `assets/store`. As capturas são da interface Expo web
 com respostas de servidor sintéticas, não prints de um simulador nativo nem de
 clientes reais. `scripts/capture-store-assets.cjs` reproduz a captura sem tráfego
 externo; elas não substituem testes de execução do AAB em Android/iOS.
+`STORE_CAPTURE_DEVICE=iphone`, `iphone-medium` ou `ipad` gera novamente a
+interface em 1320×2868, 1206×2622 ou 2064×2752 pixels, sem esticar imagens
+Android. As quatro capturas por tamanho usam somente fixtures e tráfego
+interceptado. As verificações de consentimento, exclusão de conta sintética,
+logout e isolamento de uma segunda conta passaram nos três tamanhos. Não
+houve execução nativa de iOS em simulador ou aparelho neste computador Windows.
 
 A ficha pt-BR, logo, recurso gráfico e quatro capturas já foram salvos no Google
 Play como **prontos para revisão**, não publicados. A arte da marca foi rotulada

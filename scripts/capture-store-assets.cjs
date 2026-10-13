@@ -1,7 +1,13 @@
 // Render the actual production web UI with isolated, synthetic server fixtures.
 // No real customer data, payments, invitations, ads or backend writes.
 const {chromium}=require('playwright-core'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),ts=require('typescript'),Module=require('node:module'),assert=require('node:assert/strict');
-const root=path.resolve('.test-runtime/native-billing-web'),out=path.resolve('assets/store'),port=19031;
+// Apple-size assets re-render the same UI; never stretch Android captures or
+// imply these isolated web renders are native iOS simulator screenshots.
+const captureDevice=process.env.STORE_CAPTURE_DEVICE||'google';
+const captureSizes={google:{width:360,height:640,scale:3},iphone:{width:440,height:956,scale:3},'iphone-medium':{width:402,height:874,scale:3},ipad:{width:1032,height:1376,scale:2}};
+assert(captureSizes[captureDevice],'Unsupported store capture device');
+const captureSize=captureSizes[captureDevice];
+const root=path.resolve('.test-runtime/native-billing-web'),out=path.resolve('assets/store',captureDevice==='google'?'':`apple-${captureDevice}`),port=19031;
 const m=new Module(path.resolve('src/lib/mockData.ts'));m._compile(ts.transpileModule(fs.readFileSync(m.id,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,m.id);
 const d=m.exports,actor='00000000-0000-4000-8000-000000000001',at=new Date().toISOString();
 const own={...d.MOCK_PLAYERS[0],name:'Lucas Costa',nickname:'Lucas',phone:null,avatarUrl:null,authUserId:actor};
@@ -30,13 +36,15 @@ const server=http.createServer((req,res)=>{
 async function run(){let browser,page;try{
  fs.mkdirSync(out,{recursive:true});await new Promise(r=>server.listen(port,'127.0.0.1',r));
  browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+ if(captureDevice==='google'){
  const design=await browser.newPage({viewport:{width:512,height:512},deviceScaleFactor:1});
  await design.setContent(`<html><body style="margin:0;background:#F5F2EA"><img src="http://127.0.0.1:${port}/brand-icon.png" width="512" height="512" alt="MarcouJogou"></body></html>`);
  await design.locator('img').evaluate(img=>img.decode());await design.screenshot({path:path.join(out,'google-icon-512.png')});
  await design.setViewportSize({width:1024,height:500});
  await design.setContent(`<html><body style="margin:0;background:#F5F2EA;color:#172320;font-family:Arial,sans-serif"><main style="height:500px;display:flex;align-items:center;gap:44px;padding:0 65px;box-sizing:border-box"><img src="http://127.0.0.1:${port}/brand-icon.png" width="265" height="265" alt=""><div><p style="font-size:18px;letter-spacing:3px;font-weight:700;color:#087E5B;margin:0 0 20px">MARCOU O ESPAÇO. REUNIU A TURMA.</p><h1 style="font-size:62px;letter-spacing:-3px;margin:0 0 22px">MarcouJogou</h1><p style="font-size:29px;line-height:1.35;margin:0">Seu time. Seu lugar.<br>Seu próximo jogo.</p></div></main></body></html>`);
  await design.locator('img').evaluate(img=>img.decode());await design.screenshot({path:path.join(out,'google-feature-1024x500.png')});await design.close();
- const ctx=await browser.newContext({viewport:{width:360,height:640},deviceScaleFactor:3});
+ }
+ const ctx=await browser.newContext({viewport:{width:captureSize.width,height:captureSize.height},deviceScaleFactor:captureSize.scale});
  await ctx.routeWebSocket('**/*',ws=>ws.close());
  let receipt=null,requests=0,unexpectedWrites=0;
  await ctx.route('**/*',route=>{
@@ -117,7 +125,7 @@ async function run(){let browser,page;try{
  assert(!(await page.locator('body').innerText()).includes('Resenha FC'));
  assert.equal(unexpectedWrites,0,'Reset/hydration must not generate REST mutations or cross-account deletes');
  assert.deepEqual(errors,[]);
- for(const f of ['google-icon-512.png','google-feature-1024x500.png',...routes.map(r=>r[1])]){const b=fs.readFileSync(path.join(out,f));assert(b.length<8*1024*1024);console.log(f,b.readUInt32BE(16)+'x'+b.readUInt32BE(20));}
+ for(const f of [...(captureDevice==='google'?['google-icon-512.png','google-feature-1024x500.png']:[]),...routes.map(r=>r[1])]){const b=fs.readFileSync(path.join(out,f));assert(b.length<8*1024*1024);console.log(f,b.readUInt32BE(16)+'x'+b.readUInt32BE(20));}
  console.log('PASS: real responsive UI, cold deep links, deletion request/cancel, logout/cache clearing, second-account isolation/reload and no reset writes. No external traffic. Web captures are not proof of native runtime testing.');
 }catch(e){if(page){console.log('Fixture UI:',page.url(),(await page.locator('body').innerText()).slice(0,2500));console.log(await page.evaluate(()=>({keys:Object.keys(localStorage),auth:localStorage.getItem('pelada-auth-storage'),html:document.body.innerHTML.slice(0,1800)})));await page.screenshot({path:path.resolve('.test-runtime/store-release/capture-failure.png')});}throw e;}finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}}
 run().catch(e=>{console.error(e);process.exitCode=1;});
