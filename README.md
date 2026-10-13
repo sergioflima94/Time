@@ -55,7 +55,12 @@ diretório; não há integração de cobrança ou envio externo. Acesso por senh
 e-mail confirmado foi verificado no Supabase. Credenciais ficam apenas no arquivo
 ignorado `.test-runtime/store-release/review-account.json`, a ser usado nos
 formulários privados de revisão das lojas, nunca no Git ou na descrição pública.
-`scripts/provision-store-review.cjs` não é migration nem roda no app; só provisiona
+As licenças gratuitas de jogador, time e estabelecimento foram autorizadas
+separadamente, verificadas no servidor e auditadas. Só valem para os três
+cadastros de revisão; não são compras, recibos simulados, testes gratuitos ou
+papéis administrativos. Mantenha a conta utilizável em futuras revisões e
+revogue as licenças apenas quando encerrar esse acesso deliberadamente.
+`scripts/provision-store-review.cjs --grant-licenses` não é migration nem roda no app; só provisiona
 esse ambiente expressamente autorizado e não troca a senha de conta existente.
 
 Caches locais identificam a conta autenticada. Sair limpa os dados em memória;

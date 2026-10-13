@@ -40,9 +40,22 @@ async function run(){
  await insert('players',guests);await insert('pelada_memberships',guests.map(g=>({pelada_id:team,player_id:g.id,role:'member',active:true})),'pelada_id,player_id');
  await insert('games',{id:game,pelada_id:team,field_id:field,scheduled_at:new Date(Date.now()+7*86400000).toISOString(),status:'open',max_players:12,players_per_team:6,match_minutes:10,duration_minutes:90,field_cost:0,created_by:player.id});
  await insert('attendances',[player,...guests].map((p,i)=>({id:id('attendance:'+i),game_id:game,player_id:p.id,status:'confirmed',confirmed_order:i+1,responded_at:new Date().toISOString()})));
+ if(process.argv.includes('--grant-licenses')){
+  // Separately authorized free licenses, never fake receipts/subscriptions/admin roles.
+  stage='verify-authorized-owner';const ownerId='45358119-561e-4d66-b7aa-71bbc5e7b20a';
+  const owner=await admin.auth.admin.getUserById(ownerId);assert(!owner.error&&owner.data.user?.email==='sergioferreiralima09@gmail.com');
+  const role=await checked(admin.from('platform_admin_accounts').select('role,active').eq('auth_user_id',ownerId).single());assert(role.active&&role.role==='owner');
+  stage='grant-review-only-licenses';const plans=await checked(admin.from('commercial_plans').select('id,audience,monthly_price').eq('active',true));
+  for(const [audience,target] of [['player',player.id],['team',team],['establishment',venue]]){
+   const plan=plans.find(p=>p.audience===audience);assert(plan,'A matching active plan is required');
+   await insert('platform_commercial_agreements',{id:id('license:'+audience),audience,target_id:target,plan_id:plan.id,kind:'license',status:'granted',list_monthly_price:plan.monthly_price,agreed_monthly_price:0,expires_at:null,note:'Licença gratuita autorizada exclusivamente para a revisão das lojas. Não concede administração da plataforma ou acesso a clientes reais.',created_by:ownerId});
+  }
+  await insert('platform_admin_audit',{id:id('license-audit'),actor_auth_user_id:ownerId,action:'store_review_licenses',target_id:account.authUserId,reason:'Concessão de três licenças gratuitas de revisão expressamente autorizada pelo proprietário.',after_value:{playerId:player.id,teamId:team,establishmentId:venue,platformRole:null,realPayments:false}});
+ }
  stage='test-review-login-and-permissions';
  const reviewer=createClient(url,pub,options);const login=await reviewer.auth.signInWithPassword({email,password:account.password});assert(!login.error&&login.data.user?.id===account.authUserId);
  const access=await checked(reviewer.rpc('commercial_access_snapshot'));assert.equal(access.role,null);
+ if(process.argv.includes('--grant-licenses'))assert(['player','team','establishment'].every(a=>access.licenses.some(l=>l.audience===a&&l.targetId==={player:player.id,team,establishment:venue}[a]&&!l.paid)));
  const forbidden=await reviewer.rpc('platform_console_snapshot',{p_query:''});assert(forbidden.error,'Platform console must be denied');
  const memberships=await checked(reviewer.from('pelada_memberships').select('pelada_id').eq('player_id',player.id));assert(memberships.every(m=>m.pelada_id===team));
  const privateGames=await checked(reviewer.from('games').select('id'));assert(privateGames.some(g=>g.id===game));assert(privateGames.every(g=>g.id===game));
