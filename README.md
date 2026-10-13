@@ -43,6 +43,11 @@ Não houve contratação de plano pago. O AAB está em
 O APK instalável, assinado com APK Signature Scheme v2, está no mesmo diretório
 como `MarcouJogou-1.0.6-10.apk`, SHA-256
 `61B681A6DAB1F3FE40364AFEBFA298AC468CFE9B6B081EC22E216CE607637249`.
+O APK local usa a chave de upload EAS. A chave de distribuição do Google Play
+é diferente: ele não será atualizado diretamente pela instalação da loja com
+essa assinatura. Antes de instalar a versão Google Play, pode ser necessário
+desinstalar esse APK de validação; isso remove o cache local, não a conta no
+Supabase. Sincronize pendências antes de desinstalar.
 As assinaturas foram verificadas e correspondem à chave EAS. A inspeção do
 manifesto do AAB não encontrou `RECORD_AUDIO`, `AD_ID`, `SYSTEM_ALERT_WINDOW`,
 `READ_MEDIA_IMAGES` ou `MobileAdsInitProvider`; não há keystore ou
