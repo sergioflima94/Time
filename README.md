@@ -34,16 +34,54 @@ não substitui essa autenticação Apple nem a associação ao Apple Developer P
 Os AABs códigos 7, 8 e 9 são substituídos pelo código 10: permissões
 desnecessárias removidas, cache/fila offline isolados por conta, projeção pública
 de jogadores e aceite de regras antes de usar a comunidade. Não enviar 7/8/9.
-Registro do código 9 (substituído) concluído no EAS: build `3207d2e8-a08a-4537-9344-909946776d54`,
-fonte `ef95c3776359532a1e7c1c4779ada056a81ee6e8`, distribuição STORE. A assinatura
-do AAB foi verificada e o manifesto não contém `RECORD_AUDIO`, `AD_ID`,
-`SYSTEM_ALERT_WINDOW` ou `MobileAdsInitProvider`. SHA-256:
-`4B63173F64242D407DDD6A89F1F9EB1680AB1E8627D5CCF5A1BDD68CBC0DDEF1`.
-O arquivo está no diretório ignorado `.test-runtime/store-release`; não versionar
-artefatos binários de release ou credenciais. Isso não comprova execução nativa,
-aprovação ou publicação: a validação funcional feita aqui é da interface web.
-Google Play ainda não está publicado e os
-questionários/arquivos/revisão precisam ser concluídos. O objetivo é faixa
+O código 10, fonte `ff39dfe`, foi compilado localmente com sucesso em 13/10/2026,
+reutilizando a chave de upload gerenciada pelo EAS. A cota mensal gratuita de
+builds Android na nuvem acabou; a próxima renovação informada é 01/11/2026.
+Não houve contratação de plano pago. O AAB está em
+`.test-runtime/store-release/MarcouJogou-1.0.6-10.aab`, SHA-256
+`D95B40A46613E647B0EF1A275B571D55E7C7191C4DAD000A220964269201E789`.
+O APK instalável, assinado com APK Signature Scheme v2, está no mesmo diretório
+como `MarcouJogou-1.0.6-10.apk`, SHA-256
+`61B681A6DAB1F3FE40364AFEBFA298AC468CFE9B6B081EC22E216CE607637249`.
+As assinaturas foram verificadas e correspondem à chave EAS. A inspeção do
+manifesto do AAB não encontrou `RECORD_AUDIO`, `AD_ID`, `SYSTEM_ALERT_WINDOW`,
+`READ_MEDIA_IMAGES` ou `MobileAdsInitProvider`; não há keystore ou
+`credentials.json` no arquivo. Não versionar binários ou credenciais.
+Compilar e verificar assinaturas não comprova execução em aparelho: os testes
+funcionais realizados até aqui são da interface web e do backend.
+
+Para repetir o build local, use o SDK Android/JDK compatível instalado e as
+variáveis públicas do Supabase. Configure `EXPO_PUBLIC_ADMOB_MODE=off`,
+`EAS_BUILD_PROFILE=store` e `NODE_ENV=production` antes do prebuild/build.
+Baixe **a chave existente**, não uma nova, pelo fluxo autorizado de
+`eas credentials -p android` → `store` → `credentials.json` → download.
+O arquivo e o keystore devem ficar ignorados e com acesso local restrito.
+`scripts/android-local-release.init.gradle` lê essas credenciais em memória e
+substitui a assinatura debug do projeto gerado; aborta se o pacote for inesperado
+ou o caminho da chave estiver fora do workspace. Não passe senhas por argumentos,
+não escreva senhas em `gradle.properties` e não imprima o arquivo de credenciais.
+
+```powershell
+npx expo prebuild --platform android --no-install
+cd android
+.\gradlew.bat app:bundleRelease --init-script ../scripts/android-local-release.init.gradle '-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1536m' --no-daemon --max-workers=1 --console=plain
+# Para APK instalável: substitua app:bundleRelease por app:assembleRelease.
+```
+
+O build inicial falhou por `OutOfMemoryError: Metaspace`; a repetição acima
+concluiu sem desativar o lint ou as verificações de assinatura.
+
+Google Play ainda **não está publicado nem enviado à revisão final**. A ficha,
+acesso privado, políticas e declarações estão salvos. A IARC calculou **Livre**
+no Brasil, com **Usuários interagem**; isso é diferente do público-alvo
+**18+** escolhido para o lançamento. Produção está segmentada somente para o
+Brasil. Segurança de dados cobre 19 tipos, incluindo consulta efêmera de contatos
+selecionados, localização opcional, mensagens, consumo e faturas. Não há selo
+de auditoria independente, uso de ID publicitário ou publicidade neste release.
+Se anúncios, compras digitais ou outros tratamentos forem ativados depois,
+revise as declarações antes do próximo envio. O Console criou automaticamente
+uma chave de assinatura ao abrir o rascunho; a publicação com Play App Signing
+aguarda confirmação específica do proprietário. O objetivo é faixa
 **Produção**, não teste interno/fechado. Criação do rascunho e build concluído não
 significam submissão, aprovação ou publicação. EAS Submit iOS envia ao TestFlight;
 o envio final para App Review é outra etapa no App Store Connect.

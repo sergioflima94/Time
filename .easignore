@@ -21,6 +21,7 @@ scripts/configure-auth-email.ps1
 .env.*
 .claude/
 *.jks
+credentials.json
 *.keystore
 *.p8
 *.p12

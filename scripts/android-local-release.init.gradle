@@ -1,0 +1,24 @@
+// EAS-managed upload key, downloaded through the authorized Expo CLI flow.
+// No secrets in source, command-line arguments, Gradle properties or build logs.
+import groovy.json.JsonSlurper
+gradle.beforeProject { project ->
+  project.pluginManager.withPlugin('com.android.application') {
+    project.extensions.getByName('androidComponents').finalizeDsl { android ->
+      if (android.namespace != 'com.marcoujogou.app') throw new GradleException('Unexpected application package')
+      def workspace = project.rootProject.projectDir.parentFile.canonicalFile
+      def credentialFile = new File(workspace, 'credentials.json')
+      if (!credentialFile.isFile()) throw new GradleException('Download the existing Android credentials from EAS first')
+      def key = new JsonSlurper().parse(credentialFile).android.keystore
+      def raw = new File(key.keystorePath.toString())
+      def keystore = (raw.isAbsolute() ? raw : new File(workspace, key.keystorePath.toString())).canonicalFile
+      if (!keystore.toPath().startsWith(workspace.toPath()) || !keystore.isFile()) throw new GradleException('Keystore must be inside the verified workspace')
+      if (!key.keystorePassword || !key.keyAlias || !key.keyPassword) throw new GradleException('EAS signing credentials incomplete')
+      def signing = android.signingConfigs.maybeCreate('easRelease')
+      signing.storeFile = keystore
+      signing.storePassword = key.keystorePassword
+      signing.keyAlias = key.keyAlias
+      signing.keyPassword = key.keyPassword
+      android.buildTypes.getByName('release').signingConfig = signing
+    }
+  }
+}
