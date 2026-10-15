@@ -1,0 +1,12 @@
+Generation mode: built-in image generation.
+Purpose: alternate logo proposal v3, meeting point / multisport court. App icon and splash unchanged.
+
+Use case: logo-brand.
+Create ONE new logo proposal for "MarcouJogou", a Brazilian multisport court booking and community app. This is a NEW direction, not an MJ monogram. Personality: young, friendly, genuinely sporty, everyday local teams meeting to play, not a corporate SaaS or gambling app.
+
+Concept "ponto de encontro": a bold compact symbol drawn from the markings of a multisport court seen from above. Build the symbol from TWO substantial squared U-shaped court-end forms facing one another with a small offset and a single shared central circle in negative space. The shape should subtly read as two teams converging on a shared playing space. Seek an authored, memorable interlocking silhouette, not an ordinary full court diagram. Very few shapes, uniform visual weight, softened square corners, strong flat silhouette, recognizable at 24px. It must not resemble a chain link, infinity logo, QR code, compass, location pin, chain, letter monogram, calendar or generic checkmark. No football, shield, mascot or play-button icon.
+
+Palette inherited from the app: deep charcoal #171A1D, vivid fresh lime #9DEB22, warm off-white #F5F2EA. Symbol predominantly charcoal with one lime part that visually completes the meeting. All fills absolutely solid flat colors, no gradients.
+Exact text: "marcoujogou" in lowercase, exceptionally well spaced bold custom humanist sans lettering, friendly but not childish, short subtly clipped terminals echoing court markings. Put the wordmark below the symbol, centered and fully legible. No slogan or other words.
+
+Presentation: one clean square canvas with uniform warm off-white background, ample 16% clear margins, symbol moderately sized above wordmark, generous gap, excellent optical balance. Actual brand artwork only, flat vector-like graphic, no texture, glow, shading, bevel, 3D, shadows, perspective mockups or decorative elements. Do not reproduce the previous MJ or calendar identity.
