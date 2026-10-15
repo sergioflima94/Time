@@ -1,0 +1,21 @@
+{
+  "app": "MarcouJogou",
+  "version": "1.0.9",
+  "versionCode": 13,
+  "sourceCommit": "558fab4",
+  "capturedAt": "2026-10-15",
+  "platform": "Android",
+  "native": true,
+  "size": { "width": 1080, "height": 1920 },
+  "data": "Conta restrita e dados fictícios de revisão; nenhum cliente real.",
+  "method": "Capturas diretas do emulador executando APK release x86_64 assinado, sem montagem ou redimensionamento.",
+  "equivalence": {
+    "appConfigSha256": "724AE703ADA9E4A3A2600D2BBCF3C0A652BE6996C81345C8B7F79CF6939CCDF3",
+    "jsBundleSha256": "DFF5C3CE0911501687580361E547A0C165D56EFC4EC68D481E4DA3E8CED8F1B8",
+    "matchesUniversalReleaseApk": true,
+    "admobMode": "off"
+  },
+  "regression": "Cinco atalhos da operação, duas rodadas e navegação aninhada de faturas, sem novos crashes.",
+  "files": ["01-home.png", "02-times.png", "03-operacao.png", "04-aulas.png"],
+  "notFor": "Não apresentar estas imagens Android como capturas de iOS."
+}

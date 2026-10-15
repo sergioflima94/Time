@@ -1,6 +1,32 @@
 # MarcouJogou
 
-## Interface compacta e notebook — 1.0.9 (próximo build 13)
+## Compilação e envio — 1.0.9 (13), 15/10/2026
+
+Android: AAB release assinado compilado localmente e recebido/validado pelo
+Google Play na faixa de produção, com o logo esportivo e quatro novas capturas
+nativas em `assets/store/android-native-13/`. O envio das dez mudanças foi
+confirmado no Console: **Alterações em análise**, inicialmente em verificações
+rápidas automáticas, com encaminhamento à revisão depois dessas verificações.
+Não significa aprovação nem publicação concluída. O registro de origem das
+capturas e dos testes está em `provenance.json` nessa pasta. SHA-256 do AAB enviado:
+`25531924988C4E19F125EC3F5411EC9A8CBCFE4C3054489A575CC8F259DC2BE0`.
+
+Validação nativa Android: cinco atalhos da operação, ida/volta em duas rodadas,
+mais navegação aninhada em faturas, com a conta fictícia restrita de revisão e
+backend real. Sem pagamentos, mensagens ou alterações em clientes reais; sem
+novos crashes. O APK x86_64 de teste tem exatamente o mesmo `app.config` e bundle
+JavaScript do APK release completo. Anúncios permanecem desativados no perfil
+`store`; nenhuma chave de assinatura foi recriada.
+
+iOS: build Expo `cb46247a-1772-4cc9-b1c7-a85c78bd54b0` concluído. O transporte
+via EAS Submit falhou duas vezes; o mesmo IPA assinado foi enviado pela API
+oficial da Apple, com checksum e a chave existente. Upload
+`ad0a5159-bade-4431-bc1a-455b8919ed75` completo, build 13 `VALID` e selecionado na
+ficha 1.0.9, ainda não reenviada para App Review. Novos prints nativos de
+iPhone/iPad continuam pendentes; imagens Android ou renders web não são provas
+de execução iOS e não foram usados para substituí-los.
+
+## Interface compacta e notebook — 1.0.9 (build 13)
 
 ### Aulas e área do dono de campo
 
