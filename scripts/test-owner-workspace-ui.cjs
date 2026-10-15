@@ -38,6 +38,9 @@ async function run(){const browser=await chromium.launch({executablePath:'C:/Pro
   await page.setViewportSize({width,height:width>=1024?900:844});
   for(const [route,label,slug]of [['/aulas','Aulas esportivas','aulas'],['/estabelecimento','Meus estabelecimentos','estabelecimentos'],['/operacao','Seus espaços de trabalho','acessos'],[`/estabelecimento/${venue}`,'Painel do estabelecimento','painel'],[`/operacao/ao-vivo?establishmentId=${venue}`,'Operação ao vivo','operacao']]){
    await page.goto(base+route,{waitUntil:'networkidle'});await page.getByText(label,{exact:true}).last().waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),route+' overflow '+width);
+   if(width<600)for(const button of await page.getByTestId('workspace-actions').getByRole('button').all()){
+    const box=await button.boundingBox();assert(box&&box.x>=18&&box.x+box.width<=width-18,'Header action crosses the mobile content gutter: '+route+' at '+width);
+   }
    if([390,1366].includes(width))await page.screenshot({path:`${out}/${slug}-${width}.png`});
    if(route==='/aulas'){
     await page.getByText('Novas turmas vão aparecer aqui',{exact:true}).waitFor();

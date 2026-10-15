@@ -7,7 +7,7 @@ import { Card } from './Card';
 type Icon = keyof typeof Ionicons.glyphMap;
 export function WorkspaceHeader({ title, description, children }: PropsWithChildren<{ title: string; description: string }>) {
   return <View style={s.header}><View style={s.copy}><Text style={s.title}>{title}</Text><Text style={s.body}>{description}</Text></View>
-    {!!children && <View style={s.actions}>{children}</View>}</View>;
+    {!!children && <View testID="workspace-actions" style={s.actions}>{children}</View>}</View>;
 }
 export function WorkspaceEmpty({ icon, title, description, children }: PropsWithChildren<{ icon: Icon; title: string; description: string }>) {
   return <Card style={s.empty}><View style={s.icon}><Ionicons name={icon} size={23} color={colors.primaryDark} /></View>
@@ -30,7 +30,7 @@ const s = StyleSheet.create({
   copy: { flex: 1, flexBasis: 270, minWidth: 0, gap: 5 }, title: { color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' },
   heading: { color: colors.text, fontSize: 16, lineHeight: 22, fontWeight: '700' },
   body: { color: colors.textMuted, fontSize: 13, lineHeight: 20 }, caption: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%', minWidth: 0 },
   empty: { gap: 10, padding: 20 }, icon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.selection, alignItems: 'center', justifyContent: 'center' },
   summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   summaryItem: { flex: 1, minWidth: 86, gap: 5 }, value: { color: colors.text, fontWeight: '700', fontSize: 21, lineHeight: 26 },

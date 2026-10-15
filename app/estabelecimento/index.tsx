@@ -56,7 +56,7 @@ export default function MyEstablishmentsScreen() {
     <Screen>
       <Button small variant="ghost" label="Voltar" onPress={()=>router.back()} />
       <WorkspaceHeader title="Meus estabelecimentos" description="Seus campos, quadras e negócios em um só lugar.">
-        <Button small label="Cadastrar novo estabelecimento" onPress={()=>setCreating(true)} />
+        <Button small label="Novo estabelecimento" onPress={()=>setCreating(true)} />
         <Button small variant="outline" label="Acessos da equipe" onPress={()=>router.push('/operacao')} />
       </WorkspaceHeader>
       <WorkspaceSummary items={[
