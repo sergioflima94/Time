@@ -418,6 +418,9 @@ async function run() {
     await page
       .getByRole("button", { name: "Confirmar reserva e cobrança pendente" })
       .click();
+    await page.getByRole('radio',{name:'Pagamentos',exact:true}).waitFor();
+    await page.getByText(/A combinar \/ pendente/).waitFor();
+    await page.getByRole('radio',{name:'Minhas aulas',exact:true}).click();
     await page
       .getByText("Sua vaga está reservada.", { exact: true })
       .first()

@@ -8,13 +8,14 @@ interface Option<T extends string> {
 }
 
 interface SegmentedControlProps<T extends string> {
+  columns?: 2 | 4;
   label?: string;
   options: Option<T>[];
   value: T;
   onChange: (value: T) => void;
 }
 
-export function SegmentedControl<T extends string>({ label, options, value, onChange }: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({ label, options, value, onChange, columns }: SegmentedControlProps<T>) {
   return (
     <View style={styles.wrap}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -25,7 +26,7 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
             accessibilityRole="radio"
             accessibilityState={{ checked: value === opt.value }}
             onPress={() => onChange(opt.value)}
-            style={[styles.option, value === opt.value && styles.optionActive]}
+            style={[styles.option, columns && { width: columns === 2 ? '49%' : '24%' }, value === opt.value && styles.optionActive]}
           >
             <Text style={[styles.optionText, value === opt.value && styles.optionTextActive]}>{opt.label}</Text>
           </Pressable>

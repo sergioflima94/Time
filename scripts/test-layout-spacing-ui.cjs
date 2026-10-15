@@ -68,7 +68,7 @@ async function run(){
   await fits();await shot('horarios-publicar-390');
   await page.getByRole('button',{name:'Meus pedidos',exact:true}).click();await page.getByRole('button',{name:'Confirmar horário',exact:true}).waitFor();await fits();await shot('horarios-pedidos-390');
   for(const width of [320,390]){await page.setViewportSize({width,height:844});
-  for(const [route,heading] of [['/comecar','Como você quer começar?'],['/descobrir','Bora jogar?'],['/central','Central do esporte'],['/times','Times'],['/amigos','Encontre sua turma'],['/campos','Campos perto de você'],['/admin','Administração'],['/estabelecimento','🏟️ Meus estabelecimentos'],['/operacao/cardapio','Cardápio']]){
+  for(const [route,heading] of [['/comecar','Como você quer começar?'],['/descobrir','Bora jogar?'],['/central','Central do esporte'],['/times','Times'],['/amigos','Encontre sua turma'],['/campos','Campos perto de você'],['/admin','Administração'],['/estabelecimento','Meus estabelecimentos'],['/operacao/cardapio','Cardápio']]){
    await page.goto(base+route);await page.getByText(heading,{exact:true}).first().waitFor();await fits();await shot(route.slice(1).replaceAll('/','-')+'-'+width);
    if(route==='/descobrir')await gap(page.getByRole('button',{name:'Quero participar',exact:true}).locator('..'),8);
    if(route==='/admin'){const longName=await page.getByText('⚽ Turma dos amigos do futebol de sábado à tarde no bairro Centro',{exact:true}).boundingBox();assert(longName.x+longName.width<=width-18,'admin name clipped');}

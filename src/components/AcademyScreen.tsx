@@ -1,11 +1,14 @@
 import { useRef, useState } from "react";
 import { router } from "expo-router";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { StyleSheet, Switch, Text, useWindowDimensions, View } from "react-native";
 import { Screen } from "./ui/Screen";
 import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { TextField } from "./ui/TextField";
 import { AdaptiveSelect } from "./ui/AdaptiveSelect";
+import { ResponsiveColumns } from './ui/ResponsiveColumns';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { WorkspaceEmpty, WorkspaceHeader, WorkspaceSummary } from './ui/Workspace';
 import { useAcademy, useVenueOperations } from "@/hooks/useVenueOperations";
 import {
   academyAction,
@@ -32,6 +35,7 @@ export function AcademyScreen({
   venue?: string | null;
   sessionId?: string | null;
 }) {
+  const {width} = useWindowDimensions();
   const feed = useAcademy(venue),
     access = useVenueOperations(
       venue ??
@@ -45,6 +49,8 @@ export function AcademyScreen({
   const [message, setMessage] = useState(""),
     [running, setRunning] = useState(false),
     [form, setForm] = useState(false);
+  const [section, setSection] = useState<'catalog' | 'mine' | 'swaps' | 'bills'>('catalog');
+  const [query, setQuery] = useState('');
   const [name, setName] = useState(""),
     [sport, setSport] = useState("volei"),
     [field, setField] = useState(""),
@@ -92,23 +98,15 @@ export function AcademyScreen({
   const programs = feed.data.programs.filter(
     (p) => !sessionId || p.sessions.some((s) => s.id === sessionId),
   );
+  const ownSeats = feed.data.seats.filter(a => a.player_id === me && a.active);
+  const unknown = !!feed.error || (feed.busy && !feed.updatedAt);
+  const visiblePrograms = programs.filter(p => (section !== 'mine' || ownSeats.some(a => a.program_id === p.id)) &&
+    `${p.name} ${p.venue_name} ${p.level}`.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')));
   return (
     <Screen>
-      <View style={styles.row}>
-        <Button
-          small
-          variant="ghost"
-          label="Voltar"
-          onPress={() => router.back()}
-        />
-        <Text style={styles.title}>
-          {venue ? "Aulas e professores" : "Aulas esportivas"}
-        </Text>
-      </View>
-      <Text style={styles.muted}>
-        Mensalidade por mês civil, sem renovação automática. Avulsa tem preço
-        próprio. Reserva não confirma pagamento.
-      </Text>
+      <Button small variant="ghost" label="Voltar" onPress={() => router.back()} />
+      <WorkspaceHeader title={venue ? 'Aulas e professores' : 'Aulas esportivas'}
+        description={venue ? 'Organize turmas, horários e recebimentos do seu espaço.' : 'Encontre sua turma e acompanhe reservas, trocas e pagamentos.'}>
       <Button
         small
         variant="outline"
@@ -116,19 +114,31 @@ export function AcademyScreen({
         loading={feed.busy}
         onPress={() => void feed.refresh()}
       />
-      {!!feed.error && <Text style={styles.error}>{feed.error}</Text>}
+      </WorkspaceHeader>
+      <WorkspaceSummary items={[
+        {label: 'Turmas nesta consulta', value: unknown ? '—' : programs.length, icon: 'school-outline'},
+        {label: 'Suas próximas aulas', value: unknown ? '—' : ownSeats.filter(a => new Date(a.starts_at).getTime() > Date.now()).length, icon: 'calendar-outline'},
+        {label: 'Pedidos de troca', value: unknown ? '—' : feed.data.swaps.length, icon: 'swap-horizontal-outline'},
+      ]} />
+      <SegmentedControl columns={width<600?2:undefined} value={section} onChange={setSection} options={[
+        {value:'catalog',label:'Turmas'}, {value:'mine',label:'Minhas aulas'},
+        {value:'swaps',label:'Trocas e reposições'}, {value:'bills',label:'Pagamentos'},
+      ]} />
+      {!!feed.error && <Card><Text accessibilityRole="alert" style={styles.error}>{feed.error}</Text><Text style={styles.muted}>Não foi possível consultar as aulas. Atualize para tentar novamente.</Text></Card>}
       {!!message && (
         <Text accessibilityLiveRegion="polite" style={styles.message}>
           {message}
         </Text>
       )}
-      {canCreate && (
+      <ResponsiveColumns><View style={{gap:12}}>
+      {(section === 'catalog' || section === 'mine') && <TextField label="Buscar turma ou estabelecimento" value={query} onChangeText={setQuery} placeholder="Nome, espaço ou nível" />}
+      {canCreate && section === 'catalog' && (
         <Button
           label={form ? "Fechar cadastro" : "Nova turma / aula particular"}
           onPress={() => setForm(!form)}
         />
       )}
-      {form && canCreate && (
+      {form && canCreate && section === 'catalog' && (
         <Card style={styles.card}>
           <Text style={styles.heading}>Cadastrar e precificar</Text>
           <TextField label="Nome da aula" value={name} onChangeText={setName} />
@@ -279,6 +289,7 @@ export function AcademyScreen({
                 if (r) {
                   nonce.current = createUuid();
                   setEnroll(null);
+                  setSection('bills');
                 }
               })
             }
@@ -290,7 +301,7 @@ export function AcademyScreen({
           />
         </Card>
       )}
-      {programs.map((p) => (
+      {(section === 'catalog' || section === 'mine') && visiblePrograms.map((p) => (
         <Card key={p.id} style={styles.card}>
           <Text style={styles.heading}>{p.name}</Text>
           <Text style={styles.muted}>
@@ -357,7 +368,7 @@ export function AcademyScreen({
             · aviso mínimo {p.cutoff_hours}h
           </Text>
           {p.sessions
-            .filter((s) => !sessionId || s.id === sessionId)
+            .filter((s) => (!sessionId || s.id === sessionId) && (section !== 'mine' || ownSeats.some(a => a.session_id === s.id)))
             .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
             .map((s) => {
               const own = feed.data.seats.find(
@@ -477,7 +488,7 @@ export function AcademyScreen({
           )}
         </Card>
       ))}
-      <Text style={styles.heading}>Trocas solicitadas</Text>
+      {section === 'swaps' && <><Text style={styles.heading}>Trocas solicitadas</Text>
       {feed.data.swaps.map((w) => (
         <Card key={w.id} style={styles.card}>
           <Text style={styles.text}>
@@ -514,8 +525,8 @@ export function AcademyScreen({
           )}
         </Card>
       ))}
-      {!feed.data.swaps.length && (
-        <Text style={styles.muted}>Sem propostas de troca para você.</Text>
+      {!feed.data.swaps.length && !unknown && (
+        <WorkspaceEmpty icon="swap-horizontal-outline" title="Nenhuma troca pendente" description="Quando um aluno solicitar uma troca compatível com seu horário, ela aparecerá aqui. Sua reserva só muda depois do aceite." />
       )}
       {feed.data.credits.map((c) => (
         <Makeup
@@ -527,7 +538,9 @@ export function AcademyScreen({
           save={run}
         />
       ))}
-      <Text style={styles.heading}>
+      {!feed.data.credits.length && !unknown && <Card><Text style={styles.heading}>Reposições</Text><Text style={styles.muted}>Você não possui créditos de reposição disponíveis nesta consulta.</Text></Card>}
+      </>}
+      {section === 'bills' && <><Text style={styles.heading}>
         Cobranças {venue ? "autorizadas" : "das suas aulas"}
       </Text>
       {feed.data.bills.map((b) => (
@@ -598,18 +611,33 @@ export function AcademyScreen({
             )}
         </Card>
       ))}
+      {!feed.data.bills.length && !unknown && <WorkspaceEmpty icon="receipt-outline" title="Nenhuma cobrança nesta consulta" description="As mensalidades e aulas avulsas reservadas aparecerão aqui com o valor e a situação do pagamento." />}
+      </>}
+      {(section === 'catalog' || section === 'mine') && !visiblePrograms.length && !feed.busy && !feed.error && (
+        <WorkspaceEmpty icon="school-outline" title={query.trim() ? 'Nenhuma turma encontrada' : section === 'mine' ? 'Você ainda não reservou uma aula' : 'Novas turmas vão aparecer aqui'}
+          description={query.trim() ? 'Tente outro nome, espaço ou nível.' : section === 'mine' ? 'Explore as turmas disponíveis para escolher um horário e reservar sua vaga.' : venue ? 'Cadastre uma turma e publique seus horários para receber alunos.' : 'Ainda não há turmas disponíveis nesta consulta. Você pode encontrar espaços esportivos ou voltar mais tarde.'}>
+          {query.trim() ? <Button small label="Limpar busca" variant="outline" onPress={() => setQuery('')} /> :
+            <Button small label={section === 'mine' ? 'Ver turmas' : venue && canCreate ? 'Cadastrar primeira turma' : 'Encontrar campos e quadras'} variant="outline"
+              onPress={() => section === 'mine' ? setSection('catalog') : venue && canCreate ? setForm(true) : router.push('/campos')} />}
+        </WorkspaceEmpty>
+      )}
+      {feed.busy && !feed.updatedAt && <Card><Text style={styles.muted} accessibilityLiveRegion="polite">Carregando aulas…</Text></Card>}
+      </View><View style={{gap:12}}>
+      <Card><Text style={styles.heading}>Como funcionam as reservas</Text>
+        <Text style={styles.muted}>Mensalidade por mês civil, sem renovação automática. Avulsa tem preço próprio. Reserva não confirma pagamento.</Text>
+        <Text style={styles.muted}>Trocas dependem do aceite do outro aluno e de turmas compatíveis. Reposições seguem a política de cada estabelecimento.</Text>
+      </Card>
+      {!venue && <Card><Text style={styles.heading}>Você também organiza aulas?</Text><Text style={styles.muted}>Cadastre seu espaço ou use o acesso de professor concedido pelo estabelecimento.</Text>
+        <Button small variant="outline" label="Meus estabelecimentos" onPress={() => router.push('/estabelecimento')} />
+        <Button small variant="ghost" label="Meus acessos nos campos" onPress={() => router.push('/operacao')} />
+      </Card>}
       {feed.data.notices.map((n) => (
         <Card key={n.id} style={styles.card}>
           <Text style={styles.heading}>{n.title}</Text>
           <Text style={styles.text}>{n.body}</Text>
         </Card>
       ))}
-      {!programs.length && !feed.busy && (
-        <Text style={styles.muted}>
-          Nenhuma turma disponível. Programas antigos por pacote precisam ser
-          revisados pelo estabelecimento.
-        </Text>
-      )}
+      </View></ResponsiveColumns>
     </Screen>
   );
 }

@@ -10,6 +10,10 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
+import { WorkspaceEmpty, WorkspaceHeader, WorkspaceSummary } from '@/components/ui/Workspace';
+import { useOwnerBenefits } from '@/hooks/useOwnerBenefits';
+import { useAuthStore } from '@/store/useAuthStore';
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAppStore } from '@/store/useAppStore';
 import type { EstablishmentPayoutMethod } from '@/types';
@@ -21,14 +25,16 @@ export default function MyEstablishmentsScreen() {
   );
   const fields = useAppStore((s) => s.fields);
   const createEstablishment = useAppStore((s) => s.createEstablishment);
+  const ownerBenefits = useOwnerBenefits();
+  const loggedIn = useAuthStore(s=>s.isLoggedIn);
 
-  const [creating, setCreating] = useState(myEstablishments.length === 0);
+  const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [payoutMethod, setPayoutMethod] = useState<EstablishmentPayoutMethod>('pix');
   const [pixKey, setPixKey] = useState('');
 
   function handleCreate() {
-    if (!name.trim()) return;
+    if (!name.trim() || !loggedIn || !currentPlayerId) return;
     const establishment = createEstablishment(currentPlayerId, {
       name: name.trim(),
       payoutMethod,
@@ -44,24 +50,23 @@ export default function MyEstablishmentsScreen() {
     return fields.filter((f) => f.establishmentId === establishmentId).length;
   }
 
+  if (!loggedIn) return <Screen><WorkspaceEmpty icon="business-outline" title="Seu espaço no MarcouJogou" description="Entre com sua conta para cadastrar e administrar seus campos e quadras."><Button label="Entrar" onPress={()=>router.push('/login')} /></WorkspaceEmpty></Screen>;
+
   return (
     <Screen>
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>🏟️ Meus estabelecimentos</Text>
-      </View>
-
-      <Text style={styles.intro}>
-        Cadastre seu campo/quadra pra receber o rateio das partidas diretamente, organizar
-        agendamento e campeonatos — e acompanhar quanto entrou. Você pode ter mais de um
-        estabelecimento.
-      </Text>
-
+      <Button small variant="ghost" label="Voltar" onPress={()=>router.back()} />
+      <WorkspaceHeader title="Meus estabelecimentos" description="Seus campos, quadras e negócios em um só lugar.">
+        <Button small label="Cadastrar novo estabelecimento" onPress={()=>setCreating(true)} />
+        <Button small variant="outline" label="Acessos da equipe" onPress={()=>router.push('/operacao')} />
+      </WorkspaceHeader>
+      <WorkspaceSummary items={[
+        {label:'Estabelecimentos',value:myEstablishments.length,icon:'business-outline'},
+        {label:'Campos e quadras',value:fields.filter(f=>myEstablishments.some(e=>e.id===f.establishmentId)).length,icon:'location-outline'},
+      ]} />
+      {ownerBenefits&&<Card><Text style={styles.estName}>Acesso completo da sua conta</Text><Text style={styles.intro}>Seu papel de proprietário da plataforma inclui os recursos do estabelecimento, sem mensalidade. Cadastre seus próprios espaços para operar; a propriedade dos campos de clientes não é alterada.</Text></Card>}
+      <ResponsiveColumns><View style={{gap:12}}>
       {myEstablishments.map((e) => (
-        <Pressable key={e.id} onPress={() => router.push(`/estabelecimento/${e.id}`)}>
-          <Card style={styles.estRow}>
+          <Card key={e.id} style={{gap:12}}><View style={styles.estRow}>
             <View style={styles.estIcon}>
               <Text style={styles.estIconText}>🏟️</Text>
             </View>
@@ -71,16 +76,16 @@ export default function MyEstablishmentsScreen() {
               </Text>
               <Text style={styles.estSub}>{fieldCount(e.id)} campo{fieldCount(e.id) === 1 ? '' : 's'}</Text>
             </View>
-            <Badge label={e.payoutMethod === 'pix' ? 'Pix' : 'Na hora'} color={colors.special} />
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            <Badge label="Dono" color={colors.selection} textColor={colors.primaryDark} />
+          </View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+            <Button small label="Gerenciar espaço" onPress={()=>router.push(`/estabelecimento/${e.id}`)} />
+            <Button small variant="outline" label="Operação ao vivo" onPress={()=>router.push({pathname:'/operacao/ao-vivo',params:{establishmentId:e.id}})} />
+          </View>
           </Card>
-        </Pressable>
       ))}
 
-      {!creating && (
-        <Button label="+ Cadastrar novo estabelecimento" variant="secondary" onPress={() => setCreating(true)} />
-      )}
-
+      {!myEstablishments.length&&<WorkspaceEmpty icon="storefront-outline" title="Seu primeiro espaço começa aqui" description="Um estabelecimento pode ter vários campos e esportes. Depois do cadastro, configure reservas, aulas, comandas e acesso da equipe."><Button small label="Cadastrar meu espaço" onPress={()=>setCreating(true)} /></WorkspaceEmpty>}
+      </View><View style={{gap:12}}>
       {creating && (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Cadastrar estabelecimento</Text>
@@ -104,13 +109,15 @@ export default function MyEstablishmentsScreen() {
           <Button
             label="Cadastrar estabelecimento"
             onPress={handleCreate}
-            disabled={!name.trim() || (payoutMethod === 'pix' && !pixKey.trim())}
+            disabled={!currentPlayerId || !name.trim() || (payoutMethod === 'pix' && !pixKey.trim())}
           />
-          {myEstablishments.length > 0 && (
+          {(
             <Button label="Cancelar" variant="ghost" small onPress={() => setCreating(false)} />
           )}
         </Card>
       )}
+      {!creating&&<Card><Text style={styles.estName}>Tudo conectado ao seu espaço</Text><Text style={styles.intro}>1. Cadastre o estabelecimento e seus campos.</Text><Text style={styles.intro}>2. Configure horários, preços e formas de receber.</Text><Text style={styles.intro}>3. Libere a equipe e acompanhe reservas, comandas, aulas e relatórios.</Text><Button small variant="outline" label="Ver meus acessos de operação" onPress={()=>router.push('/operacao')} /></Card>}
+      </View></ResponsiveColumns>
     </Screen>
   );
 }
@@ -130,7 +137,7 @@ const styles = StyleSheet.create({
   intro: {
     color: colors.textMuted,
     fontSize: 13,
-    marginBottom: spacing.lg,
+    lineHeight: 20,
   },
   estRow: {
     flexDirection: 'row',
@@ -160,15 +167,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   section: {
-    marginTop: spacing.lg,
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
 });

@@ -2,6 +2,36 @@
 
 ## Interface compacta e notebook — 1.0.9 (próximo build 13)
 
+### Aulas e área do dono de campo
+
+Aulas separa **Turmas**, **Minhas aulas**, **Trocas e reposições** e
+**Pagamentos**. Há busca por turma/espaço/nível, resumos da consulta, estados
+vazios com ação e avisos de erro distintos de ausência de dados. A confirmação
+da reserva abre Pagamentos; a consulta de Minhas aulas mostra somente horários
+com vaga ativa do próprio jogador. Precificação, publicação recorrente, chamada,
+trocas, reposições e regras de cobrança existentes foram preservadas.
+
+No celular os quatro seletores formam uma grade 2×2; no notebook, conteúdo e
+orientações ficam em colunas. Meus estabelecimentos, acessos da equipe, painel
+do estabelecimento e operação ao vivo também têm conteúdo agrupado e cartões
+responsivos, em vez de textos e botões esticados pela largura inteira.
+
+**A mesma conta pode jogar, administrar times e ser dona de campos.** O acesso
+a Meus estabelecimentos está no menu web, no topo do Perfil e na aba Admin,
+inclusive para quem ainda não administra um time. O proprietário da plataforma
+mantém sua isenção Premium/Pro, confirmada pelo servidor; outros usuários não
+recebem gratuidade por abrir a página. Cadastro de espaço requer login e perfil
+carregado. Não foi transferida propriedade de nenhum estabelecimento de cliente
+nem concedida permissão global de caixa/financeiro: operação continua baseada
+na propriedade ou nas permissões de equipe já existentes no servidor.
+
+Validação específica: `scripts/test-owner-workspace-ui.cjs` exercita cinco rotas
+em seis larguras, abas, busca, erros, caminho do Admin até o estabelecimento,
+isolamento de outro dono e ausência de falso benefício para contas comuns.
+`test-venue-academy-ui.cjs` cobre os fluxos existentes de aulas e operação;
+`test-customer-invoices-ui.cjs` cobre faturas. São testes com backend sintético,
+não pagamentos ou mensagens reais, nem comprovação de execução nativa.
+
 O padrão aprovado foi aplicado na base compartilhada das 74 páginas: cabeçalho
 grafite com a marca esportiva, títulos menores, cartões brancos sem sombras
 pesadas, formulários agrupados e ações secundárias neutras. Verde-lima destaca

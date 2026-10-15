@@ -19,6 +19,7 @@ const groups = [
   ] },
   { title: 'GESTÃO E CONTA', items: [
     { label: 'Administrar times', path: '/admin', icon: 'settings-outline' },
+    { label: 'Meus estabelecimentos', path: '/estabelecimento', icon: 'storefront-outline' },
     { label: 'Meus acessos nos campos', path: '/operacao', icon: 'business-outline' },
     { label: 'Minhas faturas', path: '/faturas', icon: 'document-text-outline' },
     { label: 'Meu perfil', path: '/perfil', icon: 'person-circle-outline' },

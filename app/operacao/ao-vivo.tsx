@@ -1,4 +1,6 @@
 import { PageHeading } from '@/components/ui/PageHeading';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
+import { WorkspaceEmpty, WorkspaceHeader, WorkspaceSummary } from '@/components/ui/Workspace';
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
@@ -46,6 +48,7 @@ export default function Live() {
       setBusy(false);
     }
   }
+  if (!establishmentId) return <Screen><WorkspaceEmpty icon="business-outline" title="Escolha seu espaço de trabalho" description="Abra um estabelecimento para acompanhar locações, pedidos, aulas e recebimentos autorizados."><Button label="Ver meus acessos" onPress={()=>router.push('/operacao')} /></WorkspaceEmpty></Screen>;
   return (
     <Screen>
       <Button
@@ -54,25 +57,20 @@ export default function Live() {
         label="Voltar"
         onPress={() => router.back()}
       />
-      <PageHeading><Text style={s.title}>Operação ao vivo</Text>
-      <Text style={s.text}>{d.name}</Text></PageHeading><Text style={s.meta}>
+      <WorkspaceHeader title="Operação ao vivo" description={d.name || 'Consultando seu estabelecimento…'}>
+      <Button small variant="outline" label="Atualizar agora" loading={feed.busy} onPress={()=>void feed.refresh()} />
+      {d.owner&&<Button small variant="outline" label="Gerenciar espaço" onPress={()=>router.push(`/estabelecimento/${establishmentId}`)} />}
+      </WorkspaceHeader><Text style={s.meta}>
         {feed.live ? "Conexão em tempo real" : "Atualização a cada 30 segundos"}{" "}
         ·{" "}
         {feed.updatedAt
           ? `última consulta ${new Date(feed.updatedAt).toLocaleTimeString("pt-BR")}`
           : "Conectando"}
       </Text>
-      <Button
-        small
-        variant="outline"
-        label="Atualizar agora"
-        loading={feed.busy}
-        onPress={() => void feed.refresh()}
-      />
       {!!(feed.error || message) && (
         <Text style={s.message}>{feed.error || message}</Text>
       )}
-      <View style={s.row}>
+      {!!d.capabilities?.length&&<Card><Text style={s.heading}>Ações do estabelecimento</Text><View style={s.row}>
         {can("pdv") && (
           <Button
             small
@@ -137,7 +135,13 @@ export default function Live() {
             }
           />
         )}
-      </View>
+      </View></Card>}
+      {!!d.name&&<WorkspaceSummary items={[
+        {label:'Quadras em uso',value:d.occupancy?.length??'—',icon:'timer-outline'},
+        {label:'Reservas de hoje',value:d.bookings?.length??'—',icon:'calendar-outline'},
+        {label:'Ocorrências abertas',value:d.incidents?.filter(i=>!i.resolved_at).length??'—',icon:'flag-outline'},
+      ]} />}
+      <ResponsiveColumns><View style={{gap:12}}>
       {d.open_tabs !== undefined && (
         <Card style={s.card}>
           <Text style={s.heading}>
@@ -204,6 +208,8 @@ export default function Live() {
           </Card>
         );
       })}
+      {d.occupancy?.length === 0 && <WorkspaceEmpty icon="timer-outline" title="Nenhuma quadra em uso agora" description="Os cronômetros aparecem quando a equipe registra o início de uma locação. Reservas futuras não iniciam uso automaticamente." />}
+      </View><View style={{gap:12}}>
       {can("reservations") && (
         <Card style={s.card}>
           <Text style={s.heading}>Iniciar uso da quadra</Text>
@@ -299,6 +305,7 @@ export default function Live() {
           )}
         </Card>
       ))}
+      </View></ResponsiveColumns>
     </Screen>
   );
 }

@@ -1,4 +1,5 @@
 import { PageHeading } from '@/components/ui/PageHeading';
+import { OwnerWorkspaceEntry } from '@/components/OwnerWorkspaceEntry';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -43,7 +44,7 @@ export default function AdminScreen() {
           <Ionicons name="shield-outline" size={32} color={colors.textFaint} />
           <Text style={styles.notAdminText}>Você não é administrador de nenhum time ainda.</Text>
           <Button label="Criar um time novo" small onPress={() => router.push('/criar-pelada')} />
-        </View>
+        </View><OwnerWorkspaceEntry />
       </Screen>
     );
   }
@@ -52,6 +53,7 @@ export default function AdminScreen() {
     <Screen>
       <PageHeading><Text style={styles.title}>Administração</Text>
       <Text style={styles.pageSubtitle}>Organize cada time sem misturar agenda, elenco ou caixa.</Text></PageHeading>
+      <OwnerWorkspaceEntry />
       <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />
 
       {isAdmin ? (

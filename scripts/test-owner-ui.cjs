@@ -25,7 +25,7 @@ async function run() {
     await page.getByText('Liberado para o proprietário',{exact:true}).waitFor();
     await page.screenshot({path:path.join(output,'02-time-pro.png')});
     await page.goto(`${base}/estabelecimento`,{waitUntil:'networkidle'});
-    await page.getByText('+ Cadastrar novo estabelecimento',{exact:true}).click();
+    await page.getByRole('button',{name:'Cadastrar novo estabelecimento',exact:true}).click();
     await page.getByText('Nome',{exact:true}).locator('..').locator('input').fill('Arena do proprietário');
     await page.getByText('Chave Pix',{exact:true}).locator('..').locator('input').fill('teste@example.invalid');
     await page.getByText('Cadastrar estabelecimento',{exact:true}).last().click();

@@ -93,6 +93,7 @@ export default function PerfilScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       <Button small variant="outline" label="Conversas e privacidade" onPress={() => router.push('/conversas')} />
       <Button small variant="outline" label="Meu histórico" onPress={() => router.push('/historico')} />
+      <Button small variant="outline" label="Meus estabelecimentos" onPress={() => router.push('/estabelecimento')} />
       {platformRole && <Button label="Admin da plataforma" variant="outline" small onPress={() => router.push('/plataforma')} />}
       </View>
       <ResponsiveColumns><View style={{ gap: 12 }}>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, Share, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EstablishmentSwitcher } from '@/components/EstablishmentSwitcher';
@@ -13,6 +13,8 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TextField } from '@/components/ui/TextField';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
+import { WorkspaceHeader } from '@/components/ui/Workspace';
 import { colors, radius, spacing } from '@/constants/theme';
 import { computeEstablishmentFinancials } from '@/lib/establishmentFinance';
 import { formatBRL } from '@/lib/payments';
@@ -20,6 +22,8 @@ import { useAppStore } from '@/store/useAppStore';
 import type { EstablishmentPayoutMethod } from '@/types';
 
 export default function EstablishmentDashboardScreen() {
+  const {width} = useWindowDimensions();
+  const wide = Platform.OS === 'web' && width >= 1180;
   const { id } = useLocalSearchParams<{ id: string }>();
   const currentPlayerId = useAppStore((s) => s.currentPlayerId);
   const establishment = useAppStore((s) => s.establishments.find((e) => e.id === id));
@@ -103,24 +107,22 @@ export default function EstablishmentDashboardScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.push('/estabelecimento')} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
+      <Button small variant="ghost" label="Voltar aos meus estabelecimentos" onPress={()=>router.push('/estabelecimento')} />
+      <WorkspaceHeader title="Painel do estabelecimento" description="Organize seu espaço e acompanhe a operação sem misturar os negócios.">
+        <Button small label="Operação ao vivo" onPress={()=>router.push({pathname:'/operacao/ao-vivo',params:{establishmentId:establishment.id}})} />
+      </WorkspaceHeader>
+        <View style={{ minWidth: 0 }}>
           <EstablishmentSwitcher current={establishment} all={myEstablishments} />
         </View>
-      </View>
 
-      <View style={styles.statsRow}>
+      <Card><View style={styles.statsRow}>
         <Stat label="Campos" value={String(fields.length)} />
         <Stat label="Agendados" value={String(bookings.length)} />
         <Stat label="Campeonatos" value={String(championships.length)} />
         <Stat label="Recebido" value={formatBRL(summary.total)} highlight />
-      </View>
+      </View></Card>
 
-      <View style={styles.navGrid}>
-        <NavCard icon="pulse" label="Operação ao vivo" sub="Locações, cronômetros e ocorrências" onPress={() => router.push({pathname:'/operacao/ao-vivo',params:{establishmentId:establishment.id}})} />
+      <View style={[styles.navGrid,wide&&{gap:12}]}>
         <NavCard icon="people" label="Equipe e permissões" sub="Professores, funcionários e sócios" onPress={() => router.push({pathname:'/operacao/equipe',params:{establishmentId:establishment.id}})} />
         <NavCard icon="star" label="Avaliações e NPS" sub="Comentários e reputação" onPress={()=>router.push({pathname:'/avaliacoes',params:{establishmentId:establishment.id}})} />
         <NavCard icon="time-outline" label="Histórico" sub="Atividade e alterações" onPress={()=>router.push({pathname:'/historico',params:{scope:'venue',venueId:establishment.id}})} />
@@ -142,6 +144,7 @@ export default function EstablishmentDashboardScreen() {
       </View>
       {directoryOpen && <FieldDirectoryEditor establishmentId={establishment.id} />}
 
+      <ResponsiveColumns><View style={{gap:12}}>
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View style={{ flex: 1 }}>
@@ -175,6 +178,7 @@ export default function EstablishmentDashboardScreen() {
       </Card>
 
       <WhatsAppConnection venue={establishment.id} />
+      </View><View style={{gap:12}}>
 
       <Card style={styles.section}>
         <View style={styles.sectionHeaderRow}>
@@ -224,6 +228,7 @@ export default function EstablishmentDashboardScreen() {
         </View>
         <Button label="Compartilhar código" variant="secondary" onPress={handleShare} />
       </Card>
+      </View></ResponsiveColumns>
     </Screen>
   );
 }
@@ -250,11 +255,13 @@ function NavCard({
   sub: string;
   onPress: () => void;
 }) {
+  const {width} = useWindowDimensions();
+  const wide=Platform.OS==='web'&&width>=1180;
   return (
-    <Pressable style={styles.navCard} onPress={onPress}>
-      <Ionicons name={icon} size={22} color={colors.special} />
+    <Pressable accessibilityRole="button" accessibilityLabel={label} style={[styles.navCard,{width:wide?'32%':'48%'}]} onPress={onPress}>
+      <Ionicons name={icon} size={22} color={colors.primaryDark} />
       <Text style={styles.navCardLabel}>{label}</Text>
-      <Text style={styles.navCardSub} numberOfLines={1}>
+      <Text style={styles.navCardSub}>
         {sub}
       </Text>
     </Pressable>
@@ -276,7 +283,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    gap: 8,
   },
   stat: {
     alignItems: 'center',
@@ -296,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
   },
   navCard: {
     width: '47%',
@@ -305,6 +312,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     borderRadius: radius.md,
     padding: spacing.md,
+    minHeight: 108,
     gap: 2,
   },
   navCardLabel: {
@@ -318,7 +326,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   section: {
-    marginBottom: spacing.lg,
     gap: spacing.sm,
   },
   sectionHeaderRow: {
@@ -328,11 +335,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   editLink: {
     color: colors.special,
