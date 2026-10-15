@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 .test-runtime/
+.store-test-input/
+/store-native-captures/
+/store-test-diagnostics/
 
 # Expo
 .expo/

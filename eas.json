@@ -22,6 +22,20 @@
       "environment": "production",
       "env": { "EXPO_PUBLIC_ADMOB_MODE": "off" },
       "android": { "buildType": "app-bundle" }
+    },
+    "store-screenshots": {
+      "extends": "store",
+      "environment": "preview",
+      "withoutCredentials": true,
+      "ios": { "simulator": true, "config": "store-screenshots.yml" }
+    },
+    "store-capture-only": {
+      "extends": "store-screenshots",
+      "ios": { "config": "store-capture-only.yml" }
+    },
+    "store-capture-ipad": {
+      "extends": "store-capture-only",
+      "env": { "STORE_CAPTURE_FAMILY": "ipad" }
     }
   },
   "submit": {

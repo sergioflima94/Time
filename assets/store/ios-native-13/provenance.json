@@ -1,0 +1,79 @@
+{
+  "version": "1.0.9",
+  "build": "13",
+  "native": true,
+  "nativeApplicationBuildId": "d7aba2b3-ecda-4b4d-9a9e-35c9c71906b5",
+  "devices": [
+    {
+      "family": "iphone",
+      "model": "iPhone 17 Pro Max",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+      "files": [
+        {
+          "name": "01-home.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "8e9edbd1ec7116fc1a83addd5f1c5636535688431edb41c63ff4d29d400f6f09"
+        },
+        {
+          "name": "02-times.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "962e66a5f2a0b91117df8adcf87892bfc42076f6c34b1c43e93951c784d5ef06"
+        },
+        {
+          "name": "03-operacao.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "62c265ea6e0c83160f2df930f9e2db7247733a34762c1aba5f5404f4629faade"
+        },
+        {
+          "name": "04-aulas.png",
+          "width": 1320,
+          "height": 2868,
+          "sha256": "96046f7b84d5bb953b62266ace435f0c9e87948abe58282403c5134dcc07d908"
+        }
+      ],
+      "captureBuildId": "e83f14df-5cfa-4e53-bfe2-bf552758718e",
+      "capturedAt": "2026-10-15T09:47:19.164Z"
+    },
+    {
+      "family": "ipad",
+      "model": "iPad Pro 13-inch (M5)",
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+      "files": [
+        {
+          "name": "01-home.png",
+          "width": 2064,
+          "height": 2752,
+          "sha256": "a4d1507bfb5f6d226b5ced61822eca7f9e503db36c92b531b5cb5017953376f5"
+        },
+        {
+          "name": "02-times.png",
+          "width": 2064,
+          "height": 2752,
+          "sha256": "9d92dedf398dec0c51a3531b435a980a2afa66df649f124fd59b703f90b72f67"
+        },
+        {
+          "name": "03-operacao.png",
+          "width": 2064,
+          "height": 2752,
+          "sha256": "afa724d893b0aca8fc609019cea1eeba1251e03b87a191bea11c0744fa1de7a8"
+        },
+        {
+          "name": "04-aulas.png",
+          "width": 2064,
+          "height": 2752,
+          "sha256": "c9a6fe2142cb20eb859a0e833030a2f04b96fb3eceadb7c843f4cb196785fd6b"
+        }
+      ],
+      "captureBuildId": "d61a188d-0f23-4a97-a23d-29e8bac51b29",
+      "capturedAt": "2026-10-15T12:18:26.936Z"
+    }
+  ],
+  "sourceCommit": "f305aa978bb446fd021bd7fcedf41341ad2e59df",
+  "captureBuildIds": [
+    "e83f14df-5cfa-4e53-bfe2-bf552758718e",
+    "d61a188d-0f23-4a97-a23d-29e8bac51b29"
+  ]
+}

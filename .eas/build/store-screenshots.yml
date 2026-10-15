@@ -1,0 +1,16 @@
+build:
+  name: Compilação e capturas nativas iPhone e iPad
+  steps:
+    - eas/build
+    - eas/install_maestro:
+        inputs:
+          maestro_version: 2.11.0
+    - run:
+        name: Validar conta restrita e capturar os dois dispositivos
+        command: node scripts/store-ios-screenshots.cjs
+    - eas/upload_artifact:
+        name: Capturas nativas sem credenciais ou relatórios de autenticação
+        if: ${ always() }
+        inputs:
+          type: build-artifact
+          path: store-native-captures

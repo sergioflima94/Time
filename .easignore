@@ -3,6 +3,11 @@ node_modules/
 .git/
 .expo/
 .test-runtime/
+.store-test-input/*
+!.store-test-input/simulator.tar.gz
+!.store-test-input/provenance.json
+store-native-captures/
+store-test-diagnostics/
 .expo-test-dist*/
 dist/
 web-build/

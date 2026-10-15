@@ -5,8 +5,9 @@
 Android: AAB release assinado compilado localmente e recebido/validado pelo
 Google Play na faixa de produção, com o logo esportivo e quatro novas capturas
 nativas em `assets/store/android-native-13/`. O envio das dez mudanças foi
-confirmado no Console: **Alterações em análise**, inicialmente em verificações
-rápidas automáticas, com encaminhamento à revisão depois dessas verificações.
+confirmado no Console: **Alterações em análise**. As verificações iniciais
+terminaram e o Console confirma que as mudanças estão sendo revisadas, com
+lançamento completo solicitado para o Brasil e publicação gerenciada desativada.
 Não significa aprovação nem publicação concluída. O registro de origem das
 capturas e dos testes está em `provenance.json` nessa pasta. SHA-256 do AAB enviado:
 `25531924988C4E19F125EC3F5411EC9A8CBCFE4C3054489A575CC8F259DC2BE0`.
@@ -22,9 +23,51 @@ iOS: build Expo `cb46247a-1772-4cc9-b1c7-a85c78bd54b0` concluído. O transporte
 via EAS Submit falhou duas vezes; o mesmo IPA assinado foi enviado pela API
 oficial da Apple, com checksum e a chave existente. Upload
 `ad0a5159-bade-4431-bc1a-455b8919ed75` completo, build 13 `VALID` e selecionado na
-ficha 1.0.9, ainda não reenviada para App Review. Novos prints nativos de
-iPhone/iPad continuam pendentes; imagens Android ou renders web não são provas
-de execução iOS e não foram usados para substituí-los.
+ficha 1.0.9. **Enviada para App Review em 15/10/2026: WAITING_FOR_REVIEW**, tanto
+na versão quanto na submissão `7d5b9c16-bda5-4aad-9e86-550a761def53`.
+Liberação configurada para depois da aprovação (`AFTER_APPROVAL`), não apenas
+TestFlight. Isso ainda não significa aprovação ou publicação concluída.
+
+Oito novos prints **nativos** foram aceitos pela Apple e aplicados: quatro do
+iPhone 17 Pro Max (1320×2868) e quatro do iPad Pro 13-inch (M5) (2064×2752),
+ambos iOS 26.5. As imagens e os checksums estão em
+`assets/store/ios-native-13/`; não são renders web nem imagens Android.
+Os prints antigos da ficha foram substituídos somente depois de a Apple
+concluir o processamento dos novos arquivos. Instruções privadas de revisão
+atualizadas, preservando o contato e as credenciais da conta fictícia restrita.
+
+Validação iOS: login, aceite local dos termos e navegação/captura de Início,
+Times, Operação ao vivo e Aulas. A automação trata os avisos de salvar senha e
+abrir links do próprio app. A conta não recebeu acesso ao admin da plataforma
+ou a clientes reais; não houve pagamentos nem mensagens. Foram usados apenas
+créditos do plano gratuito existente, sem contratação. Os três segredos de
+teste temporários do Expo foram removidos ao terminar.
+
+### Capturas nativas iOS sem alterar o build enviado
+
+O perfil manual `store-screenshots` herda a configuração sem anúncios de
+`store`, compila somente para simulador e executa
+`.eas/build/store-screenshots.yml`. Ele usa `preview`, cujas configurações
+públicas do Supabase foram conferidas como iguais às de produção. Não envia
+outro binário para a loja nem cria disparos automáticos no Git.
+
+As variáveis temporárias `MAESTRO_REVIEW_EMAIL`, `MAESTRO_REVIEW_PASSWORD` e
+`MAESTRO_REVIEW_VENUE` ficam como **Secret** no projeto Expo, somente em
+`preview`, para a conta fictícia restrita. Nunca devem ser `EXPO_PUBLIC_*`,
+incluídas em comandos, commits ou no aplicativo. Remova-as após a captura.
+Somente `store-native-captures/`, com quatro telas de cada dispositivo e
+`provenance.json`, deve ser utilizado nas lojas. O perfil de repetição
+`store-capture-only` reaproveita o mesmo app de simulador, confere seu checksum
+e pode exportar `store-test-diagnostics/` para diagnóstico privado. Nunca
+publique essa pasta no Git ou nas lojas: ela pode conter uma captura de erro
+com o e-mail fictício de revisão, embora os valores sensíveis sejam removidos
+dos relatórios de texto. Os diretórios de entrada e diagnóstico estão ignorados
+no Git. A janela do iOS para salvar senha deve ser recusada, não aceita.
+O teste não realiza pagamentos, envia mensagens ou altera clientes reais.
+
+Execução manual: `eas build -p ios -e store-screenshots --non-interactive`.
+Use apenas a franquia disponível ou um plano já autorizado. O job pronto
+`maestro` de EAS Workflows exige plano pago e não foi habilitado.
 
 ## Interface compacta e notebook — 1.0.9 (build 13)
 

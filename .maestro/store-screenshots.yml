@@ -1,0 +1,90 @@
+appId: com.marcoujogou.app
+name: Capturas nativas com a conta restrita de revisão
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "voce@email.com"
+    timeout: 60000
+- tapOn: "voce@email.com"
+- inputText:
+    text: ${MAESTRO_REVIEW_EMAIL}
+    label: Identificar a conta fictícia de revisão
+- tapOn: "••••••••"
+- inputText:
+    text: ${MAESTRO_REVIEW_PASSWORD}
+    label: Autenticar a conta restrita com segredo protegido
+- hideKeyboard
+- tapOn:
+    text: Entrar
+    index: 0
+# Prefer the semantic control and allow the asynchronous OS sheet to settle.
+# On this iPadOS version it is not exposed, so the optional lookup times out
+# before the screenshot-grounded fallback below is used.
+- tapOn:
+    text: "Not Now|Agora não"
+    optional: true
+# iPadOS 26.5's Passwords popover is absent from the accessibility tree.
+# This Not Now point was verified on the native 2064x2752 diagnostic capture;
+# never apply it to a different device model or a real user's session.
+- runFlow:
+    when:
+      true: ${MAESTRO_CAPTURE_DEVICE === 'ipad' && MAESTRO_CAPTURE_MODEL === 'iPad Pro 13-inch (M5)'}
+      notVisible: "Antes de participar|Seu jogo e sua turma, por aqui."
+    commands:
+      - waitForAnimationToEnd
+      - tapOn:
+          point: "43%,57%"
+- extendedWaitUntil:
+    visible: "Not Now|Agora não|Antes de participar|Seu jogo e sua turma, por aqui."
+    timeout: 60000
+- tapOn:
+    text: "Not Now|Agora não"
+    optional: true
+- extendedWaitUntil:
+    visible: "Antes de participar|Seu jogo e sua turma, por aqui."
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Antes de participar"
+    commands:
+      - tapOn: "Aceito os termos e as regras da comunidade"
+      - tapOn: "Aceitar e continuar"
+- extendedWaitUntil:
+    visible: "Seu jogo e sua turma, por aqui."
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: 01-home
+- openLink: "pelada://times"
+- runFlow:
+    when:
+      visible: 'Open in.*MarcouJogou.*|Abrir.*MarcouJogou.*'
+    commands:
+      - tapOn: "Open|Abrir"
+- extendedWaitUntil:
+    visible: "Sua camisa, sua turma e todos os jogos em um só lugar."
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 02-times
+- openLink: "pelada://operacao/ao-vivo?establishmentId=${MAESTRO_REVIEW_VENUE}"
+- runFlow:
+    when:
+      visible: 'Open in.*MarcouJogou.*|Abrir.*MarcouJogou.*'
+    commands:
+      - tapOn: "Open|Abrir"
+- extendedWaitUntil:
+    visible: "Ações do estabelecimento"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 03-operacao
+- openLink: "pelada://operacao/aulas?establishmentId=${MAESTRO_REVIEW_VENUE}"
+- runFlow:
+    when:
+      visible: 'Open in.*MarcouJogou.*|Abrir.*MarcouJogou.*'
+    commands:
+      - tapOn: "Open|Abrir"
+- extendedWaitUntil:
+    visible: "Aulas e professores"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 04-aulas

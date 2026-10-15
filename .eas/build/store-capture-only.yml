@@ -1,0 +1,23 @@
+build:
+  name: Repetir capturas do mesmo app de simulador
+  steps:
+    - eas/checkout
+    - eas/install_node_modules
+    - eas/install_maestro:
+        inputs:
+          maestro_version: 2.11.0
+    - run:
+        name: Conferir e extrair o app previamente compilado
+        command: |
+          node scripts/store-ios-screenshots.cjs unpack
+    - run:
+        name: Capturas nativas com diagnóstico protegido
+        command: node scripts/store-ios-screenshots.cjs
+    - eas/upload_artifact:
+        name: Capturas e diagnóstico sem credenciais
+        if: ${ always() }
+        inputs:
+          type: build-artifact
+          path: |
+            store-native-captures
+            store-test-diagnostics
