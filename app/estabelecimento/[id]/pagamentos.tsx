@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -94,11 +95,11 @@ export default function PaymentGatewaysScreen() {
       )}
 
       {!isMockMode && <InvoiceGatewayConnect venue={establishment.id} />}
-      <Text style={styles.heading}>Escolha do dono do campo</Text>
+      <PageHeading><Text style={styles.heading}>Escolha do dono do campo</Text>
       <Text style={styles.description}>
         O dinheiro entra diretamente na conta escolhida. O app registra a
         cobrança, recebe o webhook e dá baixa nas pessoas certas da comanda.
-      </Text>
+      </Text></PageHeading>
 
       {PAYMENT_GATEWAYS.map((gateway) => {
         const active =

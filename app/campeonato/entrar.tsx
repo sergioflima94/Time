@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
 
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -25,8 +26,8 @@ export default function EntrarCampeonatoScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
+    <Screen contentStyle={{ maxWidth: 560 }}>
+      <Card>
         <View style={styles.iconWrap}>
           <Ionicons name="trophy" size={48} color={colors.gold} />
         </View>
@@ -45,8 +46,8 @@ export default function EntrarCampeonatoScreen() {
 
         <Button label="Continuar" onPress={handleContinue} disabled={!code.trim()} style={{ marginTop: spacing.lg }} />
         <Button label="Voltar" variant="ghost" onPress={() => router.back()} style={{ marginTop: spacing.sm }} />
-      </View>
-    </SafeAreaView>
+      </Card>
+    </Screen>
   );
 }
 

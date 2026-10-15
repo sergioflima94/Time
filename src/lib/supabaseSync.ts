@@ -49,6 +49,12 @@ interface StartOptions {
 }
 
 let applyingRemote = false;
+/** Canonical emblem RPC result: never enqueue a second generic team write. */
+export function applyTeamCache(teamId: string, patch: { logoKey?: string | null; logoUrl?: string | null }) {
+  const previous = applyingRemote; applyingRemote = true;
+  try { useAppStore.setState(s => ({ peladas: s.peladas.map(p => p.id === teamId ? { ...p, ...patch } : p) })); }
+  finally { applyingRemote = previous; }
+}
 export function applyOperationCache(patch: Partial<Pick<ReturnType<typeof useAppStore.getState>, 'serviceTabs' | 'tabParticipants'>>) {
   const previous = applyingRemote;
   applyingRemote = true;

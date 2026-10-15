@@ -93,6 +93,9 @@ export type PeladaRole = "admin" | "member";
 export interface Pelada {
   id: UUID;
   name: string;
+  /** Public team emblem uploaded by an administrator; optional for older caches. */
+  logoUrl?: string | null;
+  logoKey?: string | null;
   description: string | null;
   /** Esporte da pelada (SportId de src/constants/sports.ts) — decide terminologia (gol/ponto), cor de destaque e se o sorteio usa goleiro. */
   sportId: string;

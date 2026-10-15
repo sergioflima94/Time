@@ -14,6 +14,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
 import { TextField } from '@/components/ui/TextField';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
@@ -81,7 +82,7 @@ export default function AmigosScreen() {
         {incoming.length > 0 && <View style={[styles.networkPill, styles.networkPillAlert]}><Text style={styles.networkPillText}>{incoming.length} pedidos</Text></View>}
       </View>
 
-      <FriendDiscoverySection />
+      <ResponsiveColumns><View style={{ gap: 12 }}><FriendDiscoverySection /></View><View style={{ gap: 12 }}>
       <LancesFeed />
       <Button label="Conversas e solicitações" variant="outline" small style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
 
@@ -133,6 +134,7 @@ export default function AmigosScreen() {
           ))}
         </View>
       )}
+      </View></ResponsiveColumns>
     </Screen>
   );
 }
@@ -263,8 +265,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 30,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.7,
   },
   subtitle: {

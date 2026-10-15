@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
 import { PrivacyLinks } from '@/components/PrivacyLinks';
 import { colors, radius, spacing } from '@/constants/theme';
 import { isMockMode } from '@/lib/supabase';
@@ -23,10 +24,9 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen contentStyle={{ maxWidth: 480, paddingTop: 24 }}>
       <View style={styles.logoWrap}>
-        <BrandLogo />
-        <Text style={styles.kicker}>MARCOU O ESPAÇO. REUNIU A TURMA.</Text>
+        <Text style={{ color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: '800' }}>Entre para jogar</Text>
         <Text style={styles.subtitle}>Reserve seu espaço, organize o time e venha jogar.</Text>
       </View>
 
@@ -39,7 +39,7 @@ export default function LoginScreen() {
         </View>
       )}
 
-      <View style={styles.form}>
+      <Card style={styles.form}>
         <Text style={styles.label}>E-mail</Text>
         <TextInput
           value={email}
@@ -74,8 +74,8 @@ export default function LoginScreen() {
           </Link>
         </View>
         <PrivacyLinks />
-      </View>
-    </View>
+      </Card>
+    </Screen>
   );
 }
 

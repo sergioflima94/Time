@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import { AmigosTabIcon } from '@/components/AmigosTabIcon';
 import { colors } from '@/constants/theme';
@@ -7,6 +8,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function TabsLayout() {
   const actor = useAuthStore(s => s.authUserId);
+  const { width } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && width >= 1024;
   return (
     <Tabs
       key={actor ?? 'demo'}
@@ -17,15 +20,16 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700', paddingBottom: 4 },
         tabBarItemStyle: { paddingTop: 5 },
         tabBarStyle: {
-          height: 68,
+          display: desktop ? 'none' : 'flex',
+          height: 66,
           backgroundColor: colors.card,
           borderTopColor: colors.cardBorder,
           borderTopWidth: 1,
           shadowColor: colors.shadow,
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
+          shadowOpacity: 0,
+          shadowRadius: 0,
           shadowOffset: { width: 0, height: -4 },
-          elevation: 8,
+          elevation: 0,
         },
       }}
     >

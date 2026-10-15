@@ -1,4 +1,5 @@
 import { fieldSportIds } from '@/lib/fieldSports';
+import { teamEmblemUrl } from '@/lib/teamEmblemRules';
 export type StoreName = 'app' | 'growth' | 'pro';
 
 export interface TableSpec {
@@ -77,13 +78,14 @@ const playerSpec = app('players', 'players', {
 
 const peladaSpec = app('peladas', 'peladas', {
   toRow: (value) => {
-    const row = genericToRow(value, ['memberInvitePermissions']);
+    const row = genericToRow(value, ['memberInvitePermissions', 'logoUrl', 'logoKey']);
     row.member_can_invite_free_agents = value.memberInvitePermissions?.canInviteFreeAgents ?? false;
     row.member_can_invite_new_members = value.memberInvitePermissions?.canInviteNewMembers ?? false;
     return row;
   },
   fromRow: (row) => {
     const value = genericFromRow(row);
+    value.logoUrl = teamEmblemUrl(row.logo_key);
     value.memberInvitePermissions = {
       canInviteFreeAgents: row.member_can_invite_free_agents,
       canInviteNewMembers: row.member_can_invite_new_members,

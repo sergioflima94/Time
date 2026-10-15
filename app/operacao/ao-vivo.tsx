@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
@@ -53,9 +54,8 @@ export default function Live() {
         label="Voltar"
         onPress={() => router.back()}
       />
-      <Text style={s.title}>Operação ao vivo</Text>
-      <Text style={s.text}>{d.name}</Text>
-      <Text style={s.meta}>
+      <PageHeading><Text style={s.title}>Operação ao vivo</Text>
+      <Text style={s.text}>{d.name}</Text></PageHeading><Text style={s.meta}>
         {feed.live ? "Conexão em tempo real" : "Atualização a cada 30 segundos"}{" "}
         ·{" "}
         {feed.updatedAt

@@ -44,9 +44,9 @@ async function run(){let browser,debugPage;try{
  debugPage=page;
  // Generate a real MP4 locally using a synthetic canvas, never a customer video.
  const encoded=await page.evaluate(async()=>{
-  const mime=['video/mp4;codecs=vp9','video/mp4;codecs=avc1.42001E','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));if(!mime)throw Error('Chrome MP4 encoder unavailable');
+  const mime=['video/mp4;codecs=avc1.42001E','video/mp4;codecs=vp9','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));if(!mime)throw Error('Chrome MP4 encoder unavailable');
   const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;document.body.appendChild(canvas);const g=canvas.getContext('2d');
-  let frame=0;const draw=()=>{g.fillStyle='#14532d';g.fillRect(0,0,640,360);g.fillStyle='#ffffff';g.font='28px sans-serif';g.fillText('VÍDEO DE TESTE · Resenha FC',65,180);g.fillRect((frame++*20)%600,240,24,24);};draw();
+  let frame=0;const draw=()=>{g.fillStyle='#14532d';g.fillRect(0,0,640,360);g.fillStyle='#ffffff';g.font='28px sans-serif';g.fillText('VÍDEO DE TESTE · Resenha FC',65,180);for(let i=0;i<40;i++){g.fillStyle=`hsl(${(i*17+frame*3)%360},65%,55%)`;g.fillRect((i*43+frame*20)%620,(i*31)%340,18,18);}frame++;};draw();
   const stream=canvas.captureStream(10),recorder=new MediaRecorder(stream,{mimeType:mime}),chunks=[];
   const done=new Promise(resolve=>{recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=resolve;});
   recorder.start();const timer=setInterval(()=>{draw();stream.getVideoTracks()[0].requestFrame?.();},100);await new Promise(r=>setTimeout(r,2200));recorder.stop();await done;clearInterval(timer);stream.getTracks().forEach(t=>t.stop());canvas.remove();

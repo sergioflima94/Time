@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
 
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -19,18 +20,18 @@ export default function CriarPeladaScreen() {
 
   function handleCreate() {
     if (!name.trim()) return;
-    createPelada(currentPlayerId, {
+    const created = createPelada(currentPlayerId, {
       name: name.trim(),
       description: description.trim() || null,
       sportId,
       footballVariant: 'society',
     });
-    router.replace('/(tabs)');
+    router.replace(`/time/${created.id}`);
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
+    <Screen contentStyle={{ maxWidth: 560 }}>
+      <Card>
         <View style={styles.iconWrap}>
           <Ionicons name="add-circle" size={48} color={colors.primary} />
         </View>
@@ -76,8 +77,8 @@ export default function CriarPeladaScreen() {
 
         <Button label="Criar pelada" onPress={handleCreate} disabled={!name.trim()} style={{ marginTop: spacing.lg }} />
         <Button label="Voltar" variant="ghost" onPress={() => router.back()} style={{ marginTop: spacing.sm }} />
-      </View>
-    </SafeAreaView>
+      </Card>
+    </Screen>
   );
 }
 

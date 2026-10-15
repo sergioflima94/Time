@@ -22,6 +22,8 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
         {options.map((opt) => (
           <Pressable
             key={opt.value}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: value === opt.value }}
             onPress={() => onChange(opt.value)}
             style={[styles.option, value === opt.value && styles.optionActive]}
           >
@@ -35,7 +37,8 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: spacing.md,
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
   label: {
     color: colors.text,
@@ -51,14 +54,16 @@ const styles = StyleSheet.create({
   option: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.full,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     backgroundColor: colors.card,
   },
   optionActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(157,235,34,0.18)',
+    borderColor: colors.text,
+    backgroundColor: colors.text,
   },
   optionText: {
     color: colors.textMuted,
@@ -66,6 +71,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   optionTextActive: {
-    color: colors.primary,
+    color: colors.white,
   },
 });

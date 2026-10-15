@@ -18,7 +18,8 @@ export function TextField({ label, style, containerStyle, ...props }: TextFieldP
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: spacing.md,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   label: {
     color: colors.text,
@@ -27,7 +28,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   input: {
-    minHeight: 50,
+    minHeight: 46,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -35,6 +36,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
   },
 });

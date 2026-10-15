@@ -3,6 +3,8 @@ import { router, useNavigationContainerRef } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
 import { colors, spacing } from '@/constants/theme';
 import { parseAuthCallback } from '@/lib/authCallback';
 import { supabase } from '@/lib/supabase';
@@ -64,7 +66,7 @@ export default function AuthCallbackScreen() {
       }
     })();
   }, [url, navigationReady]);
-  return <View style={styles.screen}>
+  return <Screen contentStyle={{ maxWidth: 560 }}><Card>
     {!error && <ActivityIndicator color={colors.primaryDark} size="large" />}
     <Text style={styles.title}>{error ? 'Vamos concluir sua entrada' : 'Confirmando seu e-mail…'}</Text>
     {!!error && <>
@@ -72,7 +74,7 @@ export default function AuthCallbackScreen() {
       <Button label="Entrar com minha senha" onPress={() => router.replace('/(auth)/login')} />
       <Button label="Solicitar outra confirmação" variant="outline" onPress={() => router.replace('/(auth)/confirmar-email')} />
     </>}
-  </View>;
+  </Card></Screen>;
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.lg, backgroundColor: colors.bg },

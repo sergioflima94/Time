@@ -1,9 +1,12 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { Card } from '@/components/ui/Card';
+import { TeamBadge } from '@/components/TeamBadge';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
 import { Screen } from '@/components/ui/Screen';
 import { colors, radius, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
@@ -29,10 +32,10 @@ export default function TimesScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Times</Text>
-      <Text style={styles.subtitle}>Sua camisa, sua turma e todos os jogos em um só lugar.</Text>
+      <PageHeading><Text style={styles.title}>Times</Text>
+      <Text style={styles.subtitle}>Sua camisa, sua turma e todos os jogos em um só lugar.</Text></PageHeading>
 
-      {owned.length > 0 && (
+      <ResponsiveColumns>{owned.length > 0 && (
         <View style={styles.group}>
           <Text style={styles.groupTitle}>Você é dono ({owned.length})</Text>
           {owned.map((p) => (
@@ -50,7 +53,7 @@ export default function TimesScreen() {
         </View>
       )}
 
-      {myPeladas.length === 0 && (
+      </ResponsiveColumns>{myPeladas.length === 0 && (
         <View style={styles.empty}>
           <Ionicons name="shirt-outline" size={32} color={colors.textFaint} />
           <Text style={styles.emptyText}>Você ainda não faz parte de nenhum time.</Text>
@@ -76,9 +79,7 @@ function TeamRow({ pelada, memberCount, isOwner }: { pelada: Pelada; memberCount
   return (
     <Pressable onPress={() => router.push(`/time/${pelada.id}`)}>
       <Card style={styles.teamRow}>
-        <View style={[styles.sportBadge, { backgroundColor: `${sport.color}26` }]}>
-          <Text style={styles.sportBadgeIcon}>{sport.icon}</Text>
-        </View>
+        <TeamBadge name={pelada.name} logoUrl={pelada.logoUrl} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={styles.teamName} numberOfLines={1}>
             {pelada.name}
@@ -96,8 +97,8 @@ function TeamRow({ pelada, memberCount, isOwner }: { pelada: Pelada; memberCount
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 30,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.7,
     color: colors.text,
   },

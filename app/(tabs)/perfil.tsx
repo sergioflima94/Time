@@ -1,3 +1,5 @@
+import { PageHeading } from '@/components/ui/PageHeading';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -77,8 +79,8 @@ export default function PerfilScreen() {
 
   if (!player) return (
     <Screen>
-      <Text style={styles.pageTitle}>Seu perfil</Text>
-      <Text style={styles.pageSubtitle}>Seu perfil ainda não carregou. Verifique sua conexão e tente abrir esta tela novamente.</Text>
+      <PageHeading><Text style={styles.pageTitle}>Seu perfil</Text>
+      <Text style={styles.pageSubtitle}>Seu perfil ainda não carregou. Verifique sua conexão e tente abrir esta tela novamente.</Text></PageHeading>
       <PrivacyLinks account />
       <LogoutSection />
     </Screen>
@@ -86,11 +88,14 @@ export default function PerfilScreen() {
 
   return (
     <Screen>
-      <Text style={styles.pageTitle}>Seu perfil</Text>
-      <Text style={styles.pageSubtitle}>Sua evolução, sua carta e tudo que você construiu em quadra.</Text>
-      <Button small variant="outline" label="Conversas e privacidade" style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
-      <Button small variant="outline" label="Meu histórico" style={{marginBottom:spacing.md}} onPress={() => router.push('/historico')} />
-      {platformRole && <Button label="Admin da plataforma" variant="outline" small onPress={() => router.push('/plataforma')} style={{ marginBottom: spacing.md }} />}
+      <PageHeading><Text style={styles.pageTitle}>Seu perfil</Text>
+      <Text style={styles.pageSubtitle}>Sua evolução, sua carta e tudo que você construiu em quadra.</Text></PageHeading>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <Button small variant="outline" label="Conversas e privacidade" onPress={() => router.push('/conversas')} />
+      <Button small variant="outline" label="Meu histórico" onPress={() => router.push('/historico')} />
+      {platformRole && <Button label="Admin da plataforma" variant="outline" small onPress={() => router.push('/plataforma')} />}
+      </View>
+      <ResponsiveColumns><View style={{ gap: 12 }}>
       <Pressable style={styles.cardCenter} onPress={handleChangePhoto} disabled={pickingPhoto}>
         <PlayerCard
           name={player.name}
@@ -127,6 +132,7 @@ export default function PerfilScreen() {
       <FreeAgentInvitesSection playerId={currentPlayerId} />
       <CommercialOffers audience="player" targetId={currentPlayerId} />
       <FreeAgentSection player={player} />
+      </View><View style={{ gap: 12 }}>
 
       <Card style={styles.section}>
         <View style={styles.whatsappRow}>
@@ -267,6 +273,7 @@ export default function PerfilScreen() {
       />
       <PrivacyLinks account />
       <LogoutSection />
+      </View></ResponsiveColumns>
     </Screen>
   );
 }
@@ -284,7 +291,7 @@ function LogoutSection() {
 }
 
 const styles = StyleSheet.create({
-  pageTitle: { color: colors.text, fontSize: 30, fontWeight: '900', letterSpacing: -0.7 },
+  pageTitle: { color: colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.7 },
   pageSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2, marginBottom: spacing.lg },
   cardCenter: {
     alignItems: 'center',

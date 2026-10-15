@@ -6,6 +6,8 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { Button as HubButton } from '@/components/ui/Button';
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
+import { TeamBadge } from '@/components/TeamBadge';
+import { TeamEmblemEditor } from '@/components/TeamEmblemEditor';
 import { ConversationEntry } from '@/components/ConversationEntry';
 import { FriendButton } from '@/components/FriendButton';
 import { Avatar } from '@/components/ui/Avatar';
@@ -182,7 +184,7 @@ export default function TimeDetailScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
+      <Card><View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
@@ -193,17 +195,19 @@ export default function TimeDetailScreen() {
           <Text style={[styles.headerSub, { color: sport.color }]}>{sport.label}</Text>
         </View>
         {isAdmin && <Badge label="Admin" color={colors.special} />}
+        <TeamBadge name={pelada.name} logoUrl={pelada.logoUrl} size={44} />
       </View>
 
-      {pelada.description && <Text style={styles.description}>{pelada.description}</Text>}
+      {pelada.description && <Text style={styles.description}>{pelada.description}</Text>}</Card>
+      {isAdmin && <TeamEmblemEditor teamId={pelada.id} />}
 
-      <View style={styles.actionsRow}>
+      <Card style={styles.actionsRow}>
         <ConversationEntry kind="team" contextId={pelada.id} label="Conversa do time" />
         <Button label="Lances do time" small variant="secondary" onPress={() => router.push({ pathname: '/lances', params: { teamId: pelada.id } })} />
         <Button label="Ver agenda" small variant="secondary" onPress={handleAgenda} />
         <Button label="Vaquinhas" small variant="secondary" onPress={() => router.push(`/time/${pelada.id}/vaquinhas`)} />
         {isAdmin && <Button label="Administrar" small onPress={handleManage} />}
-      </View>
+      </Card>
 
       {activeGame && (
         <Card style={styles.section}>

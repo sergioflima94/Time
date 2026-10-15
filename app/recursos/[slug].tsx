@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   shareCard: { alignItems: 'center', minHeight: 340, justifyContent: 'center', marginBottom: spacing.md, borderColor: '#EC4899', backgroundColor: '#291225' },
   shareBrand: { color: '#F9A8D4', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   shareEmoji: { fontSize: 64, marginVertical: spacing.lg },
-  shareTitle: { color: colors.white, fontSize: 24, fontWeight: '900', textAlign: 'center' },
+  shareTitle: { color: colors.white, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   shareText: { color: '#FBCFE8', fontSize: 13, textAlign: 'center', lineHeight: 19, marginTop: spacing.sm },
   shareFooter: { marginTop: spacing.xl, borderTopWidth: 1, borderTopColor: '#EC489955', width: '100%', paddingTop: spacing.sm },
   shareFooterText: { color: '#F9A8D4', fontSize: 10, fontWeight: '800', textAlign: 'center' },

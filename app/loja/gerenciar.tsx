@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Switch, Text, View } from "react-native";
@@ -65,13 +66,13 @@ export default function ShopManager() {
         label="Voltar à loja"
         onPress={() => router.replace("/loja")}
       />
-      <Text style={st.title}>
+      <PageHeading><Text style={st.title}>
         {data.admin ? "Gestão da loja e parceiros" : "Minha loja"}
       </Text>
       <Text style={st.copy}>
         Catálogo, estoque e pedidos separados das comandas. Sem acesso aos dados
         de outros vendedores, exceto administradores autorizados da plataforma.
-      </Text>
+      </Text></PageHeading>
       {!!error && (
         <Text accessibilityRole="alert" style={st.error}>
           {error}

@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
+import { PageHeading } from '@/components/ui/PageHeading';
 import { PrivacyLinks } from '@/components/PrivacyLinks';
 import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -74,10 +76,10 @@ export default function CadastroScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.containerContent}>
-      <View style={{ marginBottom: spacing.lg }}><BrandLogo compact /></View>
-      <Text style={styles.title}>Criar conta</Text>
-      <Text style={styles.subtitle}>Crie seu perfil para jogar, organizar times ou receber a turma no seu espaço.</Text>
+    <Screen contentStyle={{ maxWidth: 560 }}>
+      <PageHeading><Text style={styles.title}>Criar conta</Text>
+      <Text style={styles.subtitle}>Jogue, organize seu time ou receba a turma no seu espaço.</Text></PageHeading>
+      <Card>
 
       <Pressable style={styles.photoPicker} onPress={handlePickPhoto} disabled={pickingPhoto}>
         <Avatar name={name || '?'} photoUrl={photoUri} size={72} />
@@ -142,7 +144,8 @@ export default function CadastroScreen() {
       <Pressable accessibilityRole="checkbox" accessibilityLabel="Aceito os termos de uso" accessibilityState={{ checked: acceptedTerms }} onPress={() => setAcceptedTerms(v => !v)} style={{ marginTop: spacing.md }}><Text style={{ color: colors.text, lineHeight: 22 }}>{acceptedTerms ? '☑' : '☐'} Li e aceito os termos de uso e as regras da comunidade.</Text></Pressable>
       <Button label="Criar conta" onPress={handleSubmit} loading={authLoading} disabled={!acceptedTerms || !name.trim() || (!isMockMode && (!email.includes('@') || password.length < 6))} style={{ marginTop: spacing.xl }} />
       <Button label="Voltar" onPress={() => router.back()} variant="ghost" style={{ marginTop: spacing.sm }} />
-    </ScrollView>
+      </Card>
+    </Screen>
   );
 }
 
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.text,
   },

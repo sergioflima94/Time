@@ -1,5 +1,54 @@
 # MarcouJogou
 
+## Interface compacta e notebook — 1.0.9 (próximo build 13)
+
+O padrão aprovado foi aplicado na base compartilhada das 74 páginas: cabeçalho
+grafite com a marca esportiva, títulos menores, cartões brancos sem sombras
+pesadas, formulários agrupados e ações secundárias neutras. Verde-lima destaca
+a ação principal. O placar/cronômetro ao vivo preserva sua apresentação de alto
+contraste e números grandes, úteis na quadra.
+
+Na web, a partir de **1024 px**, o menu lateral substitui as abas inferiores e o
+conteúdo aproveita até 1180 px. A partir de **1180 px**, Home, Times, Amigos,
+Perfil e Admin organizam seus painéis em colunas. Formulários de entrada/cadastro
+continuam limitados para facilitar a leitura. No celular, os painéis ficam em
+sequência e os botões compartilhados mantêm área de toque mínima de 44 px.
+Isso não libera permissões nem troca o time ativo automaticamente.
+
+### Emblema dos times fixos
+
+Admin do time ou detalhes do time → **Emblema do time** → enviar/trocar, gerar
+com IA ou remover com confirmação. O emblema aparece na Home, em Times, nos
+detalhes e no próximo jogo. Sem imagem, aparecem as iniciais, não um escudo
+inventado. O cadastro de um time abre seus detalhes para personalizá-lo.
+
+- PNG, JPG ou WebP, até 5 MB; somente o arquivo escolhido é lido.
+- A imagem é pública: use material que você tem autorização para publicar.
+- Arquivos ficam no bucket `team-logos`, com caminhos imutáveis de time/autor;
+  o servidor verifica administração, vínculo do objeto, tamanho e tipo.
+- `peladas.logo_key` guarda o vínculo; a URL é reconstruída a partir do Supabase
+  configurado. Alterações genéricas do time não sobrescrevem esse vínculo.
+- Remover desvincula a imagem. Objetos antigos não são apagados imediatamente;
+  seguem o processo administrativo de retenção/exclusão, inclusive órfãos de um
+  envio que não pôde ser concluído. Não há rotina automática de limpeza nesta entrega.
+- A geração reutiliza `generate-team-logo`, com chave OpenAI somente no servidor.
+  Ela depende da configuração e disponibilidade do serviço; falha não salva uma
+  imagem de demonstração nem anuncia sucesso. Pode haver custo por geração.
+- Migração: `supabase/migrations/20261015020000_team_emblems.sql`; aplicada ao
+  projeto vinculado junto à atualização da função em 14/10/2026.
+
+Validação reproduzível: `test-compact-design.cjs`, `test-team-emblems.cjs`,
+`test-team-emblems-sql.cjs` e `test-team-emblems-ui.cjs`, na pasta `scripts/`.
+Os testes de navegador usam contas e respostas sintéticas, sem pagamentos,
+mensagens ou alteração de clientes reais. A inspeção de estrutura de 74 páginas
+não equivale a testar todos os seus fluxos. A matriz visual cobre 17 rotas em
+320/390/768/1024/1366/1920 px, complementada pelos testes de loja, operação,
+faturas, seletores e Lances. Capturas web não comprovam execução nativa.
+
+O novo layout exige uma nova entrega web/binário. O build 12, preparado antes
+destas mudanças, não contém esta interface; push no Git não publica na HostGator
+nem envia automaticamente uma versão às lojas.
+
 ## Identidade e atualização 1.0.8 (build 12)
 
 Identidade aprovada: marca tipográfica esportiva em duas linhas MARCOU / JOGOU,

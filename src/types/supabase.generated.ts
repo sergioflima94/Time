@@ -4396,6 +4396,7 @@ export type Database = {
       }
       peladas: {
         Row: {
+          logo_key: string | null
           created_at: string
           created_by: string
           default_match_minutes: number
@@ -8914,6 +8915,7 @@ export type Database = {
       }
       lance_snapshot: { Args: { p_game?: string; p_team?: string; p_id?: string; p_before?: string; p_before_id?: string }; Returns: Json }
       lance_action: { Args: { p_action: string; p_data?: Json }; Returns: Json }
+      set_team_emblem: { Args: { p_team: string; p_key: string | null }; Returns: Json }
       academy_can: { Args: { p: string; pricing?: boolean }; Returns: boolean }
       academy_check_seat: { Args: { p: string; s: string }; Returns: undefined }
       academy_compatible: {

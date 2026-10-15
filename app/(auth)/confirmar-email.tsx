@@ -3,7 +3,8 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { Button } from '@/components/ui/Button';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Screen } from '@/components/ui/Screen';
+import { Card } from '@/components/ui/Card';
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -38,8 +39,7 @@ export default function ConfirmarEmailScreen() {
     const ok = method === 'link' ? await auth.confirmEmailLink(link) : await auth.confirmEmailCode(email, code);
     if (ok) { setCode(''); setLink(''); } // Só libera a Home com sessão validada no servidor.
   }
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <BrandLogo compact />
+  return <Screen contentStyle={{ maxWidth: 560 }}><Card>
     <Ionicons name="mail-open-outline" size={48} color={colors.primaryDark} />
     <Text style={styles.title}>Confira seu e-mail</Text>
     <Text style={styles.text}>Abra o e-mail mais recente do MarcouJogou e toque no botão de confirmação para voltar ao aplicativo.</Text>
@@ -65,12 +65,12 @@ export default function ConfirmarEmailScreen() {
       router.replace('/(auth)/login');
     }} />
     <Text style={styles.hint}>O reenvio depende do limite de e-mails do Supabase. A confirmação continua obrigatória; nenhum acesso é liberado apenas por cadastrar.</Text>
-  </ScrollView>;
+  </Card></Screen>;
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.xl, paddingTop: spacing.xxl, gap: spacing.lg, flexGrow: 1, justifyContent: 'center' },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: { color: colors.text, fontSize: 22, fontWeight: '800' },
   text: { color: colors.textMuted, fontSize: 14, lineHeight: 21 },
   label: { color: colors.text, fontWeight: '700' },
   input: { color: colors.text, backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: radius.md, padding: spacing.md },

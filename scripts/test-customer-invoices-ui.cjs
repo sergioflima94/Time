@@ -426,6 +426,7 @@ async function run() {
     await page.getByPlaceholder("••••••••").fill("test-only");
     await button("Entrar").click();
     await page.waitForURL(base + "/");
+    await require('./ui-test-consent.cjs')(page);
     await page.goto(base + `/operacao/faturas?establishmentId=${venue}`);
     await page
       .getByText("Liberar ou atualizar cliente", { exact: true })

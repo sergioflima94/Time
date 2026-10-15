@@ -1,0 +1,12 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript'),assert=require('node:assert/strict');
+const m=new Module(path.resolve('src/lib/teamEmblemRules.ts'));m._compile(ts.transpileModule(fs.readFileSync(m.id,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,m.id);
+const r=m.exports,uuid='00000000-0000-4000-8000-000000000001',key=`${uuid}/${uuid}/${uuid}.png`;
+process.env.EXPO_PUBLIC_SUPABASE_URL='https://fixture.supabase.co';
+assert.equal(r.teamEmblemUrl(key),`https://fixture.supabase.co/storage/v1/object/public/team-logos/${key}`);
+for(const bad of ['../image.png','https://evil.invalid/logo.svg','file:///phone.jpg',key+'.svg','',null])assert.equal(r.teamEmblemUrl(bad),null);
+const png=Uint8Array.from([137,80,78,71,13,10,26,10]);assert.equal(r.validateTeamEmblem(png.buffer,'image/png'),'png');
+assert.throws(()=>r.validateTeamEmblem(png.buffer,'image/jpeg'),/válida/);
+assert.throws(()=>r.validateTeamEmblem(new ArrayBuffer(5242881),'image/png'),/5 MB/);
+assert.throws(()=>r.validateTeamEmblem(new TextEncoder().encode('<svg/>').buffer,'image/svg+xml'),/válida/);
+const mappings=fs.readFileSync('src/lib/supabaseSyncMappings.ts','utf8');assert.match(mappings,/\['memberInvitePermissions', 'logoUrl', 'logoKey'\]/);assert.match(mappings,/value.logoUrl = teamEmblemUrl\(row.logo_key\)/);
+console.log('PASS: safe media paths, PNG/JPEG/WebP validation/size, persisted URL reconstruction and no generic emblem overwrite.');

@@ -39,12 +39,17 @@ serve(async (req) => {
       });
     }
 
-    const { prompt } = await req.json();
-    if (!prompt || typeof prompt !== 'string') {
+    const { prompt, teamId } = await req.json();
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 3 || prompt.length > 500) {
       return new Response(JSON.stringify({ error: 'prompt é obrigatório' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (teamId) {
+      const { data: allowed, error } = await userClient.rpc('is_admin_of_pelada', { p_pelada_id: teamId });
+      if (error || !allowed) return new Response(JSON.stringify({ error: 'Somente administradores geram emblemas para este time' }), { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
     }
 
     const apiKey = Deno.env.get('OPENAI_API_KEY');
@@ -56,7 +61,7 @@ serve(async (req) => {
     }
 
     const fullPrompt =
-      `Emblema/escudo de time de futebol amador, estilo vetorial simples tipo brasão, ` +
+      `Emblema/escudo de equipe esportiva amadora, respeitando o esporte informado, sem presumir futebol, estilo vetorial simples tipo brasão, ` +
       `cores vivas, fundo liso, sem texto escrito: ${prompt}`;
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {

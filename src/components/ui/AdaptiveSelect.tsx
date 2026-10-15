@@ -34,7 +34,7 @@ export function AdaptiveSelect({ options, value, onChange, label, title = label 
   return <View style={styles.wrap}>
     {!!label && <Text style={[styles.label, { color: palette.text }]}>{label}</Text>}
     {!options.length ? <Text style={[styles.copy, { color: palette.textMuted }]}>Nenhuma opção disponível.</Text> : options.length <= 3 ?
-      <View style={styles.chips}>{options.map(o => <Button key={o.value} small variant={value === o.value ? 'primary' : 'outline'} label={o.label} disabled={disabled || o.disabled} onPress={() => onChange(o.value)} />)}</View> :
+      <View style={styles.chips}>{options.map(o => <Button key={o.value} small variant={value === o.value ? 'selected' : 'outline'} label={o.label} disabled={disabled || o.disabled} onPress={() => onChange(o.value)} />)}</View> :
       <Pressable accessibilityRole="button" accessibilityLabel={`${selected ? 'Trocar' : 'Selecionar'}: ${title}`} disabled={disabled} onPress={show}
         style={[styles.trigger, { backgroundColor: palette.card, borderColor: palette.cardBorder }, disabled && { opacity: 0.5 }]}>
         <View style={styles.selection}><Text style={[styles.label, { color: palette.text }]}>{selected?.label || placeholder}</Text>

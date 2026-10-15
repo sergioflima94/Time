@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react
 import { radius, spacing } from '@/constants/theme';
 import { useUiPalette } from './ThemeTone';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'selected';
 
 interface ButtonProps {
   label: string;
@@ -21,16 +21,18 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
   const variantStyle = {
     primary: { backgroundColor: palette.action },
     secondary: { backgroundColor: palette.bgElevated, borderWidth: 1, borderColor: palette.cardBorder },
-    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.primary },
+    outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.cardBorder },
+    selected: { backgroundColor: palette.text, borderWidth: 1, borderColor: palette.text },
     danger: { backgroundColor: palette.danger },
-    ghost: { backgroundColor: 'transparent' },
+    ghost: { backgroundColor: 'transparent', alignSelf: 'flex-start' },
   }[variant] as ViewStyle;
   const labelColor = {
     primary: palette.onAction,
     secondary: palette.text,
-    outline: palette.primary,
+    outline: palette.text,
+    selected: palette.card,
     danger: palette.white,
-    ghost: palette.primary,
+    ghost: palette.text,
   }[variant];
   return (
     <Pressable
@@ -48,7 +50,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? palette.primary : palette.onAction} />
+        <ActivityIndicator color={labelColor} />
       ) : (
         <Text style={[styles.label, small && styles.smallLabel, { color: labelColor }]}>{label}</Text>
       )}
@@ -67,13 +69,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   small: {
-    minHeight: 38,
+    minHeight: 44,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     textAlign: 'center',
   },
   smallLabel: {

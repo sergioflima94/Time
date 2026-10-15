@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { useRef, useState } from "react";
 import { router } from "expo-router";
 import {
@@ -144,11 +145,11 @@ function VenuePdvContent({ venue }: { venue: string | null }) {
         label="Voltar"
         onPress={() => router.back()}
       />
-      <Text style={s.title}>PDV · {d.name ?? "Comandas"}</Text>
+      <PageHeading><Text style={s.title}>PDV · {d.name ?? "Comandas"}</Text>
       <Text style={s.meta}>
         Times com jogo ou reserva hoje. Clientes avulsos também podem abrir
         comanda.
-      </Text>
+      </Text></PageHeading>
       <Button
         small
         variant="outline"

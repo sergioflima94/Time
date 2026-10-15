@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/components/ui/Badge';
+import { TeamBadge } from './TeamBadge';
+import { Button } from './ui/Button';
 import { Card } from '@/components/ui/Card';
 import { colors, spacing } from '@/constants/theme';
 import { getSport } from '@/constants/sports';
@@ -19,7 +21,7 @@ const STATUS_META: Record<Game['status'], { label: string; color: string }> = {
   cancelled: { label: 'Cancelado', color: colors.textFaint },
 };
 
-export function GameCard({ game, compact = false }: { game: Game; compact?: boolean }) {
+export function GameCard({ game, compact = false, featured = false }: { game: Game; compact?: boolean; featured?: boolean }) {
   const field = useAppStore((s) => s.fields.find((f) => f.id === game.fieldId));
   const pelada = useAppStore((s) => s.peladas.find((p) => p.id === game.peladaId));
   const sport = getSport(pelada?.sportId);
@@ -28,8 +30,20 @@ export function GameCard({ game, compact = false }: { game: Game; compact?: bool
   );
   const status = STATUS_META[game.status];
 
+  if (featured) return <Card style={{ gap: 12 }}>
+    <View style={styles.topRow}><Text style={styles.eyebrow}>{game.status === 'in_progress' ? 'JOGO AO VIVO' : 'PRÓXIMO JOGO'}</Text><Badge label={status.label} color={colors.selection} textColor={colors.primaryDark} /></View>
+    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+      <TeamBadge name={pelada?.name ?? 'Time'} logoUrl={pelada?.logoUrl} size={46} />
+      <View style={{ flex: 1, gap: 3 }}><Text style={styles.featuredTeam}>{pelada?.name ?? 'Seu time'}</Text>
+        <Text style={styles.fieldText}>{sport.label} · {formatGameDateLong(game.scheduledAt)}</Text></View>
+    </View>
+    <View style={styles.fieldRow}><Ionicons name="location-outline" size={16} color={colors.textMuted} /><Text style={[styles.fieldText, { flex: 1 }]}>{field?.name ?? 'Local a definir'}</Text></View>
+    <View style={styles.confirmations}><Ionicons name="people-outline" size={16} color={colors.textMuted} /><Text style={styles.fieldText}>{confirmedCount} de {game.maxPlayers} confirmados</Text></View>
+    <Button label="Ver partida" onPress={() => router.push(`/jogo/${game.id}`)} />
+  </Card>;
+
   return (
-    <Pressable onPress={() => router.push(`/jogo/${game.id}`)}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir partida ${pelada?.name ?? ''} em ${formatGameDateLong(game.scheduledAt)}`} onPress={() => router.push(`/jogo/${game.id}`)}>
       <Card style={[styles.card, compact && styles.compactCard, { borderLeftWidth: 3, borderLeftColor: sport.color }]}>
         <View style={styles.topRow}>
           <View style={styles.statusGroup}>
@@ -57,6 +71,9 @@ export function GameCard({ game, compact = false }: { game: Game; compact?: bool
 }
 
 const styles = StyleSheet.create({
+  eyebrow: { color: colors.textMuted, fontSize: 11, lineHeight: 16, letterSpacing: 1, fontWeight: '700' },
+  featuredTeam: { color: colors.text, fontSize: 17, lineHeight: 23, fontWeight: '800' },
+  confirmations: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.cardBorder },
   card: {
     marginBottom: spacing.md,
     gap: spacing.xs,

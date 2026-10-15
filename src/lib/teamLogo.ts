@@ -9,11 +9,11 @@ import { isMockMode, supabase } from '@/lib/supabase';
  * Sem Supabase configurado (modo mock) ou se a geração falhar, cai num gerador de
  * emblema de exemplo (grátis, sem chave) só pra já dar pra testar o fluxo inteiro.
  */
-export async function generateTeamLogo(prompt: string): Promise<{ url: string; isDemo: boolean }> {
+export async function generateTeamLogo(prompt: string, context?: { teamId: string }): Promise<{ url: string; isDemo: boolean }> {
   if (!isMockMode && supabase) {
     try {
       const { data, error } = await supabase.functions.invoke('generate-team-logo', {
-        body: { prompt },
+        body: { prompt, ...context },
       });
       if (error) throw error;
       if (data?.imageUrl) return { url: data.imageUrl, isDemo: false };

@@ -1,5 +1,5 @@
 /**
- * Clube Vivo — sistema visual do MarcouJogou.
+ * MarcouJogou — identidade esportiva compacta.
  *
  * O uso diário é claro e acolhedor. A partida ao vivo usa `liveColors` para
  * aumentar contraste sem transformar o restante do produto em um app escuro.
@@ -7,14 +7,14 @@
  */
 export const colors = {
   bg: '#F5F2EA',
-  bgElevated: '#ECE8DE',
-  card: '#FFFEFA',
-  cardBorder: '#DED9CD',
-  cardPressed: '#F1EDE4',
+  bgElevated: '#EEEDE7',
+  card: '#FFFFFF',
+  cardBorder: '#DDE0DE',
+  cardPressed: '#F1F3EE',
   pitch: '#74C923',
   pitchDark: '#315F22',
-  primary: '#579B0E',
-  primaryDark: '#356F0D',
+  primary: '#386C20',
+  primaryDark: '#285318',
   action: '#9DEB22',
   onPrimary: '#FFFFFF',
   onAction: '#17200D',
@@ -28,15 +28,18 @@ export const colors = {
   bronze: '#A96F3B',
   special: '#7558D9',
   text: '#171A1D',
-  textMuted: '#626B72',
-  textFaint: '#969DA2',
+  textMuted: '#626A70',
+  textFaint: '#737C82',
   danger: '#D94040',
   warning: '#D88412',
   success: '#4E9917',
   white: '#FFFFFF',
   black: '#111315',
   overlay: 'rgba(17,19,21,0.48)',
-  shadow: '#352F26',
+  shadow: '#171A1D',
+  brand: '#171A1D',
+  onBrand: '#F5F2EA',
+  selection: '#EAF5DE',
 } as const;
 
 export const liveColors = {
@@ -77,16 +80,16 @@ export const spacing = {
 
 export const radius = {
   sm: 10,
-  md: 14,
-  lg: 20,
-  xl: 28,
+  md: 10,
+  lg: 12,
+  xl: 18,
   full: 999,
 } as const;
 
 export const typography = {
-  display: 32,
-  title: 24,
+  display: 28,
+  title: 22,
   section: 17,
-  body: 15,
+  body: 14,
   caption: 12,
 } as const;

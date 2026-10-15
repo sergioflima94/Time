@@ -7,7 +7,7 @@ const captureDevice=process.env.STORE_CAPTURE_DEVICE||'google';
 const captureSizes={google:{width:360,height:640,scale:3},iphone:{width:440,height:956,scale:3},'iphone-medium':{width:402,height:874,scale:3},ipad:{width:1032,height:1376,scale:2}};
 assert(captureSizes[captureDevice],'Unsupported store capture device');
 const captureSize=captureSizes[captureDevice];
-const root=path.resolve(process.env.STORE_CAPTURE_ROOT||'.test-runtime/native-billing-web'),out=path.resolve('assets/store',captureDevice==='google'?'':`apple-${captureDevice}`),port=19031;
+const root=path.resolve(process.env.STORE_CAPTURE_ROOT||'.test-runtime/native-billing-web'),out=path.resolve(process.env.STORE_CAPTURE_OUT||path.join('assets/store',captureDevice==='google'?'':`apple-${captureDevice}`)),port=19031;
 const m=new Module(path.resolve('src/lib/mockData.ts'));m._compile(ts.transpileModule(fs.readFileSync(m.id,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,m.id);
 const d=m.exports,actor='00000000-0000-4000-8000-000000000001',at=new Date().toISOString();
 const own={...d.MOCK_PLAYERS[0],name:'Lucas Costa',nickname:'Lucas',phone:null,avatarUrl:null,authUserId:actor};
@@ -19,9 +19,14 @@ const tables={
  fields:d.MOCK_FIELDS.map(snake),games:d.MOCK_GAMES.map(snake),attendances:d.MOCK_ATTENDANCES.map(snake),
  ratings:d.MOCK_RATINGS.map(snake),payments:d.MOCK_PAYMENTS.map(snake),establishments:d.MOCK_ESTABLISHMENTS.map(snake),
  schedules:d.MOCK_SCHEDULES.map(snake),friendships:d.MOCK_FRIENDSHIPS.map(snake),
+ championship_teams:(d.MOCK_CHAMPIONSHIP_TEAMS||[]).map(snake),championships:(d.MOCK_CHAMPIONSHIPS||[]).map(snake),
+ championship_team_players:(d.MOCK_CHAMPIONSHIP_TEAM_PLAYERS||[]).map(snake),championship_matches:(d.MOCK_CHAMPIONSHIP_MATCHES||[]).map(snake),
  player_preferences:[{player_id:own.id,current_pelada_id:d.MOCK_PELADAS[0].id}],
 };
 const user={id:actor,aud:'authenticated',role:'authenticated',email:'store-preview@test.invalid',app_metadata:{},user_metadata:{name:own.name},identities:[],created_at:at};
+if(process.env.COMPACT_UI_AUDIT==='1'){
+ tables.games[0]={...tables.games[0],scheduled_at:new Date(Date.now()+86400000).toISOString(),status:'open'};
+}
 const token=`${Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')}.${Buffer.from(JSON.stringify({sub:actor,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.fixture-signature`;
 const session={access_token:token,refresh_token:'fixture-only',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user};
 let serverTables=tables,serverOwn=own,serverUser=user,serverSession=session;
@@ -59,7 +64,15 @@ async function run(){let browser,page;try{
    else if(table==='player_profiles_snapshot')value=serverTables.players;
    else if(table==='platform_configuration')value={settings:{discoveryEnabled:true,referralsEnabled:true,sponsoredEnabled:false,bookingCommissionPercent:0,whatsappMonthlyAllowance:100,trialDays:14}};
    else if(table==='commercial_access_snapshot')value={role:null,licenses:[],agreements:[]};
-   else if(table==='growth_snapshot')value={venues:[],buddies:[],slots:[],windows:[],requests:[]};
+   else if(table==='growth_snapshot'||table==='play_hub_snapshot')value={venues:[],buddies:[],slots:[],windows:[],requests:[],onboarding:null};
+   else if(table==='lance_snapshot')value={items:[],participants:[],comments:[],me:serverOwn.id};
+   else if(table==='academy_snapshot')value={programs:[],seats:[],bills:[],swaps:[],credits:[],notices:[]};
+   else if(table==='venue_snapshot')value={venues:[],fields:[],teams:[],capabilities:[]};
+   else if(table==='credit_snapshot'||table==='credit_search')value={accounts:[],invoices:[],entries:[],receipts:[],venues:[]};
+   else if(table==='shop_snapshot')value={admin:false,sellers:[],products:[],orders:[],offset:0};
+   else if(table==='open_game_admin_data')value={listing:null,requests:[]};
+   else if(table==='read_activity_history'||table==='activity_history_read')value={entries:[],hasMore:false};
+   else if(table==='friend_discovery')value={byPhone:false,byEmail:false,nearby:false,locationFresh:false};
    else if(table==='search_field_directory')value={entries:directory,total:directory.length};
    else if(table==='account_deletion_self'){
      if(body.p_action==='request'){requests++;receipt={id:'00000000-0000-4000-8000-000000000010',status:'requested',expectedBy:new Date(Date.now()+7*86400000).toISOString()};}
@@ -68,7 +81,7 @@ async function run(){let browser,page;try{
    }
    return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},contentType:'application/json',body:JSON.stringify(value)});
  });
- page=await ctx.newPage();const errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>{console.log('Fixture runtime error:',e.message);errors.push(e.message);});
+ page=await ctx.newPage();const errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>{console.log('Fixture runtime error:',page.url(),e.message,e.stack?.slice(0,700));errors.push(e.message);});
  page.on('console',m=>{if(m.type()==='error')console.log('Fixture console error:',m.text());});
  await page.goto(`http://127.0.0.1:${port}/login`,{waitUntil:'networkidle'});
  await page.getByPlaceholder('voce@email.com').fill(user.email);
@@ -87,6 +100,30 @@ async function run(){let browser,page;try{
    if(route==='/campos')await page.getByText('Cadastrados no MarcouJogou',{exact:true}).scrollIntoViewIfNeeded();
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
    await page.screenshot({path:path.join(out,file)});
+ }
+ if(process.env.COMPACT_UI_AUDIT==='1'){
+  const screens=[['/','inicio'],['/times','times'],['/admin','admin'],['/amigos','amigos'],['/perfil','perfil'],['/campos','campos'],['/time/pel1','time'],['/jogador/'+own.id,'jogador'],['/jogo/'+d.MOCK_GAMES[0].id,'jogo'],['/campeonato/'+d.MOCK_CHAMPIONSHIPS[0].id,'campeonato'],['/historico','historico'],['/bora','horarios'],['/notificacoes','notificacoes'],['/comecar','comecar'],['/criar-pelada','criar-time'],['/entrar-pelada','entrar-time'],['/termos','termos']];
+  const auditWidths=(process.env.COMPACT_AUDIT_WIDTHS||'320,390,768,1024,1366,1920').split(',').map(Number);
+  for(const width of auditWidths){
+   await page.setViewportSize({width,height:width>=1024?900:844});
+   for(const [route,slug] of screens){
+    await page.goto(`http://127.0.0.1:${port}${route}`,{waitUntil:'networkidle'});
+    assert.deepEqual(errors,[],route+' runtime failed');
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),route+' overflow at '+width);
+    if(slug==='perfil'){
+     const name=page.getByText(own.nickname,{exact:true}),box=await name.boundingBox();
+     const tier=await name.locator('..').getByText(/^ouro$/i).boundingBox();
+     assert(box&&tier&&box.height>=15&&box.y+box.height<=tier.y+1,'Player card name must be fully visible above its tier at '+width);
+    }
+    if((width===390||width===1366)&&['inicio','times','admin','amigos','perfil','campos','time'].includes(slug))await page.screenshot({path:path.join(out,`${slug}-${width}.png`)});
+    if(route==='/'&&width>=1024){
+     await page.getByRole('button',{name:'Meus acessos nos campos',exact:true}).waitFor();
+     await page.getByRole('button',{name:'Times',exact:true}).click();await page.waitForURL(`http://127.0.0.1:${port}/times`);
+    }
+   }
+  }
+  await page.setViewportSize({width:captureSize.width,height:captureSize.height});
+  console.log(`PASS: ${screens.length} application routes at ${auditWidths.join('/')} widths; no horizontal overflow; responsive navigation checked.`);
  }
  // Verify the in-app privacy workflow against fixtures; never send a real request.
  await page.goto(`http://127.0.0.1:${port}/perfil`,{waitUntil:'networkidle'});

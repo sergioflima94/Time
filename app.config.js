@@ -18,7 +18,7 @@ module.exports = {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
       admob,
     },
-    version: '1.0.8',
+    version: '1.0.9',
     orientation: 'portrait',
     icon: './assets/branding/marcoujogou-icon.png',
     scheme: 'pelada',
@@ -27,12 +27,12 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.marcoujogou.app',
-      buildNumber: '12',
+      buildNumber: '13',
       // HTTPS is provided by the OS; the app implements no custom encryption.
       infoPlist: { ITSAppUsesNonExemptEncryption: false },
     },
     android: {
-      versionCode: 12,
+      versionCode: 13,
       adaptiveIcon: {
         backgroundColor: '#171A1D',
         foregroundImage: './assets/branding/marcoujogou-adaptive.png',

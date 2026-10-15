@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Linking, StyleSheet, Text, View } from 'react-native';
@@ -30,7 +31,7 @@ export default function NearbyFieldsScreen() {
   async function locate(){const n=++epoch.current;const session=directorySession();setBusy(true);setNotice('');try{const point=await getCurrentLocation();if(n!==epoch.current||session!==directorySession())return;if(!point){setOrigin(null);setNotice('GPS indisponível ou sem permissão. Busque pelo bairro ou cidade; não mostramos uma distância inventada.');await search({origin:null,radius,query,sportId:sport});return;}setOrigin(point);setNotice('Distância em linha reta, não tempo de viagem. Seu ponto não é salvo no perfil.');await search({origin:point,radius,query,sportId:sport});}catch(e){if(n===epoch.current)setError(e instanceof Error?e.message:'Localização indisponível.');}finally{if(n===epoch.current)setBusy(false);}}
   async function open(url:string){try{await Linking.openURL(url);}catch{setError('Não foi possível abrir. Use o telefone exibido na ficha.');}}
   const visible=key&&forKey===key?rows:[];
-  return <Screen contentStyle={{gap:spacing.sm}}><Button small variant="ghost" label="Voltar" onPress={()=>router.back()} /><Text style={styles.heading}>Campos perto de você</Text><Text style={st.copy}>Cadastrados no MarcouJogou primeiro; os mais próximos dentro de cada grupo. O raio vale para ambos. Cadastro não é anúncio nem garantia de disponibilidade.</Text>
+  return <Screen contentStyle={{gap:spacing.sm}}><Button small variant="ghost" label="Voltar" onPress={()=>router.back()} /><PageHeading><Text style={styles.heading}>Campos perto de você</Text><Text style={st.copy}>Cadastrados no MarcouJogou primeiro; os mais próximos dentro de cada grupo. O raio vale para ambos. Cadastro não é anúncio nem garantia de disponibilidade.</Text></PageHeading>
     {isMockMode&&<Text style={st.copy}>Demonstração: campos e telefones de exemplo. Não são um catálogo real da sua cidade.</Text>}
     <View style={st.row}><Button small label="Usar minha localização" loading={busy} disabled={busy} onPress={()=>void locate()} />{origin&&<Button small variant="ghost" label="Limpar minha localização" disabled={busy} onPress={()=>{setOrigin(null);setNotice('Sem GPS: ordenação por cadastro e nome.');void search({origin:null,radius,query,sportId:sport});}} />}</View>
     <Text style={st.copy}>{origin?'Filtrando pelo raio selecionado.':'Sem localização: busque por bairro/cidade; a lista não está ordenada por distância.'}</Text>

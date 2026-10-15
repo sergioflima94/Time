@@ -315,6 +315,7 @@ async function run() {
     await page.getByPlaceholder("••••••••").fill("test-only");
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await page.waitForURL(base + "/");
+    await require('./ui-test-consent.cjs')(page);
     await page.goto(base + "/loja");
     await page.getByText("Carrinho (1)", { exact: true }).click();
     await page.getByText("Entrega", { exact: true }).click();

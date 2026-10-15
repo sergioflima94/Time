@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { useRef, useState } from "react";
 import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
@@ -98,14 +99,14 @@ function Content({ venue }: { venue: string | null }) {
         label="Voltar"
         onPress={() => router.back()}
       />
-      <Text style={s.title}>
+      <PageHeading><Text style={s.title}>
         {venue ? "Clientes e faturas" : "Minhas faturas"}
       </Text>
       <Text style={s.meta}>
         Conta por estabelecimento. Você escolhe em cada consumo se paga na hora
         ou deixa para o vencimento. Pix online depende de gateway configurado.
         Não há débito automático nem juros.
-      </Text>
+      </Text></PageHeading>
       <Button
         small
         variant="outline"

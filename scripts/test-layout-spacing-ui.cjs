@@ -45,10 +45,11 @@ async function run(){
   async function fits(){assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'horizontal overflow');}
   async function gap(locator,min){assert(await locator.evaluate((el,n)=>parseFloat(getComputedStyle(el).rowGap)>=n,min),'missing vertical gap');}
   await page.goto(base+'/login');await page.getByPlaceholder('voce@email.com').fill(user.email);await page.getByPlaceholder('••••••••').fill('test-password');await page.getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL(base+'/');
+  await require('./ui-test-consent.cjs')(page);
   for(const width of [320,390,1280]){
    await page.setViewportSize({width,height:width===1280?900:844});
    await page.goto(base+'/bora?teamId='+team);await page.getByText('Ainda não há horários publicados',{exact:true}).waitFor();
-   await gap(page.getByText('Horários e desafios',{exact:true}).locator('..'),8);
+   await gap(page.getByText('Horários e desafios',{exact:true}).last().locator('..'),8);
    await gap(page.getByText('Encontre um horário',{exact:true}).locator('..'),12);
    const chip=await page.getByRole('button',{name:'Time de teste',exact:true}).boundingBox(),label=await page.getByText('Campo ou bairro',{exact:true}).boundingBox();
    assert(label.y-chip.y-chip.height>=11,'team selector touches search label');

@@ -8,7 +8,7 @@ const act = async (action, data) => (await q('select lance_action($1,$2::jsonb) 
 const snap = async (id = null, game = null) => (await q('select lance_snapshot($1,null,$2) data', [game, id]))[0].data;
 async function run() { try {
   const migration=fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261015010000_game_lances.sql'),'utf8').replace(/\r/g,'').trim();
-  assert(fs.readFileSync(path.join(__dirname,'../supabase/schema.sql'),'utf8').replace(/\r/g,'').trim().endsWith(migration),'Canonical schema must include the exact migration');
+  assert(fs.readFileSync(path.join(__dirname,'../supabase/schema.sql'),'utf8').replace(/\r/g,'').includes(migration),'Canonical schema must include the exact migration');
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema vault;create schema storage;
   create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
   create table vault.decrypted_secrets(id uuid primary key,decrypted_secret text);

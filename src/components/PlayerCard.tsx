@@ -41,13 +41,15 @@ export function PlayerCard({
   const tier = overallTier(overall.overall);
   const borderColor = tier.color;
   const height = width * PLAYER_CARD_ASPECT;
+  // Keep all text inside the fixed collectible-card aspect, including small grids.
+  const scale = width / 160;
   const [photoFailed, setPhotoFailed] = useState(false);
   const showPhoto = !!photoUrl && !photoFailed;
   const [bgFailed, setBgFailed] = useState(false);
   const showBackground = !!cardBackgroundUrl && !bgFailed;
 
   return (
-    <View style={[styles.card, { width, height, borderColor }]}>
+    <View style={[styles.card, { width, height, borderColor, padding: 8 * scale }]}>
       {showBackground ? (
         <Image
           source={{ uri: cardBackgroundUrl }}
@@ -85,12 +87,12 @@ export function PlayerCard({
       />
 
       <View style={styles.header}>
-        <Text style={styles.overall}>{overall.overall}</Text>
+        <Text style={[styles.overall, { fontSize: 25 * scale, lineHeight: 28 * scale }]}>{overall.overall}</Text>
         {sport.hasGoalkeeper && <Text style={styles.position}>{position === 'goalkeeper' ? 'GOL' : 'LIN'}</Text>}
       </View>
 
       <View style={styles.avatarWrap}>
-        <View style={styles.avatarCircle}>
+        <View style={[styles.avatarCircle, { width: 40 * scale, height: 40 * scale, borderRadius: 20 * scale }]}>
           {showPhoto ? (
             <Image
               source={{ uri: photoUrl }}
@@ -113,7 +115,7 @@ export function PlayerCard({
         </View>
       </View>
 
-      <Text style={styles.name} numberOfLines={1}>
+      <Text style={[styles.name, { fontSize: 13 * scale, lineHeight: 16 * scale }]} numberOfLines={1}>
         {nickname || name}
       </Text>
       <View style={styles.tierPill}>
@@ -151,7 +153,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     borderWidth: 2,
-    padding: spacing.md,
+    padding: 8,
     justifyContent: 'flex-start',
     overflow: 'hidden',
   },
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     alignItems: 'center',
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   avatarCircle: {
     width: 56,
@@ -199,7 +201,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   name: {
-    marginTop: spacing.sm,
+    marginTop: 4,
+    flexShrink: 0,
     textAlign: 'center',
     color: colors.white,
     fontWeight: '700',
@@ -211,13 +214,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    marginTop: 4,
-    marginBottom: spacing.sm,
+    marginTop: 3,
+    marginBottom: 4,
   },
   tierLabel: {
     textAlign: 'center',
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 10,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -227,7 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.25)',
-    paddingTop: spacing.sm,
+    paddingTop: 5,
   },
   stat: {
     alignItems: 'center',
@@ -235,24 +239,28 @@ const styles = StyleSheet.create({
   statValue: {
     color: colors.white,
     fontWeight: '800',
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 17,
   },
   statLabel: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 9,
+    lineHeight: 11,
+    marginTop: 1,
   },
   ratingsCount: {
     textAlign: 'center',
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 10,
-    marginTop: spacing.xs,
+    fontSize: 9,
+    lineHeight: 11,
+    marginTop: 3,
   },
   goalStats: {
     textAlign: 'center',
     color: 'rgba(255,255,255,0.85)',
-    fontSize: 11,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
-    marginTop: 3,
+    marginTop: 2,
   },
 });

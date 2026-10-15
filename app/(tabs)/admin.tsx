@@ -1,3 +1,4 @@
+import { PageHeading } from '@/components/ui/PageHeading';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -5,6 +6,8 @@ import { Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { InvitePeladaSection } from '@/components/InvitePeladaSection';
+import { TeamEmblemEditor } from '@/components/TeamEmblemEditor';
+import { ResponsiveColumns } from '@/components/ui/ResponsiveColumns';
 import { Avatar } from '@/components/ui/Avatar';
 import { AdaptiveSelect } from '@/components/ui/AdaptiveSelect';
 import { Badge } from '@/components/ui/Badge';
@@ -47,20 +50,24 @@ export default function AdminScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Administração</Text>
-      <Text style={styles.pageSubtitle}>Organize cada time sem misturar agenda, elenco ou caixa.</Text>
+      <PageHeading><Text style={styles.title}>Administração</Text>
+      <Text style={styles.pageSubtitle}>Organize cada time sem misturar agenda, elenco ou caixa.</Text></PageHeading>
       <AdminPeladaPicker adminPeladas={adminPeladas} currentId={pelada.id} />
 
       {isAdmin ? (
-        <View key={pelada.id}>
+        <View key={pelada.id} style={{ gap: spacing.md }}>
           <OverviewSection />
+          <ResponsiveColumns><View style={{ gap: 12 }}>
           <PeladaInfoSection />
-          <InviteSection />
+          <TeamEmblemEditor teamId={pelada.id} />
           <MemberPermissionsSection />
+          </View><View style={{ gap: 12 }}>
+          <InviteSection />
           <AdminsSection />
           <FieldsSection />
           <SchedulesSection />
           <PunishmentsSection />
+          </View></ResponsiveColumns>
         </View>
       ) : (
         <View style={styles.notAdmin}>
@@ -567,8 +574,8 @@ function PunishmentsSection() {
 const styles = StyleSheet.create({
   title: {
     color: colors.text,
-    fontSize: 30,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.7,
   },
   pageSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: 2, marginBottom: spacing.lg },
