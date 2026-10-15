@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { createScopedRealtimeChannel } from "@/lib/realtimeChannel";
 import {
   academySnapshot,
   emptyAcademy,
@@ -64,8 +65,7 @@ function useSnapshot<T>(
           filter: `establishment_id=eq.${venue}`,
         }
       : { event: "*" as const, schema: "public", table: "venue_notices" };
-    const ch = client
-      .channel(`venue-ops:${kind}:${venue}:${actor}`)
+    const ch = createScopedRealtimeChannel(client, `venue-ops:${kind}:${venue}:${actor}`)
       .on("postgres_changes", events, () => {
         clearTimeout(debounce);
         debounce = setTimeout(() => {

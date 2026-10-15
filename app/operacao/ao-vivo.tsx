@@ -84,7 +84,7 @@ export default function Live() {
               })
             }
           />
-        )}{" "}
+        )}
         {(can("classes") || can("own_classes") || can("cash")) && (
           <Button
             small
@@ -97,7 +97,7 @@ export default function Live() {
               })
             }
           />
-        )}{" "}
+        )}
         {(can("cash") || can("reports")) && (
           <Button
             small
@@ -110,7 +110,7 @@ export default function Live() {
               })
             }
           />
-        )}{" "}
+        )}
         {can("kitchen") && (
           <Button
             small
@@ -123,7 +123,7 @@ export default function Live() {
               })
             }
           />
-        )}{" "}
+        )}
         {d.owner && (
           <Button
             small

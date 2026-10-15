@@ -13,6 +13,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { conversationAction, conversationSession, conversationSnapshot } from '@/lib/conversations';
 import { conversationUuid } from '@/lib/conversationRules';
 import { isMockMode, supabase } from '@/lib/supabase';
+import { createScopedRealtimeChannel } from '@/lib/realtimeChannel';
 import type { BookingChatKind, ConversationKind, ConversationSnapshot, TeamChatConfig } from '@/types/conversations';
 
 export default function ConversationsScreen() {
@@ -92,7 +93,7 @@ export default function ConversationsScreen() {
     void reload(true);
     const interval=setInterval(() => void reload(),10000);
     const lifecycle=AppState.addEventListener('change',state => {if(state==='active') void reload();});
-    const channel=!isMockMode && supabase ? supabase.channel(`community-chat:${activeKey}:${params.roomId??params.contextId??'inbox'}`)
+    const channel=!isMockMode && supabase ? createScopedRealtimeChannel(supabase, `community-chat:${activeKey}:${params.roomId??params.contextId??'inbox'}`)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_messages'},() => void reload()).subscribe() : null;
     return () => {cancelled=true;clearInterval(interval);lifecycle.remove();if(channel && supabase) void supabase.removeChannel(channel);};
   },[key,params.roomId,params.kind,params.contextId,params.bookingKind,attempt]));

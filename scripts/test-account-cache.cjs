@@ -25,6 +25,7 @@ Module._load=function(name,...rest){
  if(name==='react-native')return{Platform:{OS:'android'}};
  if(name==='@/lib/supabase')return{isMockMode:false,supabase:client,sessionBoundClient:bound};
  if(name==='@/lib/accountCache')return scope;
+ if(name==='@/lib/realtimeChannel')return{createScopedRealtimeChannel:()=>{throw Error('Write-queue tests must not subscribe to Realtime');}};
  if(name==='@/lib/supabaseSyncMappings')return{TABLE_SPECS:[],genericFromRow:v=>v,genericToRow:v=>v,camelToSnake:v=>v};
  if(name==='@/store/useAppStore')return{useAppStore:api('app')};
  if(name==='@/store/useGrowthStore')return{useGrowthStore:api('growth')};

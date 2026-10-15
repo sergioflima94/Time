@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { creditSnapshot, creditSearch } from "@/lib/customerInvoices";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { createScopedRealtimeChannel } from "@/lib/realtimeChannel";
 import type { CreditSnapshot, CreditQuery } from "@/types/customerInvoices";
 export function useCustomerInvoices(
   venue: string | null = null,
@@ -52,8 +53,7 @@ export function useCustomerInvoices(
     if (!ready || !actor || !supabase) return;
     const client = supabase;
     let debounce: ReturnType<typeof setTimeout> | undefined;
-    const ch = client
-      .channel(`credit:${scope}`)
+    const ch = createScopedRealtimeChannel(client, `credit:${scope}`)
       .on(
         "postgres_changes",
         venue

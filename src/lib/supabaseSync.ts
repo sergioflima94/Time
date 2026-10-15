@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import { isMockMode, supabase, sessionBoundClient } from '@/lib/supabase';
 import { cacheAccount, cacheEpoch, ownsQueuedJob } from '@/lib/accountCache';
+import { createScopedRealtimeChannel } from '@/lib/realtimeChannel';
 import {
   TABLE_SPECS,
   type StoreName,
@@ -770,8 +771,7 @@ export async function startSupabaseSync({ authUserId }: StartOptions): Promise<(
       subscribeStore('pro', authUserId),
     ];
 
-    const channel = client
-      .channel(`app-sync-${authUserId}`)
+    const channel = createScopedRealtimeChannel(client, `app-sync-${authUserId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public' },

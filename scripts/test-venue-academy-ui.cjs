@@ -376,6 +376,25 @@ async function run() {
       .waitFor();
     await fits();
     await shot("operacao-ao-vivo-mobile");
+    // Follow the actual shortcuts flagged by Play review; direct page.goto()
+    // alone never proves that a touch target navigates or survives returning.
+    const shortcuts = [
+      ['PDV / comandas', 'comandas', 'PDV · Arena da Resenha'],
+      ['Aulas', 'aulas', 'Aulas e professores'],
+      ['Caixa e receitas', 'caixa', 'Caixa · Arena da Resenha'],
+      ['Cozinha e bar', 'cozinha', 'Cozinha e bar'],
+      ['Equipe e permissões', 'equipe', 'Equipe e permissões'],
+    ];
+    for (let round = 0; round < 2; round++) {
+      for (const [label, destination, heading] of shortcuts) {
+        await page.getByRole('button', { name: label, exact: true }).click();
+        await page.waitForURL(url => url.pathname === `/operacao/${destination}` && url.searchParams.get('establishmentId') === venue);
+        await page.getByText(heading, { exact: true }).last().waitFor();
+        await page.getByRole('button', { name: 'Voltar', exact: true }).click();
+        await page.getByText('Operação ao vivo', { exact: true }).waitFor();
+        await page.getByRole('button', { name: 'PDV / comandas', exact: true }).waitFor();
+      }
+    }
     await page.goto(base + `/operacao/equipe?establishmentId=${venue}`);
     await page.getByText("Equipe e permissões", { exact: true }).waitFor();
     await input("E-mail confirmado do funcionário / sócio").fill(

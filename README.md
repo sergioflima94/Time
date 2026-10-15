@@ -1,5 +1,41 @@
 # MarcouJogou
 
+## Correção da rejeição Android — 1.0.7 (11)
+
+Em 14/10/2026, o APK de loja 1.0.6 (10) reproduziu o encerramento ao seguir
+**Meus acessos → Abrir operação → PDV / comandas**, com a conta restrita de
+revisão, sem pagamentos, mensagens ou alterações em clientes reais. O log nativo
+registrou `JavascriptException: cannot add postgres_changes callbacks ... after
+subscribe()`, durante a montagem de `VenuePdvContent`.
+
+O painel permanece montado na pilha nativa ao abrir outra tela. As duas telas
+criavam canais com o mesmo tópico e o SDK Supabase devolvia o canal já assinado;
+registrar outro listener nele causava a exceção fatal. `createScopedRealtimeChannel`
+agora cria uma assinatura independente por efeito, incluindo remontagens antes
+de terminar a limpeza assíncrona. Operação, faturas, conversas e sincronização
+geral usam o mesmo mecanismo; cada efeito remove somente seu próprio canal.
+Autenticação, filtros e RLS permanecem inalterados.
+
+Também foram removidos quatro textos de espaço soltos na linha dos atalhos do
+painel. Espaçamento visual usa `gap`, sem criar texto fora de `<Text>`.
+
+Regressões locais (sem rede externa):
+
+```sh
+node scripts/test-native-jsx.cjs
+node scripts/test-realtime-channel.cjs
+node scripts/test-account-cache.cjs
+node scripts/test-store-config.cjs
+npx tsc --noEmit
+```
+
+O teste de tempo real usa o SDK instalado, reproduz a colisão antiga e verifica
+telas simultâneas, remontagem e limpeza individual, sem abrir sockets. O teste
+`scripts/test-venue-academy-ui.cjs` percorre os cinco atalhos e volta ao painel
+duas vezes, além dos fluxos de PDV/aulas/permissões com backend sintético. Isso
+não substitui a validação nativa do novo APK, nem a aprovação de um novo envio
+pelas lojas. O build anterior em análise não recebe essas correções sozinho.
+
 ## Release para as lojas — 1.0.6
 
 O identificador reservado no Google Play é **`com.marcoujogou.app`** (app da conta
