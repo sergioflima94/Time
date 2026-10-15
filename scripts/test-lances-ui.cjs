@@ -1,6 +1,6 @@
 // Production web UI with isolated synthetic HTTP/WS. No real uploads/posts/accounts.
 const { chromium }=require('playwright-core'),http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=path.resolve('.test-runtime/lances-web'),port=19044,id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const root=path.resolve(process.env.LANCES_WEB_ROOT||'.test-runtime/lances-web'),port=19044,id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const uid=id(1),pid=id(2),game=id(3),clipId=id(4),now=new Date().toISOString();
 const user={id:uid,aud:'authenticated',role:'authenticated',email:'lances@test.invalid',app_metadata:{},user_metadata:{name:'Rafa'},identities:[],created_at:now};
 const token=`${Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')}.${Buffer.from(JSON.stringify({sub:uid,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.fixture`;

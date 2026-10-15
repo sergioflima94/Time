@@ -7,7 +7,7 @@ const captureDevice=process.env.STORE_CAPTURE_DEVICE||'google';
 const captureSizes={google:{width:360,height:640,scale:3},iphone:{width:440,height:956,scale:3},'iphone-medium':{width:402,height:874,scale:3},ipad:{width:1032,height:1376,scale:2}};
 assert(captureSizes[captureDevice],'Unsupported store capture device');
 const captureSize=captureSizes[captureDevice];
-const root=path.resolve('.test-runtime/native-billing-web'),out=path.resolve('assets/store',captureDevice==='google'?'':`apple-${captureDevice}`),port=19031;
+const root=path.resolve(process.env.STORE_CAPTURE_ROOT||'.test-runtime/native-billing-web'),out=path.resolve('assets/store',captureDevice==='google'?'':`apple-${captureDevice}`),port=19031;
 const m=new Module(path.resolve('src/lib/mockData.ts'));m._compile(ts.transpileModule(fs.readFileSync(m.id,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,m.id);
 const d=m.exports,actor='00000000-0000-4000-8000-000000000001',at=new Date().toISOString();
 const own={...d.MOCK_PLAYERS[0],name:'Lucas Costa',nickname:'Lucas',phone:null,avatarUrl:null,authUserId:actor};
