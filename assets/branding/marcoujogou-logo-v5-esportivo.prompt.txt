@@ -1,0 +1,17 @@
+Generation mode: built-in image generation.
+Purpose: sporty typographic logo proposal, version 5. Existing app icon and splash unchanged.
+
+Use case: logo-brand.
+Create ONE new typographic sports logo for the Brazilian multisport booking and community app MarcouJogou. The user explicitly chose a MORE SPORTY, STRONG, STRIKING direction, after rejecting literal calendars, court diagrams, abstract brackets, monograms, and people. This design must use ONLY THE NAME, with custom typography as the identity.
+
+Exact lettering, two stacked lines:
+MARCOU
+JOGOU
+
+Create a compact powerful wordmark as if designed for a contemporary amateur sports brand, jerseys and the side of a court. Very bold custom condensed athletic sans-serif with a modest 10-degree forward lean; strong horizontal baselines, carefully optically aligned left and right edges. Make both lines occupy the same optical width with thoughtfully drawn letter proportions, NOT stretched text. Controlled angular terminal cuts, broad strokes, clean open counters, crisp corners with just enough softness. Put one distinctive shared cut treatment into a few letters so it feels authored, not simply a stock italic font. The words must remain immediately readable and correctly spelled: M A R C O U / J O G O U.
+
+The top line MARCOU is warm ivory #F5F2EA. The bottom line JOGOU is vivid solid lime #9DEB22. Background is uniform very dark charcoal #171A1D. Two flat solid text colors only, no effects.
+Tight but deliberate gap between the two lines; dynamic, balanced, premium sporty feel, accessible to football, volleyball, basketball and all team sports. No separate emblem. The type itself is the logo.
+
+Square presentation canvas, logo fills about 75% of width, ample surrounding clear space, centered composition. Actual flat vector-style brand artwork, not a product mockup.
+Absolutely no icons, people, hands, balls, calendar, shield, checkmark, swoosh, underline, motion stripes, extra detached marks, badges, mascot, slogan, TM, gradients, outlines around letters, 3D, extrusion, metallic effects, shadows, glow, texture or decorative frame. Avoid esports/gaming aggression and gambling imagery. One logo only, no alternate versions or explanatory copy.
