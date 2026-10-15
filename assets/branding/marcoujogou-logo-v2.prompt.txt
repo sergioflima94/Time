@@ -1,0 +1,21 @@
+Generation mode: built-in image generation (no API/CLI fallback).
+Purpose: new MarcouJogou logo proposal, version 2. Existing app icon/splash are unchanged.
+Final image: marcoujogou-logo-v2.png, opaque warm off-white presentation background.
+
+INITIAL PROMPT
+Use case: logo-brand.
+Create a genuinely distinctive new logo for the Brazilian multisport booking and amateur sports community app "MarcouJogou". This is a complete new design, NOT a revision of an existing calendar icon.
+Brand idea: booking the court becomes getting together to play; young, sociable, energetic, credible enough for venue businesses. Not a betting brand and not football-only.
+Deliver ONE polished, production-oriented brand lockup on a genuinely TRANSPARENT background. Square canvas, generous clear space. Above: a large proprietary abstract MJ monogram. Below: the exact word "MarcouJogou", spelled M-a-r-c-o-u-J-o-g-o-u, rendered flawlessly in dark charcoal custom bold rounded geometric lettering, slightly sporty, not italic gamer typography.
+Design the symbol as TWO confident interlocking geometric strokes, with consistent thick weight, slightly softened corners, and a memorable asymmetric silhouette. The left stroke suggests an M and the right a hooked J that rises in a decisive motion, subtly suggesting confirmation and movement through their construction, without adding a separate checkmark. Clear deliberate negative space between the strokes; simple enough to reproduce in one color at 24px, embroidered on shirts or stamped on a ball. Make it feel authored by a real identity designer, not a stock technology logo.
+Use established app palette: deep charcoal #171A1D, vivid lime #9DEB22 and grass green #579B0E. Limit symbol to two flat colors, no gradients; dark charcoal wordmark. Flat vector-like edges, optical balance, strong silhouette, clean typography. Symbol and wordmark must look like one identity.
+Avoid: literal calendar, calendar tabs, standalone checkmark badge, play-button overlay, generic ball, shield, location pin, trophy, lightning bolt, swoosh, hexagon, infinity loop, 3D, glass, glow, drop shadow, gradients, tiny decorative details, mockups, extra slogans, explanation text, watermarks, duplicated logo variants, background checkerboard rendered into the image.
+Output the actual logo only, crisp and centered, transparent alpha.
+
+REFINEMENT PROMPT
+Use case: logo-brand.
+Image 1 is the edit target: the newly generated MarcouJogou MJ monogram and wordmark.
+Polish this SAME identity, preserving the two-stroke MJ silhouette, recognizable shape, relative alignment, and the EXACT spelling "MarcouJogou". Do not redesign or add pictograms.
+Make the two symbol shapes perfectly FLAT solid fills: left M vivid lime #9DEB22, right J deep grass green #579B0E. Remove all gradients, sheen, bevels, texture, stray flecks and edge artifacts. Smooth precise vector-like contours. The wordmark is solid dark charcoal #171A1D.
+Place the full logo on a completely uniform warm off-white #F5F2EA background for a clean presentation readable on a phone. Make the entire composition smaller within the square canvas so there is at least 12% padding on EVERY side, including around the wordmark. Symbol above, exact wordmark below with a comfortable gap; centered optical balance.
+One single logo lockup only. No labels, explanations, captions, slogans, mockup objects, shadows, gradients, light effects, UI decorations, border, calendar, ball or additional symbols. Finished brand identity, not a rendering.
