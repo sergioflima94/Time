@@ -1,0 +1,15 @@
+Generation mode: built-in image editing.
+Edit target: marcoujogou-logo-v3-alinhado.png.
+Purpose: remove sport-specific markings while preserving alignment and brand identity. App icon and splash unchanged.
+
+Use case: precise-object-edit / logo-brand.
+Edit the supplied MarcouJogou logo to make it genuinely MULTISPORT rather than football-specific. This is an evolution of this SAME design, not a new unrelated concept.
+
+PRESERVE: perfectly aligned mirrored outer halves, charcoal left and lime green right, the same overall size and position of the emblem, soft corner radii, exact lowercase wordmark "marcoujogou", its font and placement, generous margins, and warm off-white background.
+
+CHANGE ONLY THE INTERNAL SYMBOL GEOMETRY:
+REMOVE completely BOTH curved penalty-area semicircles, the central circle, and any football, futsal, basketball or other sport-specific marking.
+Replace the interior with a simple OPEN rectangular negative space suggesting a shared generic playing area. Keep a single clean straight central vertical separation between the two colored halves, with perfectly equal spacing. The result should be TWO symmetrical bracket-like rounded court halves facing one another and framing ONE EMPTY shared rectangular space. No circle, arcs, dots, ball, goal, net, basket, pitch markings or calendar details whatsoever. Let the pair of outer forms express two teams meeting in a space anyone can reserve and play in.
+Ensure top and bottom edges on both halves are exactly aligned; equal height, width, thickness, and corner radii. Strong simple silhouette, instantly legible as an app icon.
+
+Finish with truly flat solid #171A1D charcoal and #9DEB22 lime, no gradients, shadows, grain or 3D. Keep the background #F5F2EA and the wordmark charcoal. One final centered logo only; no guides, explanation, labels, slogan, samples or mockups.
