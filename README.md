@@ -11,7 +11,8 @@ versionados ao lado dos assets e em `scripts/prepare-brand-assets.cjs`.
 Esta entrega inclui Lances e a correção de canais Realtime compartilhados que
 travavam atalhos da operação do estabelecimento. Exige novo binário nativo por
 incluir `expo-video`: não é uma atualização somente de JavaScript.
-Política pública v2 explica vídeos, créditos, visibilidade e links públicos.
+Política pública v8 preserva as regras anteriores e acrescenta vídeos, créditos,
+visibilidade, links públicos e a configuração sem anúncios desta versão.
 As fichas de privacidade das lojas devem refletir fotos/vídeos e conteúdo dos
 usuários; push no Git não significa aprovação ou publicação nas lojas, nem
 atualização automática da hospedagem HostGator.

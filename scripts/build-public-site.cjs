@@ -6,7 +6,7 @@ const source = path.join(root, 'website/public');
 const output = path.join(root, '.test-runtime/public-site');
 const archive = path.join(root, '.test-runtime/marcoujogou-site-hostgator.zip');
 const files = ['index.html','politica-de-privacidade/index.html','excluir-conta/index.html',
-  '.htaccess','assets/site.css','assets/exclusao.js','robots.txt','sitemap.xml'];
+  '.htaccess','assets/site.css','assets/exclusao.js','robots.txt','sitemap.xml','ads.txt','app-ads.txt'];
 fs.mkdirSync(output, { recursive: true });
 for (const file of files) {
   fs.mkdirSync(path.dirname(path.join(output,file)), {recursive:true});
