@@ -8912,6 +8912,8 @@ export type Database = {
         Args: { p_action: string; p_data: Json }
         Returns: Json
       }
+      lance_snapshot: { Args: { p_game?: string; p_team?: string; p_id?: string; p_before?: string; p_before_id?: string }; Returns: Json }
+      lance_action: { Args: { p_action: string; p_data?: Json }; Returns: Json }
       academy_can: { Args: { p: string; pricing?: boolean }; Returns: boolean }
       academy_check_seat: { Args: { p: string; s: string }; Returns: undefined }
       academy_compatible: {

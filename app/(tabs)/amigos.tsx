@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { AdBanner } from '@/components/AdBanner';
 import { ConversationEntry } from '@/components/ConversationEntry';
+import { LancesFeed } from '@/components/LancesFeed';
 import { FriendDiscoverySection } from '@/components/FriendDiscoverySection';
 import { respondFriend } from '@/lib/friendDiscovery';
 import { PlayerCard } from '@/components/PlayerCard';
@@ -81,6 +82,7 @@ export default function AmigosScreen() {
       </View>
 
       <FriendDiscoverySection />
+      <LancesFeed />
       <Button label="Conversas e solicitações" variant="outline" small style={{marginBottom:spacing.md}} onPress={() => router.push('/conversas')} />
 
       {incoming.length > 0 && (

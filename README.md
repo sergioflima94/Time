@@ -1,5 +1,123 @@
 # MarcouJogou
 
+## Lances — vídeos, marcações e rede social
+
+### Plano e entrega
+
+1. **Envio e identificação:** partida → Lances → escolher MP4 da galeria →
+   rascunho privado → identificar gol/ponto, assistência, defesa ou outra jogada.
+2. **Rede social:** salvar identificação → confirmar autorização → publicar
+   somente para o time ou para todos. O mesmo registro aparece na partida,
+   na lista do time e em Amigos → Lances da comunidade, sem duplicar posts.
+3. **Câmeras depois:** contrato de ingestão e tabelas preparados, mas nenhuma
+   câmera ou botoeira está conectada. Não há captura dos últimos 30 segundos
+   funcionando nesta entrega, nem detecção automática de gols ou jogadores.
+
+O envio aceita **MP4 de até 90 segundos e 60 MB**. O seletor lê somente o vídeo
+escolhido. A confirmação no servidor exige que o objeto tenha chegado ao bucket
+privado `lances`, com tamanho e MIME permitidos; não há transcodificação ou
+garantia de reprodução de qualquer codec dentro de MP4. Falhas aparecem na tela,
+e um rascunho incompleto pode ser conferido/concluído ou excluído antes do reenvio.
+Há limite de 20 envios por autor/dia, paginação e proteção contra edição desatualizada.
+
+### Marcações e acesso
+
+- Somente participantes registrados, confirmados e membros ativos podem ser
+  marcados. O autor confirma a própria marcação; outras ficam pendentes.
+- O marcado confirma ou remove a própria marcação no detalhe do vídeo. Para
+  publicar para todos, todas as marcações precisam estar confirmadas. É possível
+  publicar primeiro no time para pedir confirmação e depois abrir a publicação.
+- Gol e assistência são **créditos do vídeo**, não alteram `goals`, placar ou
+  estatísticas oficiais. Não há reconhecimento facial nem identificação por IA.
+- Rascunhos são visíveis ao autor/admins do time; posts privados a membros ativos;
+  posts públicos podem abrir sem login. Há acesso de moderação, denúncia integrada
+  à central existente, ocultação/restauração auditada, curtidas e comentários.
+- Bloqueios entre usuários são respeitados nas sessões autenticadas. Como qualquer
+  conteúdo público, um vídeo público também é acessível anonimamente pelo link.
+- Compartilhamento usa `https://app.marcoujogou.com.br/lances/<id>`, nunca a URL
+  assinada do arquivo. Vídeos privados não têm compartilhamento externo. A web
+  usa a folha de compartilhamento quando suportada; a alternativa copia/exibe o
+  link. O app nativo usa o compartilhamento do sistema. Não envia WhatsApp sozinho.
+- URLs de reprodução duram 120 segundos. Remoção/restrição impede novas URLs, mas
+  não recolhe cópias externas nem invalida imediatamente uma URL já emitida.
+  Exclusão nesta versão é lógica; uma rotina administrativa precisa remover os
+  objetos físicos e tratar solicitações de privacidade. Não se promete limpeza
+  automática de arquivos ou retenção ilimitada gratuita.
+
+### Contrato de integração futura com câmeras
+
+`lance_camera_sources` associa um equipamento/provedor à quadra e nasce desativado.
+O aplicativo público não recebe credenciais nem pode cadastrar/habilitar fontes.
+Um worker confiável deverá autenticar a integração do parceiro, validar assinatura
+e janela temporal do webhook e enviar MP4 para o bucket privado no caminho
+`camera/<source UUID>/<event UUID>.mp4`. Só então chama, com `service_role` no servidor:
+
+```sql
+select public.lance_camera_ingest(
+  p_source := '<source UUID>', p_event := '<event UUID>', p_game := '<game UUID>',
+  p_captured_at := '<timestamp com fuso>', p_duration := 30
+);
+```
+
+A função exige fonte habilitada, quadra da partida, captura dentro da reserva,
+objeto recebido e duração permitida. O evento é idempotente e gera **rascunho**,
+nunca publicação automática. O buffer de 30 segundos, botoeira, fila offline,
+monitoramento dos dispositivos, custos/retenção e callback HTTP autenticado são
+responsabilidade da próxima integração; não estão simulados no app.
+
+### Ativação, publicação e testes
+
+A migração `20261015010000_game_lances.sql` foi aplicada ao Supabase vinculado e
+a consulta pública foi verificada com HTTP 200 e lista vazia, sem criar vídeos
+ou usuários fictícios em produção. `supabase/schema.sql` contém a mesma estrutura.
+O código do cliente ainda precisa ser distribuído: APKs antigos e o site hospedado
+não recebem o módulo automaticamente. `expo-video` exige **novo build nativo**.
+
+Antes de publicar o web app na HostGator, acrescente somente a origem do projeto
+à diretiva CSP existente: `media-src 'self' blob: https://oyhbmbstsiagwljatawq.supabase.co`.
+O `.htaccess` antigo do repositório do site permite apenas mídia local/blob e
+bloquearia a reprodução remota. Preserve as demais diretivas e o fallback SPA
+para `/lances/<id>`. Publique também a política de privacidade atualizada em
+`website/public/politica-de-privacidade/`. Antes do novo envio às lojas, atualize
+as declarações de coleta/compartilhamento de **vídeos e conteúdo de usuários**.
+Nenhuma cobrança ou assinatura de replay foi adicionada nesta etapa.
+
+```sh
+node scripts/test-lances.cjs
+node scripts/test-lances-sql.cjs
+node scripts/test-native-jsx.cjs
+npx tsc --noEmit
+# Depois de exportar o web para .test-runtime/lances-web:
+node scripts/test-lances-ui.cjs
+```
+
+SQL usa PostgreSQL isolado/PGlite; UI usa Chrome com HTTP/WebSocket interceptados,
+MP4 sintético gerado localmente e layouts 320/390/1280 px. Testa seleção, envio,
+reprodução, edição, autorização, publicação, feed, comentários, denúncia e perda
+de acesso. Isso não equivale a teste em um Android/iPhone físico ou aprovação de loja.
+
+## Contenção do workflow de coleta de credenciais
+
+Em 14/10/2026 foi removido do `main` o arquivo
+`.github/workflows/security-audit.yml` (commit `8f4a303`), com autorização do
+proprietário. Apesar do nome, ele procurava padrões de credenciais nos arquivos
+e no histórico Git e tentava enviá-los por HTTP a um servidor externo. O arquivo
+já existia em revisões anteriores; a autoria do commit, por si só, não identifica
+quem realizou a alteração nem comprova comprometimento de uma conta.
+
+A remoção foi confirmada no repositório remoto. Na consulta aos 61 registros de
+execução retornados pela API não havia execuções ativas para cancelar. As três
+mais recentes estavam concluídas com `action_required`; a última não criou
+jobs. Uma execução anterior (`38385744099`) concluiu a etapa `Audit` com sucesso.
+Isso confirma que o script executou, mas não comprova quais dados foram enviados:
+o script também ignorava falhas do envio. Não é possível afirmar ausência de
+exposição com essas evidências.
+
+Não foram revogadas chaves, apagados históricos ou alterados outros workflows.
+A remoção permanece recuperável pelo Git, mas esse workflow não deve ser
+restaurado nem executado. Revisão de credenciais e eventual rotação exigem uma
+etapa separada; segredos não devem ser publicados em logs, issues ou commits.
+
 ## Correção da rejeição Android — 1.0.7 (11)
 
 Em 14/10/2026, o APK de loja 1.0.6 (10) reproduziu o encerramento ao seguir

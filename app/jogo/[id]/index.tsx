@@ -108,6 +108,7 @@ export default function GameDetailScreen() {
         <Text style={styles.metaText}>{field?.name ?? 'Local a definir'} · reserva de {game.durationMinutes ?? 90} min</Text>
       </View>
       <HistoryEntryLink kind="game" contextId={game.id} label="Histórico deste jogo" />
+      <Button small variant="outline" label="Lances: vídeos, gols e assistências" onPress={() => router.push({ pathname: '/lances', params: { gameId: game.id } })} />
 
       <Pressable style={styles.matchDay} onPress={() => router.push(`/jogo/${game.id}/dia-do-jogo`)}>
         <View style={styles.matchDayIcon}><Ionicons name="flash" size={21} color={colors.onPrimary} /></View>

@@ -52,6 +52,7 @@ module.exports = {
     },
     plugins: [
       'expo-router',
+      ['expo-video', { supportsBackgroundPlayback: false, supportsPictureInPicture: false }],
       'expo-sharing',
       ['expo-contacts', { contactsPermission: 'Leia contatos escolhidos para encontrar amigos no MarcouJogou. Sua agenda não será salva pelo app.' }],
       'expo-notifications',
@@ -79,7 +80,7 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          photosPermission: 'Escolha fotos para seu perfil, times ou produtos da loja.',
+          photosPermission: 'Escolha fotos para seu perfil, times e produtos, ou um vídeo para publicar um lance.',
           microphonePermission: false,
         },
       ],

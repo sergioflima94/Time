@@ -75,6 +75,7 @@ export default function RootLayout() {
               <Stack.Screen name="operacao" />
             </Stack.Protected>
             <Stack.Screen name="jogador/[id]" />
+            <Stack.Screen name="lances" />
             <Stack.Screen name="descobrir" />
             <Stack.Screen name="campos" />
             <Stack.Screen name="avaliacoes" />

@@ -199,6 +199,7 @@ export default function TimeDetailScreen() {
 
       <View style={styles.actionsRow}>
         <ConversationEntry kind="team" contextId={pelada.id} label="Conversa do time" />
+        <Button label="Lances do time" small variant="secondary" onPress={() => router.push({ pathname: '/lances', params: { teamId: pelada.id } })} />
         <Button label="Ver agenda" small variant="secondary" onPress={handleAgenda} />
         <Button label="Vaquinhas" small variant="secondary" onPress={() => router.push(`/time/${pelada.id}/vaquinhas`)} />
         {isAdmin && <Button label="Administrar" small onPress={handleManage} />}
