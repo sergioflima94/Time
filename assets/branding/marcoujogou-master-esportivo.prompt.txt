@@ -1,0 +1,4 @@
+Mode: built-in image_gen; reference: marcoujogou-logo-v5-esportivo.png (approved).
+Use case: logo-brand, production square icon. Preserve the approved two-line athletic condensed slanted lettering MARCOU (ivory #F5F2EA) / JOGOU (lime #9DEB22). Opaque charcoal #171A1D background. No emblem, ball, calendar, check, play triangle or sport-specific symbol. Center the complete wordmark with safe margins for Android adaptive masks. Do not redesign the lettering.
+Generated source: exec-2b6673c0-34ae-41be-bb43-9038e571bb84.png.
+Production: scripts/prepare-brand-assets.cjs performs deterministic PNG resizing and framing only. Transparent experiments were rejected for visible edge artifacts; production uses the clean opaque master. No monochrome icon is configured until a clean alpha master is available.

@@ -18,7 +18,7 @@ module.exports = {
       eas: { projectId: 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea' },
       admob,
     },
-    version: '1.0.7',
+    version: '1.0.8',
     orientation: 'portrait',
     icon: './assets/branding/marcoujogou-icon.png',
     scheme: 'pelada',
@@ -27,17 +27,15 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.marcoujogou.app',
-      buildNumber: '11',
+      buildNumber: '12',
       // HTTPS is provided by the OS; the app implements no custom encryption.
       infoPlist: { ITSAppUsesNonExemptEncryption: false },
     },
     android: {
-      versionCode: 11,
+      versionCode: 12,
       adaptiveIcon: {
-        backgroundColor: '#F5F2EA',
+        backgroundColor: '#171A1D',
         foregroundImage: './assets/branding/marcoujogou-adaptive.png',
-        // Android tints only the alpha mask for themed icons.
-        monochromeImage: './assets/branding/marcoujogou-adaptive.png',
       },
       predictiveBackGestureEnabled: false,
       package: 'com.marcoujogou.app',
@@ -67,12 +65,12 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          backgroundColor: '#F5F2EA',
+          backgroundColor: '#171A1D',
           image: './assets/branding/marcoujogou-mark.png',
-          imageWidth: 200,
+          imageWidth: 240,
           resizeMode: 'contain',
           dark: {
-            backgroundColor: '#111416',
+            backgroundColor: '#171A1D',
             image: './assets/branding/marcoujogou-mark.png',
           },
         },

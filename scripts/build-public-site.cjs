@@ -12,7 +12,7 @@ for (const file of files) {
   fs.mkdirSync(path.dirname(path.join(output,file)), {recursive:true});
   fs.copyFileSync(path.join(source,file), path.join(output,file));
 }
-for (const [from, to] of [['marcoujogou-mark.png','logo.png'], ['marcoujogou-icon.png','icon.png']]) {
+for (const [from, to] of [['marcoujogou-wordmark.png','logo.png'], ['marcoujogou-icon.png','icon.png']]) {
   fs.copyFileSync(path.join(root, 'assets/branding', from), path.join(output, 'assets', to));
 }
 const packageFiles = [...files,'assets/logo.png','assets/icon.png'];

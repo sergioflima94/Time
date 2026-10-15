@@ -1,5 +1,21 @@
 # MarcouJogou
 
+## Identidade e atualização 1.0.8 (build 12)
+
+Identidade aprovada: marca tipográfica esportiva em duas linhas MARCOU / JOGOU,
+grafite `#171A1D`, marfim `#F5F2EA` e verde-lima `#9DEB22`, sem símbolo de modalidade.
+Aplicada no login, Home, ícone, splash, favicon e site público. O original fica em
+`assets/branding/marcoujogou-master-esportivo.png`; prompts e preparação estão
+versionados ao lado dos assets e em `scripts/prepare-brand-assets.cjs`.
+
+Esta entrega inclui Lances e a correção de canais Realtime compartilhados que
+travavam atalhos da operação do estabelecimento. Exige novo binário nativo por
+incluir `expo-video`: não é uma atualização somente de JavaScript.
+Política pública v2 explica vídeos, créditos, visibilidade e links públicos.
+As fichas de privacidade das lojas devem refletir fotos/vídeos e conteúdo dos
+usuários; push no Git não significa aprovação ou publicação nas lojas, nem
+atualização automática da hospedagem HostGator.
+
 ## Lances — vídeos, marcações e rede social
 
 ### Plano e entrega

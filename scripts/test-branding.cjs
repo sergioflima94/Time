@@ -14,9 +14,13 @@ assert.equal(config.slug, 'pelada-app');
 assert.equal(config.extra.eas.projectId, 'c42d02c6-99b9-4ca4-aea3-0f836b1624ea');
 const splash = config.plugins.find(p => Array.isArray(p) && p[0] === 'expo-splash-screen')[1];
 assert.equal(splash.resizeMode, 'contain');
-assert.equal(splash.imageWidth, 200);
-assert.equal(splash.dark.backgroundColor, '#111416');
-const assets = [config.icon, config.web.favicon, config.android.adaptiveIcon.foregroundImage, config.android.adaptiveIcon.monochromeImage, splash.image, splash.dark.image];
+assert.equal(splash.imageWidth, 240);
+assert.equal(splash.backgroundColor, '#171A1D');
+assert.equal(splash.dark.backgroundColor, '#171A1D');
+assert.equal(config.android.adaptiveIcon.backgroundColor, '#171A1D');
+// No colored opaque image masquerading as a monochrome alpha mask.
+assert.equal(config.android.adaptiveIcon.monochromeImage, undefined);
+const assets = [config.icon, config.web.favicon, config.android.adaptiveIcon.foregroundImage, splash.image, splash.dark.image];
 for (const asset of assets) {
   assert.match(asset, /marcoujogou/);
   const bytes = fs.readFileSync(path.resolve(asset));
