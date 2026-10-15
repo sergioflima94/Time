@@ -1,0 +1,9 @@
+Generation mode: built-in image editing.
+Edit target: marcoujogou-logo-v3.png. App icon and splash unchanged.
+
+Use case: precise-object-edit / logo-brand.
+Edit the supplied MarcouJogou court logo. The user requests ONE correction only: align its two halves perfectly.
+Keep the existing concept, charcoal LEFT half, lime RIGHT half, warm off-white background, lowercase "marcoujogou" wordmark, font, and overall composition.
+Fix the symbol to be geometrically mirror-symmetric across its central VERTICAL axis, except for fill color. The left and right halves must have EXACTLY THE SAME top Y coordinate, EXACTLY THE SAME bottom Y coordinate, equal width, equal height, equal outline thickness, matching corner radii and matching internal white court markings at identical heights. No offset, stagger, slope, perspective or implied motion between halves. Both top horizontal outer edges must lie on one straight horizontal line; both bottom horizontal outer edges must lie on another straight horizontal line.
+Make the central negative-space circle a PERFECT circle centered on the symbol, with each half contributing an identical semicircle, and align the interior side semicircles horizontally with its center. Equal spacing from the wordmark below.
+Use precisely flat solid charcoal and lime fills, crisp vector-like contours, no gradients, shadows or texture. Do not add alignment guides, explanations, words, mockups, or extra variants. Deliver a single corrected logo on the same warm off-white background.
